@@ -1567,6 +1567,8 @@ function _hlLine(raw){
   s=s.replace(/\*\*[^*]+\*\*/g, m=>'<span class="hl-strong">'+m+'</span>');
   s=s.replace(/~~[^~]+~~/g, m=>'<span class="hl-strike">'+m+'</span>');
   s=s.replace(/(^|[^*<])(\*[^*<]+\*)/g, (m,p,e)=>p+'<span class="hl-em">'+e+'</span>');
+  s=s.replace(/(^|[\s(>])(__[^_]+__)(?=[\s).,;:!?<]|$)/g, (m,p,e)=>p+'<span class="hl-strong">'+e+'</span>');   // __bold__
+  s=s.replace(/(^|[\s(>])(_[^_]+_)(?=[\s).,;:!?<]|$)/g, (m,p,e)=>p+'<span class="hl-em">'+e+'</span>');            // _italic_ (not snake_case)
   s=s.replace(/&lt;\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s[^&]*?)?\/?&gt;/g, m=>'<span class="hl-tag">'+m+'</span>');    // raw HTML tags
   s=s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, (m,p,u)=>p+'<span class="hl-url">'+u+'</span>');              // bare URLs
   return s;
@@ -5303,7 +5305,8 @@ function htmlToInlineMd(html){
       else if(tag==='code')                              out+='`'+inner+'`';
       else if(tag==='br')                                out+='\n';
       else if(tag==='a'){ const h=ch.getAttribute('href')||''; out += h ? '['+(inner||h)+']('+h+')' : inner; }
-      else                                               out+=inner;   // u, span, … -> text only
+      else if(/^(sub|sup|kbd|mark|ins|u|abbr|small)$/.test(tag)){ const at=ch.getAttribute('title'); out += '<'+tag+(at?' title="'+at.replace(/"/g,'&quot;')+'"':'')+'>'+inner+'</'+tag+'>'; }  // no md equivalent -> keep as HTML
+      else                                               out+=inner;   // span, div, … -> text only
     });
     return out;
   };
@@ -5339,6 +5342,9 @@ function parseMarkdownOutline(text, filename){
   let _meta=null;
   { const mm = text.match(/^\uFEFF?\s*<!--\s*mindspark\s*\r?\n([\s\S]*?)\r?\n\s*-->\s*\r?\n?/i);
     if(mm){ try{ _meta=JSON.parse(mm[1].trim()); }catch(e){ _meta=null; } text=text.slice(mm[0].length); } }
+  let _frontmatter=null;
+  { const fm = text.match(/^\s*---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+    if(fm){ _frontmatter=('---\n'+fm[1].replace(/\s+$/,'')+'\n---'); text=text.slice(fm[0].length); } }
   const title = (filename||'').replace(/\.[^.]+$/, '') || 'Imported';
   const nodes = {};
   const rootId = uid();
@@ -5383,7 +5389,7 @@ function parseMarkdownOutline(text, filename){
       const ind=fence[1], fch=fence[2][0], flen=fence[2].length, buf=[]; let j=i+1;
       while(j<L.length){ const cl=L[j].match(/^\s*(`{3,}|~{3,})\s*$/); if(cl && cl[1][0]===fch && cl[1].length>=flen) break; buf.push(L[j].startsWith(ind)?L[j].slice(ind.length):L[j]); j++; }
       const lang=fence[3].trim();
-      add(lang||'code', base() + 1 + Math.floor(ind.length/2), null, { html:'<pre><code>'+escHtml(buf.join('\n'))+'</code></pre>' });
+      add(lang||'code', base() + 1 + Math.floor(ind.length/2), null, { html:'<pre><code>'+escHtml(buf.join('\n'))+'</code></pre>', lang:lang||'' });
       i=j; continue;   // skip past the closing fence
     }
     // GFM table (header row + separator line) -> its own block child node of the nearest heading
@@ -5394,6 +5400,15 @@ function parseMarkdownOutline(text, filename){
       add('table', base() + 1 + Math.floor(ind/2), null, { html:tableToHtml(rows) }); i=j-1; continue;
     }
     if(!line.trim()) continue;
+    // Multi-line raw HTML block (<table>, <div style=...>, <details>, ...) -> one raw block node
+    const htmlOpen = line.match(/^\s*<(table|div|details|figure|blockquote|dl|section)\b/i);
+    if(htmlOpen && !new RegExp('</'+htmlOpen[1]+'\\s*>','i').test(line)){
+      const tag=htmlOpen[1].toLowerCase(), buf=[line]; let depth=1, j=i+1;
+      const openRe=new RegExp('<'+tag+'\\b','gi'), closeRe=new RegExp('</'+tag+'\\s*>','gi');
+      while(j<L.length && depth>0){ const ln=L[j]; buf.push(ln); depth += (ln.match(openRe)||[]).length - (ln.match(closeRe)||[]).length; j++; }
+      add(tag+' block', base() + 1, null, { html: buf.join('\n'), raw:true });
+      i=j-1; continue;
+    }
     // Raw HTML <img> (bare, or wrapped in <p>/<a>/<figure>) -> image on the current node
     const rawImg = line.match(/<img\b[^>]*>/i);
     if(rawImg){
@@ -5402,10 +5417,12 @@ function parseMarkdownOutline(text, filename){
       if(src) attachCur(n=>{ n.image=src; if(alt) n.imageAlt=alt; });
       continue;
     }
+    // Horizontal rule (---, ***, ___) -> separator, not a node
+    if(/^\s*([-*_])(?:[ \t]*\1){2,}[ \t]*$/.test(line)) continue;
     // A bare block wrapper on its own line (<p ...>, </p>, <div>, <center>, <figure>...) -> unwrap (no node)
     if(/^<\/?(?:p|div|center|figure|picture|section|article)\b[^>]*>$/i.test(line.trim())) continue;
     const h = line.match(/^(#{1,6})\s+(.*)$/);
-    if(h){ lastHeadingDepth = h[1].length; subDepth = null; add(h[2].trim(), lastHeadingDepth); continue; }
+    if(h){ lastHeadingDepth = h[1].length; subDepth = null; add(h[2].trim(), lastHeadingDepth, null, { hlevel:h[1].length }); continue; }
     // Blockquote -> the current node's notes
     const quote = line.match(/^\s*>\s?(.*)$/);
     if(quote){ attachCur(n=>{ n.notes = (n.notes ? n.notes + '\n' : '') + quote[1]; }); continue; }
@@ -5468,6 +5485,7 @@ function parseMarkdownOutline(text, filename){
     applyMeta(finalRoot, '0');
   }
   const out = { id:uid(), title, titleAuto:false, color:(_meta&&_meta.color)||'#e0613a', rootId:finalRoot, nodes };
+  if(_frontmatter) out.frontmatter=_frontmatter;
   if(_meta&&_meta.layout) out.layout=_meta.layout;
   if(_meta&&_meta.vars) out.vars=_meta.vars;
   return out;
@@ -5604,49 +5622,52 @@ function buildMarkdown(startId, opts){
       else lines.push(pad+'> '+b.q);
     });
   };
-  const walk=(id, depth, path)=>{
+  const walk=(id, bd, path)=>{
     const n=map.nodes[id];
     if(!n) return;
     if(withMeta){ const mm=_nodeMeta(n); if(mm) nmeta[path]=mm; }
     if(lineMap) lm[lines.length]=id;
-    if(n.html){   // block node (table / code): emit the block indented to its depth (no children)
-      const pad='  '.repeat(depth);
+    const pad='  '.repeat(bd);
+    if(n.html){   // block node (table / code / raw HTML) at the current bullet indent
+      if(n.raw){ n.html.split('\n').forEach(l=>lines.push(l.trim()?pad+l:l)); return; }
+      const lang=(rich && n.lang) ? n.lang : '';
       notesToMdBlocks(n.html).forEach(b=>{
-        if(b.code!=null){ lines.push(pad+'```'); b.code.split('\n').forEach(l=>lines.push(pad+l)); lines.push(pad+'```'); }
+        if(b.code!=null){ lines.push(pad+'```'+lang); b.code.split('\n').forEach(l=>lines.push(pad+l)); lines.push(pad+'```'); }
         else if(b.table){ b.table.forEach(l=>lines.push(pad+l)); }
         else lines.push(pad+'> '+b.q);
       });
       return;
     }
-    const indent='  '.repeat(depth);
     const body = (rich ? htmlToInlineMd(n.text) : nodeTextPlain(n.text)) || 'Untitled';
-    const first = body.replace(/\n+/g, rich ? '<br>' : ' ');   // keep multi-line text in ONE node (citation/styling preserved via the meta block)
-    if(depth===baseDepth){
-      lines.push(`# ${first}`);
-      if(rich){ emitNotes(n, ''); }
-      else { const nt=notesText(n); if(nt) lines.push('', nt); }
+    const first = body.replace(/\n+/g, rich ? '<br>' : ' ');   // keep multi-line text in ONE node
+    const hlevel = (id===root) ? 1 : ((rich && n.hlevel) ? n.hlevel : 0);   // imported headings re-emit as #/##/###
+    if(hlevel){
+      if(lines.length && lines[lines.length-1]!=='') lines.push('');
+      lines.push('#'.repeat(hlevel)+' '+first);
+      if(rich){ emitNotes(n, ''); } else { const nt=notesText(n); if(nt) lines.push('', nt); }
+      if(rich && n.image && /^https?:\/\//i.test(n.image)) lines.push(`![image](${n.image})`);
+      lines.push('');
+      childrenOf(id).forEach((c,i)=>walk(c, 0, path+'.'+i));       // heading's children start a fresh bullet indent
     } else {
       const box = (rich && n.task) ? (n.task==='done' ? '[x] ' : '[ ] ') : '';
-      lines.push(`${indent}- ${box}${first}`);
-      if(rich){ emitNotes(n, `${indent}  `); }
-      else { const nt=notesText(n); if(nt) nt.split('\n').forEach(l=>lines.push(`${indent}  > ${l}`)); }
+      lines.push(`${pad}- ${box}${first}`);
+      if(rich){ emitNotes(n, `${pad}  `); } else { const nt=notesText(n); if(nt) nt.split('\n').forEach(l=>lines.push(`${pad}  > ${l}`)); }
+      if(rich && n.image && /^https?:\/\//i.test(n.image)) lines.push(`${pad}  ![image](${n.image})`);
+      childrenOf(id).forEach((c,i)=>walk(c, bd+1, path+'.'+i));
     }
-    if(rich && n.image && /^https?:\/\//i.test(n.image)){   // URL images round-trip; data-URIs stay in JSON export
-      lines.push((depth===baseDepth?'':indent+'  ') + `![image](${n.image})`);
-    }
-    if(depth===baseDepth) lines.push('');
-    childrenOf(id).forEach((c,i)=>walk(c, depth+1, path+'.'+i));
   };
-  walk(root, baseDepth, '0');
-  let out=lines, shift=0;
+  walk(root, 0, '0');
+  let out=lines, shift=0; const prefix=[];
   if(withMeta){
     const meta={ v:1 };
     if(map.layout) meta.layout=map.layout;
     if(map.color) meta.color=map.color;
     if(map.vars && Object.keys(map.vars).length) meta.vars=map.vars;
     if(Object.keys(nmeta).length) meta.nodes=nmeta;
-    if(Object.keys(meta).length>1){ const block=['<!-- mindspark', JSON.stringify(meta), '-->', '']; out=block.concat(lines); shift=block.length; }
+    if(Object.keys(meta).length>1){ prefix.push('<!-- mindspark', JSON.stringify(meta), '-->', ''); }
   }
+  if(rich && map.frontmatter){ map.frontmatter.split('\n').forEach(l=>prefix.push(l)); prefix.push(''); }
+  if(prefix.length){ out=prefix.concat(lines); shift=prefix.length; }
   if(lineMap){ lineMap.length=0; for(const k in lm) lineMap[+k+shift]=lm[k]; }
   return out.join('\n');
 }
