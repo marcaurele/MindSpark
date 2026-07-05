@@ -499,9 +499,16 @@ function render(){
     if(n.image){
       el.classList.add('has-image');
       const img=document.createElement('img');
-      img.className='node-image'; img.src=n.image; img.alt='attachment';
+      img.className='node-image'; img.src=n.image; img.alt=n.imageAlt||'attachment';
       img.addEventListener('mousedown',ev=>ev.stopPropagation());
       img.addEventListener('dblclick',ev=>{ ev.stopPropagation(); window.open(n.image,'_blank'); });
+      // If the image can't load, fall back to its alt text so the node isn't a broken icon
+      img.addEventListener('error',()=>{
+        img.remove(); el.classList.remove('has-image'); el.classList.add('img-missing');
+        const cap=document.createElement('span'); cap.className='img-alt';
+        cap.textContent = n.imageAlt || 'image not found';
+        el.insertBefore(cap, el.firstChild);
+      });
       el.appendChild(img);
     }
     // Task checkbox — click to advance todo → doing → done
@@ -517,7 +524,8 @@ function render(){
     }
     // Text lives in its own span so contentEditable doesn't tangle with the handles
     const t=document.createElement('span'); t.className='node-text';
-    renderNodeText(t, n.text||'', n.listType);
+    if(n.html){ el.classList.add('block-node'); t.classList.add('node-block'); t.innerHTML = sanitizeNotes(n.html); }
+    else renderNodeText(t, n.text||'', n.listType);
     // Per-node styling
     if(n.fontSize) t.style.fontSize=n.fontSize+'px';
     if(n.bold) t.style.fontWeight='700';
@@ -770,7 +778,7 @@ function fragmentToLines(frag){
   if(current) flush();
   return lines.filter(l => l !== undefined);
 }
-const INLINE_HTML_RE = /<(b|i|u|s|strong|em|br|a|span|font|div|ul|ol|li|p)\b/i;
+const INLINE_HTML_RE = /<(b|i|u|s|strong|em|br|a|span|font|div|ul|ol|li|p|sub|sup|code|kbd|mark|ins|del|small|abbr)\b/i;
 const HTML_ENTITY_RE = /&(#\d+|#x[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/;  // &rarr; &#8594; &amp; ...
 // HTML entities (named like &nbsp;/&amp;, decimal &#160;, or hex &#xA0;). Text that
 // contains these but no tags still needs to go through the HTML path so the entity
@@ -778,7 +786,7 @@ const HTML_ENTITY_RE = /&(#\d+|#x[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/;  // &rarr
 const ENTITY_RE = /&(#\d+|#x[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]+);/;
 const hasInlineMarkup = t => INLINE_HTML_RE.test(t||'') || ENTITY_RE.test(t||'');
 // Sanitize HTML: keep only a small inline-formatting whitelist; strip everything else
-const SAFE_TAGS = new Set(['b','i','u','s','strong','em','br','a','span','font','div','ul','ol','li','p']);
+const SAFE_TAGS = new Set(['b','i','u','s','strong','em','br','a','span','font','div','ul','ol','li','p','sub','sup','code','kbd','mark','ins','del','small','abbr']);
 function sanitizeInlineHTML(html, extraTags){
   // Parse INERTLY via <template>: its contents live in a document with no
   // browsing context, so smuggled resource-loaders like <img src=x onerror=…>
@@ -829,7 +837,7 @@ function sanitizeInlineHTML(html, extraTags){
   return out.innerHTML;
 }
 // Notes allow a few block tags on top of the inline set (headings, quotes).
-const NOTES_TAGS = ['h1','h2','h3','blockquote'];
+const NOTES_TAGS = ['h1','h2','h3','blockquote','pre','code','table','thead','tbody','tr','th','td'];
 // Elements removed WITH their contents (never unwrapped) — unwrapping these can
 // promote a hidden <script> to the top level where a snapshotted loop misses it.
 const DROP_TAGS = new Set(['script','style','iframe','object','embed','noscript','svg','math','template','link','meta','base','frame','frameset','title','xmp']);
@@ -1500,6 +1508,122 @@ function relayoutDuringEdit(id){
 /* ============================================================
    NODE OPERATIONS
    ============================================================ */
+/* ---- Markdown mode: edit the map as text with a live two-way preview (v1) ---- */
+let mdMode=false, _mdSyncing=false, _mdTimer=0, _mdLines=[], _mdSelSync=false;
+function ensureMdPane(){
+  if(document.getElementById('mdPane')) return;
+  const app=document.querySelector('.app'), stage=document.querySelector('.stage'); if(!app||!stage) return;
+  const pane=document.createElement('div'); pane.id='mdPane';
+  pane.innerHTML='<div class="md-head"><span class="md-ttl">Markdown</span><span class="md-pos"></span><button class="md-close" title="Exit Markdown mode (Esc)">\u2715</button></div>'
+    +'<div class="md-body"><div class="md-gutter" aria-hidden="true"></div><div class="md-code"><pre class="md-hl" aria-hidden="true"></pre>'
+    +'<textarea id="mdEditor" spellcheck="false" wrap="off" placeholder="# Central idea&#10;- a branch&#10;  - a leaf"></textarea></div></div>'
+    +'<div class="md-resize" title="Drag to resize"></div>';
+  app.insertBefore(pane, stage);
+  pane.querySelector('.md-close').addEventListener('click',()=>toggleMdMode(false));
+  const ed=pane.querySelector('#mdEditor');
+  ed.addEventListener('input',()=>{ mdRefreshDecorations(); clearTimeout(_mdTimer); _mdTimer=setTimeout(applyMdToMap, 300); });
+  ed.addEventListener('scroll', mdSyncScroll);
+  ed.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){ e.preventDefault(); toggleMdMode(false); return; }
+    if((e.ctrlKey||e.metaKey) && !e.altKey){ const k=(e.key||'').toLowerCase();
+      if(k==='z' && !e.shiftKey){ e.preventDefault(); undo(); return; }
+      if(k==='y' || (k==='z' && e.shiftKey)){ e.preventDefault(); redo(); return; } }
+    if(e.key==='Tab'){ e.preventDefault(); const a=ed.selectionStart,b=ed.selectionEnd; ed.value=ed.value.slice(0,a)+'  '+ed.value.slice(b); ed.selectionStart=ed.selectionEnd=a+2; mdRefreshDecorations(); clearTimeout(_mdTimer); _mdTimer=setTimeout(applyMdToMap,300); }
+  });
+  const syncNodeFromCaret=()=>{ if(_mdSelSync) return; const line=ed.value.slice(0,ed.selectionStart).split('\n').length-1; let id=null; for(let l=line;l>=0;l--){ if(_mdLines[l]){ id=_mdLines[l]; break; } } if(id && map.nodes[id]){ _mdSelSync=true; select(id); _mdSelSync=false; } };
+  ed.addEventListener('click', ()=>{ mdUpdateActive(); syncNodeFromCaret(); });
+  ed.addEventListener('keyup', e=>{ mdUpdateActive(); if(e.key && e.key.indexOf('Arrow')===0) syncNodeFromCaret(); });
+  const rz=pane.querySelector('.md-resize');
+  rz.addEventListener('mousedown',e=>{
+    e.preventDefault(); const x0=e.clientX, w0=pane.getBoundingClientRect().width;
+    const mv=ev=>{ const w=Math.max(240, Math.min(window.innerWidth*0.72, w0+(ev.clientX-x0))); app.style.setProperty('--md-w', w+'px'); };
+    const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); try{fit();}catch(_){} };
+    window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
+  });
+}
+function syncTextFromMap(){ const ed=document.getElementById('mdEditor'); if(!ed) return; _mdSyncing=true; try{ ed.value=buildMarkdown(undefined,{rich:true,meta:true,lineMap:_mdLines}); }catch(e){} _mdSyncing=false; mdRefreshDecorations(); }
+function mdHighlightNode(id){   // node -> select + scroll its line in the editor
+  const ed=document.getElementById('mdEditor'); if(!ed) return;
+  let line=-1; for(const k in _mdLines){ if(_mdLines[k]===id){ line=+k; break; } }
+  if(line<0) return;
+  const arr=ed.value.split('\n'); let start=0; for(let i=0;i<line;i++) start+=arr[i].length+1;
+  try{ ed.setSelectionRange(start, start+(arr[line]||'').length); }catch(e){}
+  const lh=parseFloat(getComputedStyle(ed).lineHeight)||18;
+  ed.scrollTop=Math.max(0, line*lh - ed.clientHeight/2);
+  mdUpdateActive(); mdSyncScroll();
+}
+// ---- VS Code-style decorations: syntax highlight + line numbers + active line ----
+function _hlLine(raw){
+  const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let s=esc(raw);
+  if(/^\s*([-*_])(\s*\1){2,}\s*$/.test(raw)) return '<span class="hl-hr">'+s+'</span>';                      // horizontal rule
+  if(/^#{1,6}(\s|$)/.test(raw)) return s.replace(/^(#{1,6})([\s\S]*)$/, '<span class="hl-hmark">$1</span><span class="hl-head">$2</span>');
+  if(/^\s*&gt;/.test(s)) return '<span class="hl-quote">'+s+'</span>';
+  if(/^\s*\|.*\|/.test(s)) s=s.replace(/\|/g,'<span class="hl-punc">|</span>');
+  s=s.replace(/^(\s*)([-*+]|\d+\.)(\s+)(\[[ xX]\]\s)?/, (m,a,b,c,t)=> a+'<span class="hl-bullet">'+b+'</span>'+c+(t?'<span class="hl-task">'+t.trim()+'</span> ':''));
+  s=s.replace(/!\[[^\]]*\]\([^)]+\)/g, m=>'<span class="hl-img">'+m+'</span>');
+  s=s.replace(/(^|[^!])(\[[^\]]+\]\([^)]+\))/g, (m,p,l)=>p+'<span class="hl-link">'+l+'</span>');
+  s=s.replace(/`[^`]+`/g, m=>'<span class="hl-code-inline">'+m+'</span>');
+  s=s.replace(/\*\*[^*]+\*\*/g, m=>'<span class="hl-strong">'+m+'</span>');
+  s=s.replace(/~~[^~]+~~/g, m=>'<span class="hl-strike">'+m+'</span>');
+  s=s.replace(/(^|[^*<])(\*[^*<]+\*)/g, (m,p,e)=>p+'<span class="hl-em">'+e+'</span>');
+  s=s.replace(/&lt;\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s[^&]*?)?\/?&gt;/g, m=>'<span class="hl-tag">'+m+'</span>');    // raw HTML tags
+  s=s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, (m,p,u)=>p+'<span class="hl-url">'+u+'</span>');              // bare URLs
+  return s;
+}
+function mdHighlight(text){
+  const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const lines=text.split('\n'); let inFence=false, inComment=false, out='';
+  for(let i=0;i<lines.length;i++){
+    const raw=lines[i]; let html;
+    if(inComment){ html='<span class="hl-comment">'+esc(raw)+'</span>'; if(/--&gt;|-->/.test(raw)) inComment=false; }
+    else if(/^\s*<!--/.test(raw)){ inComment=!/-->/.test(raw); html='<span class="hl-comment">'+esc(raw)+'</span>'; }
+    else if(inFence){ html='<span class="hl-code">'+esc(raw)+'</span>'; if(/^\s*(```+|~~~+)\s*$/.test(raw)) inFence=false; }
+    else if(/^\s*(```+|~~~+)/.test(raw)){ inFence=true; html='<span class="hl-fence">'+esc(raw)+'</span>'; }
+    else html=_hlLine(raw);
+    out+='<div class="hl-line" data-l="'+i+'">'+(html||'&nbsp;')+'</div>';
+  }
+  return out;
+}
+function mdSyncScroll(){ const ed=document.getElementById('mdEditor'); if(!ed) return; const hl=document.querySelector('#mdPane .md-hl'), gut=document.querySelector('#mdPane .md-gutter'); if(hl){ hl.scrollTop=ed.scrollTop; hl.scrollLeft=ed.scrollLeft; } if(gut){ gut.scrollTop=ed.scrollTop; } }
+function mdUpdateActive(){
+  const ed=document.getElementById('mdEditor'); if(!ed) return;
+  const before=ed.value.slice(0, ed.selectionStart);
+  const line=before.split('\n').length-1, col=before.length-(before.lastIndexOf('\n')+1);
+  document.querySelectorAll('#mdPane .active').forEach(e=>e.classList.remove('active'));
+  const h=document.querySelector('#mdPane .md-hl .hl-line[data-l="'+line+'"]'); if(h) h.classList.add('active');
+  const g=document.querySelector('#mdPane .md-gutter .gl[data-l="'+line+'"]'); if(g) g.classList.add('active');
+  const pos=document.querySelector('#mdPane .md-pos'); if(pos) pos.textContent='Ln '+(line+1)+', Col '+(col+1);
+}
+function mdRefreshDecorations(){
+  const ed=document.getElementById('mdEditor'); if(!ed) return;
+  const hl=document.querySelector('#mdPane .md-hl'), gut=document.querySelector('#mdPane .md-gutter'); if(!hl||!gut) return;
+  const n=ed.value.split('\n').length;
+  hl.innerHTML=mdHighlight(ed.value);
+  let g=''; for(let i=0;i<n;i++) g+='<div class="gl" data-l="'+i+'">'+(i+1)+'</div>';
+  gut.innerHTML=g;
+  mdUpdateActive(); mdSyncScroll();
+}
+function applyMdToMap(){
+  const ed=document.getElementById('mdEditor'); if(!ed||!mdMode) return;
+  if(typeof READONLY!=='undefined' && READONLY) return;
+  let parsed; try{ parsed=parseMarkdownOutline(ed.value, map.title||'Map'); }catch(e){ return; }
+  if(!parsed||!parsed.rootId||!parsed.nodes||!parsed.nodes[parsed.rootId]) return;   // ignore un-parseable/empty text
+  _mdSyncing=true;
+  sel=null; document.querySelectorAll('.node.sel').forEach(n=>n.classList.remove('sel')); document.getElementById('nodebar')?.remove();
+  map.nodes=parsed.nodes; map.rootId=parsed.rootId;
+  if(typeof balanceRootSides==='function') balanceRootSides();
+  autoLayout(); pushHistory();   // undoable + persists (guarded so it won't clobber the editor)
+  _mdSyncing=false;
+}
+function toggleMdMode(on){
+  const want=(on===undefined)?!mdMode:!!on; if(want===mdMode) return;
+  ensureMdPane(); mdMode=want; document.body.classList.toggle('md-mode', mdMode);
+  const btn=document.getElementById('mdToggle'); if(btn) btn.classList.toggle('on', mdMode);
+  if(mdMode){ syncTextFromMap(); const ed=document.getElementById('mdEditor'); if(ed){ ed.readOnly=!!(typeof READONLY!=='undefined' && READONLY); ed.focus(); } if(sel) mdHighlightNode(sel); }
+  else if(!(typeof READONLY!=='undefined' && READONLY)) pushHistory();   // one undo entry for the md session
+  requestAnimationFrame(()=>{ try{ fit(); }catch(e){} });
+}
 function pushHistory(){
   history=history.slice(0,hpos+1);
   history.push(JSON.stringify({nodes:map.nodes,rootId:map.rootId,title:map.title,color:map.color,links:map.links||[],layout:map.layout,vars:map.vars||{}}));
@@ -1508,9 +1632,10 @@ function pushHistory(){
   updateUndo();
   scheduleSave();                              // any change to history persists
   if(typeof Collab!=='undefined') Collab.onLocalChange();   // broadcast edits to live collaborators
+  if(mdMode && !_mdSyncing) syncTextFromMap();                // keep the Markdown editor in sync with canvas edits
 }
 function updateUndo(){ $('#undo').disabled=hpos<=0; $('#redo').disabled=hpos>=history.length-1; }
-function restore(s){ const o=JSON.parse(s); map.nodes=o.nodes; map.rootId=o.rootId; map.title=o.title; map.color=o.color; if(o.links) map.links=o.links; if(o.layout) map.layout=o.layout; if(o.vars) map.vars=o.vars; $('#mapTitle').value=map.title; autoLayout(); }
+function restore(s){ const o=JSON.parse(s); map.nodes=o.nodes; map.rootId=o.rootId; map.title=o.title; map.color=o.color; if(o.links) map.links=o.links; if(o.layout) map.layout=o.layout; if(o.vars) map.vars=o.vars; $('#mapTitle').value=map.title; autoLayout(); if(mdMode && !_mdSyncing) syncTextFromMap(); }
 function undo(){ if(hpos>0){hpos--;restore(history[hpos]);updateUndo();} }
 function redo(){ if(hpos<history.length-1){hpos++;restore(history[hpos]);updateUndo();} }
 
@@ -1593,6 +1718,7 @@ function select(id,edit){
   }
   positionNodeBar();
   updateBreadcrumb();
+  if(mdMode && !_mdSelSync && id) mdHighlightNode(id);   // node click -> highlight its Markdown line
   if(edit) setTimeout(()=>startEdit(id),0);
 }
 
@@ -2108,14 +2234,57 @@ function tryMarkdownShortcut(){
   return false;
 }
 
+// Edit an imported block node (code block or table) in place: its rendered HTML is
+// made contentEditable and, on commit, read back into n.html (code -> re-escaped
+// <pre><code>; table -> sanitized <table>) so n.text is never corrupted. Blur / Esc /
+// Ctrl+Enter finish; inside a code block Enter just adds a newline.
+function startBlockEdit(id, el){
+  const node=map.nodes[id]; const box=el.querySelector('.node-block'); if(!node||!box) return;
+  const isCode=/<pre[\s>]/i.test(node.html||''); const original=node.html;
+  el.classList.add('editing','editing-block');
+  box.setAttribute('contenteditable','true'); box.focus();
+  const finish=(commit)=>{
+    box.removeAttribute('contenteditable'); el.classList.remove('editing','editing-block');
+    box.removeEventListener('blur',onBlur); box.removeEventListener('keydown',onKey);
+    if(commit){
+      let html;
+      if(isCode){
+        const pre=box.querySelector('pre'); let code;
+        if(pre){ const tmp=pre.cloneNode(true); tmp.querySelectorAll('br').forEach(br=>br.replaceWith(document.createTextNode('\n'))); code=(tmp.textContent||'').replace(/\n$/,''); }
+        else code=(box.textContent||'');
+        html='<pre><code>'+code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</code></pre>';
+      } else {
+        const tbl=box.querySelector('table');
+        html=sanitizeNotes(tbl?tbl.outerHTML:box.innerHTML);
+      }
+      if(!html || !html.replace(/<[^>]+>/g,'').trim()) html=original;   // never allow it to be emptied
+      map.nodes[id].html=html; pushHistory();
+    }
+    autoLayout();   // re-renders the node fresh from n.html (drops contentEditable cruft)
+  };
+  const onBlur=()=>finish(true);
+  const onKey=e=>{
+    e.stopPropagation();
+    if(e.key==='Escape'){ e.preventDefault(); finish(false); box.blur(); }
+    else if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); finish(true); box.blur(); }
+  };
+  box.addEventListener('blur',onBlur); box.addEventListener('keydown',onKey);
+}
 function startEdit(id){
   if(READONLY) return;
   const el=document.querySelector(`.node[data-id="${id}"]`); if(!el) return;
+  if(map.nodes[id] && map.nodes[id].html){ startBlockEdit(id, el); return; }   // edit code/table in place
   const textEl=el.querySelector('.node-text')||el;
   const raw = map.nodes[id]?.text || '';
   // Preserve any inline formatting (bold/italic/etc.) for the user to edit
   if(INLINE_HTML_RE.test(raw)) textEl.innerHTML = sanitizeInlineHTML(raw);
   else textEl.textContent = raw;
+  // If the node carries an image, reveal its source while editing so the user sees/edits
+  // everything (caption + image); it's parsed back out on commit.
+  if(map.nodes[id] && map.nodes[id].image){
+    const cap = textEl.textContent.trim();
+    textEl.textContent = (cap ? cap + '  ' : '') + '![' + (map.nodes[id].imageAlt||'') + '](' + map.nodes[id].image + ')';
+  }
   el.classList.add('editing');
   textEl.contentEditable='true';
   // Keep the format toolbar visible — it's what makes inline B/I/U work
@@ -2131,14 +2300,20 @@ function startEdit(id){
     if(commit){
       // Capture as HTML so the user's inline B/I/U is preserved.
       const html = textEl.innerHTML.trim();
-      const plain = textEl.textContent.trim();
+      let plain = textEl.textContent.trim();
+      // Pull an image reference (![alt](src)) back out into n.image / n.imageAlt so editing
+      // an image node updates the picture rather than storing the markdown as text.
+      const imgM = plain.match(/!\[([^\]]*)\]\(\s*([^)\s]+)[^)]*\)/);
+      if(imgM){ map.nodes[id].image = imgM[2]; map.nodes[id].imageAlt = imgM[1]||''; plain = plain.replace(imgM[0],'').replace(/\s{2,}/g,' ').trim(); }
+      else if(map.nodes[id].image!==undefined){ delete map.nodes[id].image; delete map.nodes[id].imageAlt; }
+      const isImg = map.nodes[id].image!==undefined;
       // If the user only typed plain text, store plain; otherwise store sanitized HTML.
-      const hasFormatting = INLINE_HTML_RE.test(html);
-      let newText = !plain ? 'Untitled' : (hasFormatting ? sanitizeInlineHTML(html) : plain);
+      const hasFormatting = INLINE_HTML_RE.test(html) && !imgM;
+      let newText = plain ? (hasFormatting ? sanitizeInlineHTML(html) : plain) : (isImg ? '' : 'Untitled');
       // A user-typed entity code (&rarr;) gets double-escaped to &amp;rarr; through the
       // contentEditable round-trip; restore it so it still renders as a symbol even when
       // the selection is wrapped in inline formatting (matches plain-text behaviour).
-      if(newText !== 'Untitled') newText = newText.replace(/&amp;(#\d+;|#x[0-9a-fA-F]+;|[a-zA-Z][a-zA-Z0-9]*;)/g, '&$1');
+      if(newText && newText !== 'Untitled') newText = newText.replace(/&amp;(#\d+;|#x[0-9a-fA-F]+;|[a-zA-Z][a-zA-Z0-9]*;)/g, '&$1');
       map.nodes[id].text = newText;
       // Title sync — for the root and only when user hasn't renamed the map manually
       if(id===map.rootId && map.titleAuto===true){
@@ -4451,6 +4626,7 @@ async function loadMap(id){
   else if(userZoom!=null && !_imported){ view.k=userZoom; recenter(); }
   else fit();
   refreshList();
+  if(mdMode) syncTextFromMap();   // keep the Markdown editor in sync when switching maps
   return true;
 }
 
@@ -4524,8 +4700,8 @@ function exportMenu(){
     <div class="ex-grp">Export</div>
     <button data-a="png"   ><span class="ex-ic">🖼</span><span><b>PNG image</b><i>Themed export, honors map style</i></span></button>
     <button data-a="prompt"><span class="ex-ic">⚡</span><span><b>Export as prompt</b><i>Fill variables, then copy clean text</i></span></button>
-    <button data-a="md"    ><span class="ex-ic">📋</span><span><b>Markdown / text</b><i>Indented bullets — paste anywhere</i></span></button>
-    <button data-a="copy"  ><span class="ex-ic">⎘</span><span><b>Copy as text (clipboard)</b><i>Same as Markdown, no download</i></span></button>
+    <button data-a="mdrich"><span class="ex-ic">📝</span><span><b>Markdown</b><i>Formatting, tasks, tables, code — markmap-compatible</i></span></button>
+    <button data-a="copy"  ><span class="ex-ic">⎘</span><span><b>Copy as text (clipboard)</b><i>Plain outline, no download</i></span></button>
     <button data-a="word"  ><span class="ex-ic">📄</span><span><b>Word document (.doc)</b><i>Opens in Word, Google Docs, LibreOffice</i></span></button>
     <button data-a="mermaid"><span class="ex-ic">🧜</span><span><b>Mermaid diagram</b><i>Renders in GitHub, Notion, Obsidian</i></span></button>
     <button data-a="refs"><span class="ex-ic">📖</span><span><b>References list</b><i>All citation nodes, formatted</i></span></button>
@@ -4556,7 +4732,7 @@ function exportMenu(){
     else if(a==='buildprompt') showBuildPrompt(sel || (map&&map.rootId));
     else if(a==='png') exportPNG();
     else if(a==='prompt') exportAsPrompt();
-    else if(a==='md') exportMarkdown(false);
+    else if(a==='mdrich') exportMarkdown(false, true);
     else if(a==='copy') exportMarkdown(true);
     else if(a==='word') exportDoc();
     else if(a==='mermaid') exportMermaid();
@@ -5097,14 +5273,41 @@ function importFile(){
 }
 // Convert basic inline markdown (**bold**, *italic*, ~~strike~~) to our HTML.
 function mdInlineToHtml(t){
-  const hasMd = /\*\*[^*]+\*\*|(?:^|[^*])\*[^*]+\*|~~[^~]+~~|`[^`]+`/.test(t);
-  if(!hasMd) return t;                       // keep plain text plain
-  let s = escapeHtml(t);
+  const hasHtml = INLINE_HTML_RE.test(t);    // raw inline HTML (<b>, <sub>, <a>, ...) present?
+  const hasMd = /\*\*[^*]+\*\*|(?:^|[^*])\*[^*]+\*|~~[^~]+~~|`[^`]+`|(?:^|[^!])\[[^\]]+\]\([^)]+\)/.test(t);
+  if(!hasHtml && !hasMd) return t;            // plain text stays plain
+  // keep any raw formatting HTML (sanitized) rather than escaping it to literal text
+  let s = hasHtml ? sanitizeInlineHTML(t) : escapeHtml(t);
   s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
   s = s.replace(/(^|[^*])\*([^*]+)\*/g, '$1<i>$2</i>');
   s = s.replace(/~~([^~]+)~~/g, '<s>$1</s>');
   s = s.replace(/`([^`]+)`/g, '$1');
+  s = s.replace(/(^|[^!])\[([^\]]+)\]\(([^)]+)\)/g, '$1<a href="$3" target="_blank" rel="noopener noreferrer">$2</a>');
   return s;
+}
+// Inverse of mdInlineToHtml: node HTML -> inline Markdown. Leaves $...$ math source
+// verbatim (math is stored as text, not rendered into n.text), so equations round-trip.
+function htmlToInlineMd(html){
+  if(html==null) return '';
+  if(!hasInlineMarkup(html)) return String(html);          // plain text (may hold $...$) — as-is
+  const tpl=document.createElement('template'); tpl.innerHTML=html;   // inert parse
+  const emit = node => {
+    let out='';
+    node.childNodes.forEach(ch=>{
+      if(ch.nodeType===3){ out += ch.nodeValue; return; }  // text node (keeps $...$, entities decoded)
+      if(ch.nodeType!==1) return;
+      const tag=ch.tagName.toLowerCase(), inner=emit(ch);
+      if(tag==='b'||tag==='strong')                      out+='**'+inner+'**';
+      else if(tag==='i'||tag==='em')                     out+='*'+inner+'*';
+      else if(tag==='s'||tag==='strike'||tag==='del')    out+='~~'+inner+'~~';
+      else if(tag==='code')                              out+='`'+inner+'`';
+      else if(tag==='br')                                out+='\n';
+      else if(tag==='a'){ const h=ch.getAttribute('href')||''; out += h ? '['+(inner||h)+']('+h+')' : inner; }
+      else                                               out+=inner;   // u, span, … -> text only
+    });
+    return out;
+  };
+  return emit(tpl.content).replace(/\u00A0/g,' ');
 }
 // Parse an OPML document into a map.
 function parseOPML(text, filename){
@@ -5133,13 +5336,16 @@ function parseOPML(text, filename){
 }
 // Parse a Markdown / plain-text outline (headings and/or nested bullets) into a map.
 function parseMarkdownOutline(text, filename){
+  let _meta=null;
+  { const mm = text.match(/^\uFEFF?\s*<!--\s*mindspark\s*\r?\n([\s\S]*?)\r?\n\s*-->\s*\r?\n?/i);
+    if(mm){ try{ _meta=JSON.parse(mm[1].trim()); }catch(e){ _meta=null; } text=text.slice(mm[0].length); } }
   const title = (filename||'').replace(/\.[^.]+$/, '') || 'Imported';
   const nodes = {};
   const rootId = uid();
   nodes[rootId] = { id:rootId, text:title, parent:null, side:'root', x:0, y:0 };
   const stack = [{ id:rootId, depth:0 }];
-  let sideCounter = 0, lastHeadingDepth = 0;
-  const add = (txt, depth) => {
+  let sideCounter = 0, lastHeadingDepth = 0, subDepth = null;
+  const add = (txt, depth, task, extra) => {
     while(stack.length>1 && stack[stack.length-1].depth >= depth) stack.pop();
     const parentId = stack[stack.length-1].id;
     const id = uid();
@@ -5147,22 +5353,124 @@ function parseMarkdownOutline(text, filename){
     if(parentId===rootId) side = (sideCounter++ % 2) ? 'left' : 'right';
     else side = nodes[parentId].side || 'right';
     nodes[id] = { id, text:mdInlineToHtml(txt), parent:parentId, side, x:0, y:0 };
+    if(task) nodes[id].task = task;
+    if(extra) Object.assign(nodes[id], extra);
     stack.push({ id, depth });
   };
-  text.split('\n').forEach(line => {
-    if(!line.trim()) return;
+  const IMG_LINE = /^!\[([^\]]*)\]\(([^)]+)\)$/;   // [1]=alt [2]=src
+  const attachCur = fn => { const c=stack[stack.length-1]; if(c && nodes[c.id]) fn(nodes[c.id]); };
+  const attachNotes = html => attachCur(n=>{ n.notes = (n.notes ? n.notes + '\n' : '') + html; });
+  const escHtml = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const splitRow = r => { let x=r.trim(); if(x[0]==='|') x=x.slice(1); if(x[x.length-1]==='|') x=x.slice(0,-1); return x.split('|').map(c=>c.trim()); };
+  const isTableSep = x => /-/.test(x) && /^[\s|:-]+$/.test(x) && x.includes('|');
+  const tableToHtml = rows => {
+    const head = splitRow(rows[0]);
+    const cell = (c,tag) => '<'+tag+'>'+mdInlineToHtml(c)+'</'+tag+'>';
+    let h='<table><thead><tr>'+head.map(c=>cell(c,'th')).join('')+'</tr></thead>';
+    const body=rows.slice(2).filter(r=>r.trim());
+    if(body.length) h+='<tbody>'+body.map(r=>{ const cs=splitRow(r); return '<tr>'+head.map((_,i)=>cell(cs[i]!=null?cs[i]:'','td')).join('')+'</tr>'; }).join('')+'</tbody>';
+    return h+'</table>';
+  };
+  const L = text.split('\n');
+  const base = () => (subDepth!=null ? subDepth : lastHeadingDepth);   // current section container
+  const stripWrap = x => x.replace(/^<(?:p|div|center|figure|picture|span|section|article)\b[^>]*>/i,'').replace(/<\/(?:p|div|center|figure|picture|span|section|article)>$/i,'').trim();
+  const nextIsBullet = from => { for(let k=from+1;k<L.length;k++){ if(!L[k].trim()) continue; return /^\s*(?:[-*+]|\d+\.)\s+/.test(L[k]); } return false; };
+  for(let i=0; i<L.length; i++){
+    const line = L[i];
+    // Fenced code block -> its own block child node of the nearest heading (renders the code)
+    const fence = line.match(/^(\s*)(`{3,}|~{3,})(.*)$/);
+    if(fence){
+      const ind=fence[1], fch=fence[2][0], flen=fence[2].length, buf=[]; let j=i+1;
+      while(j<L.length){ const cl=L[j].match(/^\s*(`{3,}|~{3,})\s*$/); if(cl && cl[1][0]===fch && cl[1].length>=flen) break; buf.push(L[j].startsWith(ind)?L[j].slice(ind.length):L[j]); j++; }
+      const lang=fence[3].trim();
+      add(lang||'code', base() + 1 + Math.floor(ind.length/2), null, { html:'<pre><code>'+escHtml(buf.join('\n'))+'</code></pre>' });
+      i=j; continue;   // skip past the closing fence
+    }
+    // GFM table (header row + separator line) -> its own block child node of the nearest heading
+    if(line.includes('|') && line.trim() && i+1<L.length && isTableSep(L[i+1])){
+      const ind=(line.match(/^\s*/)||[''])[0].length;
+      const rows=[line, L[i+1]]; let j=i+2;
+      while(j<L.length && L[j].includes('|') && L[j].trim()){ rows.push(L[j]); j++; }
+      add('table', base() + 1 + Math.floor(ind/2), null, { html:tableToHtml(rows) }); i=j-1; continue;
+    }
+    if(!line.trim()) continue;
+    // Raw HTML <img> (bare, or wrapped in <p>/<a>/<figure>) -> image on the current node
+    const rawImg = line.match(/<img\b[^>]*>/i);
+    if(rawImg){
+      const src=(rawImg[0].match(/\bsrc\s*=\s*["']([^"']+)["']/i)||[])[1];
+      const alt=(rawImg[0].match(/\balt\s*=\s*["']([^"']*)["']/i)||[])[1];
+      if(src) attachCur(n=>{ n.image=src; if(alt) n.imageAlt=alt; });
+      continue;
+    }
+    // A bare block wrapper on its own line (<p ...>, </p>, <div>, <center>, <figure>...) -> unwrap (no node)
+    if(/^<\/?(?:p|div|center|figure|picture|section|article)\b[^>]*>$/i.test(line.trim())) continue;
     const h = line.match(/^(#{1,6})\s+(.*)$/);
-    if(h){ lastHeadingDepth = h[1].length; add(h[2].trim(), lastHeadingDepth); return; }
+    if(h){ lastHeadingDepth = h[1].length; subDepth = null; add(h[2].trim(), lastHeadingDepth); continue; }
+    // Blockquote -> the current node's notes
+    const quote = line.match(/^\s*>\s?(.*)$/);
+    if(quote){ attachCur(n=>{ n.notes = (n.notes ? n.notes + '\n' : '') + quote[1]; }); continue; }
+    // A standalone image line -> attach to the current node (don't make a child)
+    const imgLine = line.trim().match(IMG_LINE);
+    if(imgLine){ attachCur(n=>{ n.image = imgLine[2]; if(imgLine[1]) n.imageAlt = imgLine[1]; }); continue; }
     const bullet = line.match(/^(\s*)(?:[-*+]|\d+\.)\s+(.*)$/);
     if(bullet){
       const indent = bullet[1].replace(/\t/g, '  ').length;
-      add(bullet[2].trim(), lastHeadingDepth + 1 + Math.floor(indent/2));
-      return;
+      let body = bullet[2].trim(), task = null;
+      const cb = body.match(/^\[([ xX])\]\s+(.*)$/);        // GitHub-style task checkbox
+      if(cb){ task = cb[1].toLowerCase()==='x' ? 'done' : 'todo'; body = cb[2].trim(); }
+      const bi = body.match(IMG_LINE);                        // a bullet that is only an image
+      if(bi){ attachCur(n=>{ n.image = bi[2]; if(bi[1]) n.imageAlt = bi[1]; }); continue; }
+      add(body, base() + 1 + Math.floor(indent/2), task);
+      continue;
     }
-    // Plain paragraph: hang under the most recent heading
-    add(line.trim(), lastHeadingDepth + 1);
-  });
-  return { id:uid(), title, titleAuto:false, color:'#e0613a', rootId, nodes };
+    // A bold-led paragraph immediately followed by a list acts as a sub-heading:
+    // it becomes the parent of that list (e.g. "**Editing & canvas**" over its bullets).
+    if(nextIsBullet(i)){   // a lead-in line directly above a list -> parent of that list
+      add(line.trim(), lastHeadingDepth + 1);
+      subDepth = lastHeadingDepth + 1;
+      continue;
+    }
+    // Plain paragraph: hang under the current section (unwrap a surrounding block tag)
+    const para = stripWrap(line.trim());
+    if(para) add(para, base() + 1);
+  }
+  // The filename is the map TITLE, not a node. When the whole document hangs off a
+  // single top-level node (the common case: one `# Heading`), promote it to the root
+  // and drop the filename wrapper — matching how markmap renders a Markdown file.
+  let finalRoot = rootId;
+  const tops = Object.values(nodes).filter(n => n.parent === rootId);
+  if(tops.length === 1){
+    const promoted = tops[0];
+    promoted.parent = null; promoted.side = 'root';
+    delete nodes[rootId];
+    finalRoot = promoted.id;
+  }
+  // Balanced left/right split (each branch kept consistent) so the imported map isn't
+  // lopsided — the parser can't call the DOM-bound balanceRootSides().
+  const kids = Object.values(nodes).filter(n => n.parent === finalRoot);
+  const half = Math.ceil(kids.length / 2);
+  const setBranch = (id, side) => { nodes[id].side = side; Object.values(nodes).filter(c => c.parent === id).forEach(c => setBranch(c.id, side)); };
+  kids.forEach((k, i) => setBranch(k.id, i < half ? 'right' : 'left'));
+  nodes[finalRoot].side = 'root';
+  if(_meta && _meta.nodes){
+    const kidsOrd = pid => Object.values(nodes).filter(n=>n.parent===pid);   // document order (matches export)
+    const applyMeta=(id,path)=>{ const mm=_meta.nodes[path], n=nodes[id];
+      if(mm && n){
+        if(mm.color) n.color=mm.color; if(mm.textColor) n.textColor=mm.textColor;
+        if(mm.w){ n.width=mm.w; n.w=mm.w; } if(mm.h){ n.height=mm.h; n.h=mm.h; }
+        if(mm.collapsed) n.collapsed=true; if(mm.bold) n.bold=true;
+        if(mm.fontSize) n.fontSize=mm.fontSize; if(mm.listType) n.listType=mm.listType;
+        if(mm.highlight) n.highlight=mm.highlight; if(mm.align) n.align=mm.align;
+        if(mm.image) n.image=mm.image; if(mm.ref) n.ref=true; if(mm.citation) n.citation=mm.citation;
+      }
+      kidsOrd(id).forEach((c,i)=>applyMeta(c.id, path+'.'+i));
+    };
+    applyMeta(finalRoot, '0');
+  }
+  const out = { id:uid(), title, titleAuto:false, color:(_meta&&_meta.color)||'#e0613a', rootId:finalRoot, nodes };
+  if(_meta&&_meta.layout) out.layout=_meta.layout;
+  if(_meta&&_meta.vars) out.vars=_meta.vars;
+  return out;
 }
 
 // Strip HTML to plain text but keep newlines from <br> and block elements
@@ -5238,36 +5546,109 @@ function exportMermaid(){
 
 // Build hierarchical Markdown bullets from the map. If `startId` is given,
 // only that node's subtree is included — useful for "copy this branch as a prompt".
-function buildMarkdown(startId){
+// Serialize a node's notes HTML back to Markdown blocks so code fences and tables
+// round-trip: <pre> -> fenced code, <table> -> pipe table, else -> blockquote lines.
+function _htmlTableToMdRows(tableEl){
+  const rows=[...tableEl.querySelectorAll('tr')].map(tr=>[...tr.children].map(c=>htmlToInlineMd(c.innerHTML).replace(/\s*\n\s*/g,' ').trim()));
+  if(!rows.length) return [];
+  const ncol=Math.max(...rows.map(r=>r.length));
+  const fill=r=>{ const c=r.slice(); while(c.length<ncol) c.push(''); return c; };
+  const out=['| '+fill(rows[0]).join(' | ')+' |', '| '+Array(ncol).fill('---').join(' | ')+' |'];
+  rows.slice(1).forEach(r=>out.push('| '+fill(r).join(' | ')+' |'));
+  return out;
+}
+function notesToMdBlocks(notesHtml){
+  const tpl=document.createElement('template'); tpl.innerHTML=notesHtml||'';
+  const blocks=[];
+  tpl.content.childNodes.forEach(ch=>{
+    if(ch.nodeType===3){ ch.nodeValue.split('\n').forEach(l=>{ if(l.trim()) blocks.push({q:l.trim()}); }); return; }
+    if(ch.nodeType!==1) return;
+    const tag=ch.tagName.toLowerCase();
+    if(tag==='pre') blocks.push({ code: ch.textContent.replace(/\n+$/,'') });
+    else if(tag==='table') blocks.push({ table:_htmlTableToMdRows(ch) });
+    else { htmlToInlineMd(ch.innerHTML).split('\n').forEach(l=>{ if(l.trim()) blocks.push({q:l.trim()}); }); }
+  });
+  return blocks;
+}
+function _nodeMeta(n){   // per-node info that JSON has but Markdown can't express
+  const m={};
+  if(n.color) m.color=n.color;
+  if(n.textColor) m.textColor=n.textColor;
+  if(n.width) m.w=n.width;
+  if(n.height) m.h=n.height;
+  if(n.collapsed) m.collapsed=1;
+  if(n.bold) m.bold=1;
+  if(n.fontSize) m.fontSize=n.fontSize;
+  if(n.listType) m.listType=n.listType;
+  if(n.highlight) m.highlight=n.highlight;
+  if(n.align) m.align=n.align;
+  if(n.image) m.image=n.image;
+  if(n.ref) m.ref=1;
+  if(n.citation) m.citation=n.citation;
+  return Object.keys(m).length? m : null;
+}
+function buildMarkdown(startId, opts){
+  const rich = !!(opts && opts.rich);            // rich: keep formatting, tasks, links, images
+  const withMeta = !!(opts && opts.meta);        // prepend a <!-- mindspark ... --> metadata comment
+  const lineMap = (opts && opts.lineMap) || null;// filled: lineMap[lineIndex] = nodeId (node<->text sync)
   const root = startId || map.rootId;
   const lines=[];
+  const nmeta={}, lm={};
   const baseDepth = 0;
-  const walk=(id, depth)=>{
+  const notesText = n => (n.notes||'').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim();
+  const emitNotes = (n, pad) => {   // rich: code fences / tables round-trip; other notes -> blockquotes
+    if(!(n.notes||'').trim()) return;
+    notesToMdBlocks(n.notes).forEach(b=>{
+      if(b.code!=null){ lines.push('```'); b.code.split('\n').forEach(l=>lines.push(l)); lines.push('```'); }
+      else if(b.table){ b.table.forEach(l=>lines.push(l)); }
+      else lines.push(pad+'> '+b.q);
+    });
+  };
+  const walk=(id, depth, path)=>{
     const n=map.nodes[id];
     if(!n) return;
+    if(withMeta){ const mm=_nodeMeta(n); if(mm) nmeta[path]=mm; }
+    if(lineMap) lm[lines.length]=id;
+    if(n.html){   // block node (table / code): emit the block indented to its depth (no children)
+      const pad='  '.repeat(depth);
+      notesToMdBlocks(n.html).forEach(b=>{
+        if(b.code!=null){ lines.push(pad+'```'); b.code.split('\n').forEach(l=>lines.push(pad+l)); lines.push(pad+'```'); }
+        else if(b.table){ b.table.forEach(l=>lines.push(pad+l)); }
+        else lines.push(pad+'> '+b.q);
+      });
+      return;
+    }
     const indent='  '.repeat(depth);
-    const plain = nodeTextPlain(n.text) || 'Untitled';
-    const [first, ...rest] = plain.split('\n');
+    const body = (rich ? htmlToInlineMd(n.text) : nodeTextPlain(n.text)) || 'Untitled';
+    const first = body.replace(/\n+/g, rich ? '<br>' : ' ');   // keep multi-line text in ONE node (citation/styling preserved via the meta block)
     if(depth===baseDepth){
       lines.push(`# ${first}`);
-      if(rest.length) rest.forEach(r=>lines.push(r));
-      if(n.notes){
-        const nt=(n.notes||'').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim();
-        if(nt) lines.push('', nt);
-      }
-      lines.push('');
+      if(rich){ emitNotes(n, ''); }
+      else { const nt=notesText(n); if(nt) lines.push('', nt); }
     } else {
-      lines.push(`${indent}- ${first}`);
-      rest.forEach(r=>lines.push(`${indent}  ${r}`));
-      if(n.notes){
-        const nt=(n.notes||'').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim();
-        if(nt) nt.split('\n').forEach(l=>lines.push(`${indent}  > ${l}`));
-      }
+      const box = (rich && n.task) ? (n.task==='done' ? '[x] ' : '[ ] ') : '';
+      lines.push(`${indent}- ${box}${first}`);
+      if(rich){ emitNotes(n, `${indent}  `); }
+      else { const nt=notesText(n); if(nt) nt.split('\n').forEach(l=>lines.push(`${indent}  > ${l}`)); }
     }
-    childrenOf(id).forEach(c=>walk(c, depth+1));
+    if(rich && n.image && /^https?:\/\//i.test(n.image)){   // URL images round-trip; data-URIs stay in JSON export
+      lines.push((depth===baseDepth?'':indent+'  ') + `![image](${n.image})`);
+    }
+    if(depth===baseDepth) lines.push('');
+    childrenOf(id).forEach((c,i)=>walk(c, depth+1, path+'.'+i));
   };
-  walk(root, baseDepth);
-  return lines.join('\n');
+  walk(root, baseDepth, '0');
+  let out=lines, shift=0;
+  if(withMeta){
+    const meta={ v:1 };
+    if(map.layout) meta.layout=map.layout;
+    if(map.color) meta.color=map.color;
+    if(map.vars && Object.keys(map.vars).length) meta.vars=map.vars;
+    if(Object.keys(nmeta).length) meta.nodes=nmeta;
+    if(Object.keys(meta).length>1){ const block=['<!-- mindspark', JSON.stringify(meta), '-->', '']; out=block.concat(lines); shift=block.length; }
+  }
+  if(lineMap){ lineMap.length=0; for(const k in lm) lineMap[+k+shift]=lm[k]; }
+  return out.join('\n');
 }
 
 // === Variable / placeholder detection ============================================
@@ -5501,12 +5882,12 @@ function showMapVariables(){
     if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); m.querySelector('.vf-go').click(); }
   });
 }
-function exportMarkdown(toClipboard){
+function exportMarkdown(toClipboard, rich){
   if(!map) return;
   // If a non-root node is selected, export *that branch* — perfect for
   // pulling out a single prompt or section from a larger map.
   const startId = (sel && sel !== map.rootId) ? sel : map.rootId;
-  const md = buildMarkdown(startId);
+  const md = buildMarkdown(startId, {rich:!!rich, meta:!!rich});
   const scope = startId === map.rootId ? '' : ' (selected branch)';
   if(toClipboard){
     if(navigator.clipboard?.writeText){
@@ -6024,6 +6405,7 @@ $('#collapseAll')?.addEventListener('click', ()=>{
   toast(anyExpanded ? 'Collapsed all branches' : 'Expanded all branches');
 });
 $('#undo').onclick=undo; $('#redo').onclick=redo;
+document.getElementById('mdToggle')?.addEventListener('click',()=>toggleMdMode());
 $('#zoomIn').onclick=()=>zoom(1.15); $('#zoomOut').onclick=()=>zoom(.87);
 $('#zoomFit').onclick=()=>{ fit(); userZoom=view.k; saveMapView(); };
 $('#minimap')?.addEventListener('mousedown', e=>{ e.stopPropagation(); minimapJump(e.clientX, e.clientY); });

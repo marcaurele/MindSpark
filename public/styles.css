@@ -114,6 +114,42 @@
 
   /* ===== App shell ===== */
   .app{display:grid;grid-template-columns:auto 1fr;grid-template-rows:minmax(0,1fr);height:calc(100vh / var(--ui-zoom, 1));height:calc(100dvh / var(--ui-zoom, 1))}
+  /* Markdown mode: split pane (editor | live map) */
+  body.md-mode .app{grid-template-columns:auto var(--md-w,40%) minmax(0,1fr)}
+  #mdPane{display:none;position:relative;flex-direction:column;min-width:0;min-height:0;background:var(--paper);border-right:1px solid var(--line)}
+  body.md-mode #mdPane{display:flex}
+  #mdPane .md-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600;color:var(--ink-soft)}
+  #mdPane .md-pos{margin-left:auto;font-size:11px;font-weight:400;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  #mdPane .md-close{border:none;background:transparent;cursor:pointer;font-size:15px;line-height:1;color:var(--ink-soft);padding:2px 7px;border-radius:6px}
+  #mdPane .md-close:hover{background:var(--paper-2,rgba(0,0,0,.05))}
+  #mdPane .md-body{display:flex;flex:1;min-height:0;overflow:hidden}
+  #mdPane .md-gutter{flex:0 0 auto;box-sizing:border-box;padding:12px 8px 12px 12px;text-align:right;overflow:hidden;user-select:none;background:var(--paper);border-right:1px solid var(--line);color:var(--ink-soft);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:20px}
+  #mdPane .md-gutter .gl{height:20px}
+  #mdPane .md-gutter .gl.active{color:var(--accent);font-weight:700}
+  #mdPane .md-code{position:relative;flex:1;min-width:0;overflow:hidden}
+  #mdPane .md-hl,#mdEditor{position:absolute;inset:0;margin:0;box-sizing:border-box;padding:12px 14px;border:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:20px;white-space:pre;tab-size:2}
+  #mdPane .md-hl{overflow:hidden;pointer-events:none;color:var(--ink)}
+  #mdPane .md-hl .hl-line{min-height:20px}
+  #mdPane .md-hl .hl-line.active{background:var(--paper-2,rgba(127,127,127,.10))}
+  #mdEditor{overflow:auto;resize:none;outline:none;background:transparent;color:transparent;caret-color:var(--ink)}
+  #mdEditor::selection{background:color-mix(in srgb, var(--accent) 28%, transparent)}
+  /* markdown syntax colors — driven by theme variables, so they follow the theme */
+  #mdPane .hl-head{color:var(--accent);font-weight:700}
+  #mdPane .hl-comment{color:var(--ink-soft);opacity:.6;font-style:italic}
+  #mdPane .hl-code,#mdPane .hl-fence,#mdPane .hl-code-inline{color:var(--accent-deep,var(--accent))}
+  #mdPane .hl-strong{color:var(--ink);font-weight:700}
+  #mdPane .hl-em{color:var(--ink);font-style:italic}
+  #mdPane .hl-link,#mdPane .hl-img{color:#3b82f6}
+  #mdPane .hl-bullet,#mdPane .hl-task{color:var(--accent);font-weight:700}
+  #mdPane .hl-quote{color:var(--ink-soft);font-style:italic}
+  #mdPane .hl-punc{color:var(--ink-soft)}
+  #mdPane .hl-hmark{color:var(--ink-soft);font-weight:700}
+  #mdPane .hl-strike{color:var(--ink-soft);text-decoration:line-through}
+  #mdPane .hl-hr{color:var(--ink-soft)}
+  #mdPane .hl-tag{color:#22a06b}
+  #mdPane .hl-url{color:#3b82f6;text-decoration:underline}
+  #mdPane .md-resize{position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:6}
+  .tb#mdToggle.on{background:var(--accent);color:#fff}
 
   /* ===== Sidebar ===== */
   .side{width:268px;min-height:0;background:var(--chrome);border-right:1px solid var(--chrome-edge);display:flex;flex-direction:column;transition:width .22s cubic-bezier(.4,0,.2,1)}
@@ -429,6 +465,19 @@
   .node-text math{ font-size:1.04em; }
   .node-text math[display="block"]{ display:block; margin:3px auto; }
   .node-text{min-width:0;max-width:100%}
+  /* Block nodes: a fenced code block or a table imported as its own node */
+  .node-block{max-width:100%;overflow:auto;text-align:left}
+  .node-block pre{margin:0;white-space:pre;overflow-x:auto;background:var(--paper-2,rgba(0,0,0,.05));padding:6px 9px;border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;line-height:1.5}
+  .node-block pre code{font-family:inherit}
+  .node-block table{border-collapse:collapse;font-size:11.5px}
+  .node-block th,.node-block td{border:1px solid var(--line,#d9dee6);padding:2px 7px;text-align:left;white-space:nowrap}
+  .node-block th{background:var(--paper-2,rgba(0,0,0,.05));font-weight:600}
+  .node.block-node{max-width:none}                 /* grow to fit code/table; no scrollbar unless resized smaller */
+  .block-node .node-text{cursor:default}
+  .node .img-alt{display:block;font-size:12px;font-style:italic;color:var(--ink-soft,#667);white-space:normal;max-width:220px;line-height:1.4}
+  .node.img-missing{border-style:dashed}
+  .node.editing-block .node-block{cursor:text;user-select:text}
+  .node.editing-block{border-color:var(--accent,#e0613a)}
   .node-text .node-link{color:var(--link,var(--accent));text-decoration:underline;text-underline-offset:2px;cursor:pointer;word-break:break-all}
   .node-text .node-link:hover{color:var(--accent-deep)}
   .node.editing .node-text .node-link{cursor:text;color:inherit;text-decoration:underline}
@@ -632,6 +681,9 @@
   @media (max-width: 720px){
     /* Single-column grid: stage takes the whole screen; sidebar overlays it */
     .app{grid-template-columns:1fr}
+    body.md-mode .app{grid-template-columns:1fr}
+    body.md-mode .stage{display:none}
+    #mdPane .md-resize{display:none}
     .side{
       position:fixed; top:0; left:0; bottom:0; width:min(280px, 86vw);
       z-index:200; box-shadow:var(--shadow-lg);
@@ -1385,3 +1437,13 @@ body.cloud-edit .app{ padding-top:var(--shared-banner-h, 44px); }
 /* Pill-mode has no banner, so reclaim the space the banner used to reserve. */
 body.no-banner.cloud-edit .app{ padding-top:0; }
 body.no-banner.shared-view .stage{ top:0; }
+
+/* Themed scrollbars — desktop only (mobile keeps native overlay scrollbars) */
+@media (min-width:721px){
+  *::-webkit-scrollbar{width:12px;height:12px}
+  *::-webkit-scrollbar-track{background:transparent}
+  *::-webkit-scrollbar-thumb{background:var(--line-2,var(--line));border-radius:10px;border:3px solid transparent;background-clip:padding-box}
+  *::-webkit-scrollbar-thumb:hover{background:var(--ink-soft)}
+  *::-webkit-scrollbar-corner{background:transparent}
+  html{scrollbar-color:var(--line-2,var(--line)) transparent;scrollbar-width:thin}
+}
