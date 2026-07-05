@@ -120,6 +120,13 @@
   body.md-mode #mdPane{display:flex}
   #mdPane .md-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600;color:var(--ink-soft)}
   #mdPane .md-pos{margin-left:auto;font-size:11px;font-weight:400;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  /* markdown editor formatting toolbar */
+  #mdPane .md-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:2px;padding:4px 8px;border-bottom:1px solid var(--line);background:var(--paper)}
+  #mdPane .md-toolbar button{min-width:26px;height:26px;padding:0 6px;border:1px solid transparent;background:transparent;color:var(--ink-soft);cursor:pointer;border-radius:6px;font-size:12px;font-weight:600;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+  #mdPane .md-toolbar button:hover{background:var(--paper-2,rgba(127,127,127,.12));color:var(--ink);border-color:var(--line)}
+  #mdPane .md-toolbar button s{text-decoration:line-through}
+  #mdPane .md-toolbar .md-sep{width:1px;height:16px;background:var(--line);margin:0 4px}
+  #mdPane.md-preview .md-toolbar{display:none}
   #mdPane .md-close{border:none;background:transparent;cursor:pointer;font-size:15px;line-height:1;color:var(--ink-soft);padding:2px 7px;border-radius:6px}
   #mdPane .md-close:hover{background:var(--paper-2,rgba(0,0,0,.05))}
   #mdPane .md-body{display:flex;flex:1;min-height:0;overflow:hidden}
@@ -131,6 +138,32 @@
   #mdPane .md-hl{overflow:hidden;pointer-events:none;color:var(--ink)}
   #mdPane .md-hl .hl-line{min-height:20px}
   #mdPane .md-hl .hl-line.active{background:var(--paper-2,rgba(127,127,127,.10))}
+  /* active-line highlight as a positioned bar (matches the caret exactly; no scroll drift) */
+  #mdPane .md-active{position:absolute;left:0;right:0;top:0;height:20px;background:var(--paper-2,rgba(127,127,127,.10));pointer-events:none;z-index:0;will-change:transform}
+  #mdPane .md-hl{z-index:1}
+  #mdEditor{z-index:2}
+  /* rendered preview */
+  #mdPane .md-prev-btn{margin-left:2px;border:1px solid var(--line);background:transparent;color:var(--ink-soft);cursor:pointer;font-size:11px;font-weight:600;padding:2px 9px;border-radius:6px}
+  #mdPane .md-prev-btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  #mdPane .md-prev{position:absolute;inset:0;display:none;overflow:auto;padding:16px 22px;background:var(--paper);color:var(--ink);z-index:4;line-height:1.6;text-align:left}
+  #mdPane.md-preview .md-prev{display:block}
+  #mdPane.md-preview .md-hl,#mdPane.md-preview #mdEditor,#mdPane.md-preview .md-active,#mdPane.md-preview .md-gutter{display:none}
+  #mdPane .md-prev h1,#mdPane .md-prev h2,#mdPane .md-prev h3{margin:.6em 0 .3em;line-height:1.25}
+  #mdPane .md-prev h1{font-size:1.6em;border-bottom:1px solid var(--line);padding-bottom:.2em}
+  #mdPane .md-prev h2{font-size:1.3em;border-bottom:1px solid var(--line);padding-bottom:.2em}
+  #mdPane .md-prev h3{font-size:1.1em}
+  #mdPane .md-prev p,#mdPane .md-prev ul,#mdPane .md-prev ol,#mdPane .md-prev blockquote{margin:.5em 0}
+  #mdPane .md-prev pre.mp-code{background:var(--paper-2,rgba(127,127,127,.10));padding:10px 12px;border-radius:8px;overflow:auto;font-size:12.5px}
+  #mdPane .md-prev code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  #mdPane .md-prev table{border-collapse:collapse;font-size:.95em}
+  #mdPane .md-prev th,#mdPane .md-prev td{border:1px solid var(--line);padding:5px 9px}
+  #mdPane .md-prev blockquote{border-left:3px solid var(--line);margin-left:0;padding:.2em 0 .2em 12px;color:var(--ink-soft)}
+  #mdPane .md-prev img{max-width:100%}
+  #mdPane .md-prev hr{border:0;border-top:1px solid var(--line);margin:1em 0}
+  #mdPane .md-prev a{color:#3b82f6}
+  /* horizontal-rule divider node */
+  .node.hr-node{min-width:54px;box-shadow:none}
+  .node.hr-node .node-hr{display:block;width:54px;height:0;border-top:2px solid var(--ink-soft,#98a2b3);opacity:.6}
   #mdEditor{overflow:auto;resize:none;outline:none;background:transparent;color:transparent;caret-color:var(--ink)}
   #mdEditor::selection{background:color-mix(in srgb, var(--accent) 28%, transparent)}
   /* markdown syntax colors — driven by theme variables, so they follow the theme */

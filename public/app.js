@@ -524,7 +524,8 @@ function render(){
     }
     // Text lives in its own span so contentEditable doesn't tangle with the handles
     const t=document.createElement('span'); t.className='node-text';
-    if(n.html){ el.classList.add('block-node'); t.classList.add('node-block'); t.innerHTML = sanitizeNotes(n.html); }
+    if(n.hr){ el.classList.add('hr-node'); t.classList.add('node-hr'); t.textContent=''; }
+    else if(n.html){ el.classList.add('block-node'); t.classList.add('node-block'); t.innerHTML = sanitizeNotes(n.html); }
     else renderNodeText(t, n.text||'', n.listType);
     // Per-node styling
     if(n.fontSize) t.style.fontSize=n.fontSize+'px';
@@ -1509,17 +1510,19 @@ function relayoutDuringEdit(id){
    NODE OPERATIONS
    ============================================================ */
 /* ---- Markdown mode: edit the map as text with a live two-way preview (v1) ---- */
-let mdMode=false, _mdSyncing=false, _mdTimer=0, _mdLines=[], _mdSelSync=false;
+let mdMode=false, _mdSyncing=false, _mdTimer=0, _mdLines=[], _mdSelSync=false, _mdActiveLine=0, mdPreview=false;
 function ensureMdPane(){
   if(document.getElementById('mdPane')) return;
   const app=document.querySelector('.app'), stage=document.querySelector('.stage'); if(!app||!stage) return;
   const pane=document.createElement('div'); pane.id='mdPane';
-  pane.innerHTML='<div class="md-head"><span class="md-ttl">Markdown</span><span class="md-pos"></span><button class="md-close" title="Exit Markdown mode (Esc)">\u2715</button></div>'
-    +'<div class="md-body"><div class="md-gutter" aria-hidden="true"></div><div class="md-code"><pre class="md-hl" aria-hidden="true"></pre>'
-    +'<textarea id="mdEditor" spellcheck="false" wrap="off" placeholder="# Central idea&#10;- a branch&#10;  - a leaf"></textarea></div></div>'
+  pane.innerHTML='<div class="md-head"><span class="md-ttl">Markdown</span><span class="md-pos"></span><button class="md-prev-btn" title="Toggle rendered preview">Preview</button><button class="md-close" title="Exit Markdown mode (Esc)">\u2715</button></div>'
+    +'<div class="md-toolbar"><button data-fmt="bold" title="Bold"><b>B</b></button><button data-fmt="italic" title="Italic"><i>I</i></button><button data-fmt="strike" title="Strikethrough"><s>S</s></button><button data-fmt="code" title="Inline code">&lt;/&gt;</button><span class="md-sep"></span><button data-fmt="h1" title="Heading 1">H1</button><button data-fmt="h2" title="Heading 2">H2</button><button data-fmt="h3" title="Heading 3">H3</button><span class="md-sep"></span><button data-fmt="quote" title="Blockquote">\u275D</button><button data-fmt="ul" title="Bullet list">\u2022</button><button data-fmt="ol" title="Numbered list">1.</button><button data-fmt="hr" title="Divider">\u2014</button><span class="md-sep"></span><button data-fmt="link" title="Link">\uD83D\uDD17</button><button data-fmt="image" title="Image">\uD83D\uDDBC</button><button data-fmt="codeblock" title="Code block">\u2317</button><button data-fmt="table" title="Table">\u25A6</button></div><div class="md-body"><div class="md-gutter" aria-hidden="true"></div><div class="md-code"><div class="md-active" aria-hidden="true"></div><pre class="md-hl" aria-hidden="true"></pre>'
+    +'<textarea id="mdEditor" spellcheck="false" wrap="off" placeholder="# Central idea&#10;- a branch&#10;  - a leaf"></textarea><div class="md-prev" aria-hidden="true"></div></div></div>'
     +'<div class="md-resize" title="Drag to resize"></div>';
   app.insertBefore(pane, stage);
   pane.querySelector('.md-close').addEventListener('click',()=>toggleMdMode(false));
+  pane.querySelector('.md-prev-btn').addEventListener('click', mdTogglePreview);
+  pane.querySelector('.md-toolbar').addEventListener('mousedown', e=>{ const b=e.target.closest('button[data-fmt]'); if(b){ e.preventDefault(); mdFormat(b.dataset.fmt); } });
   const ed=pane.querySelector('#mdEditor');
   ed.addEventListener('input',()=>{ mdRefreshDecorations(); clearTimeout(_mdTimer); _mdTimer=setTimeout(applyMdToMap, 300); });
   ed.addEventListener('scroll', mdSyncScroll);
@@ -1527,7 +1530,9 @@ function ensureMdPane(){
     if(e.key==='Escape'){ e.preventDefault(); toggleMdMode(false); return; }
     if((e.ctrlKey||e.metaKey) && !e.altKey){ const k=(e.key||'').toLowerCase();
       if(k==='z' && !e.shiftKey){ e.preventDefault(); undo(); return; }
-      if(k==='y' || (k==='z' && e.shiftKey)){ e.preventDefault(); redo(); return; } }
+      if(k==='y' || (k==='z' && e.shiftKey)){ e.preventDefault(); redo(); return; }
+      if(k==='b'){ e.preventDefault(); mdFormat('bold'); return; }
+      if(k==='i'){ e.preventDefault(); mdFormat('italic'); return; } }
     if(e.key==='Tab'){ e.preventDefault(); const a=ed.selectionStart,b=ed.selectionEnd; ed.value=ed.value.slice(0,a)+'  '+ed.value.slice(b); ed.selectionStart=ed.selectionEnd=a+2; mdRefreshDecorations(); clearTimeout(_mdTimer); _mdTimer=setTimeout(applyMdToMap,300); }
   });
   const syncNodeFromCaret=()=>{ if(_mdSelSync) return; const line=ed.value.slice(0,ed.selectionStart).split('\n').length-1; let id=null; for(let l=line;l>=0;l--){ if(_mdLines[l]){ id=_mdLines[l]; break; } } if(id && map.nodes[id]){ _mdSelSync=true; select(id); _mdSelSync=false; } };
@@ -1547,7 +1552,8 @@ function mdHighlightNode(id){   // node -> select + scroll its line in the edito
   let line=-1; for(const k in _mdLines){ if(_mdLines[k]===id){ line=+k; break; } }
   if(line<0) return;
   const arr=ed.value.split('\n'); let start=0; for(let i=0;i<line;i++) start+=arr[i].length+1;
-  try{ ed.setSelectionRange(start, start+(arr[line]||'').length); }catch(e){}
+  try{ ed.setSelectionRange(start, start); }catch(e){}   // caret at line start (no whole-line selection)
+  ed.scrollLeft=0;                                       // don't jump horizontally on open
   const lh=parseFloat(getComputedStyle(ed).lineHeight)||18;
   ed.scrollTop=Math.max(0, line*lh - ed.clientHeight/2);
   mdUpdateActive(); mdSyncScroll();
@@ -1573,9 +1579,86 @@ function _hlLine(raw){
   s=s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, (m,p,u)=>p+'<span class="hl-url">'+u+'</span>');              // bare URLs
   return s;
 }
+function renderMdList(items, itemFn){
+  const root={children:[],depth:-1}; const stack=[root];
+  items.forEach(raw=>{ const ind=(raw.match(/^\s*/)||[''])[0].replace(/\t/g,'  ').length; const depth=Math.floor(ind/2); const ordered=/^\s*\d+\./.test(raw);
+    const node={text:itemFn(raw),children:[],depth,ordered};
+    while(stack.length>1 && stack[stack.length-1].depth>=depth) stack.pop();
+    stack[stack.length-1].children.push(node); stack.push(node); });
+  const emit=n=>{ if(!n.children.length) return ''; const tag=n.children[0].ordered?'ol':'ul';
+    return '<'+tag+'>'+n.children.map(c=>'<li>'+c.text+emit(c)+'</li>').join('')+'</'+tag+'>'; };
+  return emit(root);
+}
+function mdToHtml(md){
+  md=md.replace(/^\uFEFF?\s*<!--\s*mindspark[\s\S]*?-->\s*\n?/i,'');       // drop meta comment
+  md=md.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n?/,'');               // drop frontmatter
+  const L=md.split('\n'); const out=[]; let i=0;
+  const esc=x=>x.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const item=x=>mdInlineToHtml(x.replace(/^\s*([-*+]|\d+\.)\s+/,'').replace(/^\[[ ]\]\s/,'\u2610 ').replace(/^\[[xX]\]\s/,'\u2611 '));
+  const cells=r=>r.replace(/^\s*\|?/,'').replace(/\|?\s*$/,'').split('|').map(c=>c.trim());
+  const tbl=rows=>'<table><thead><tr>'+cells(rows[0]).map(h=>'<th>'+mdInlineToHtml(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.slice(2).map(r=>'<tr>'+cells(r).map(c=>'<td>'+mdInlineToHtml(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+  while(i<L.length){
+    let line=L[i];
+    if(!line.trim()){ i++; continue; }
+    let fm=line.match(/^\s*(```+|~~~+)(.*)$/);
+    if(fm){ const buf=[]; let j=i+1; while(j<L.length && !/^\s*(```+|~~~+)\s*$/.test(L[j])){ buf.push(L[j]); j++; } out.push('<pre class="mp-code"><code>'+esc(buf.join('\n'))+'</code></pre>'); i=j+1; continue; }
+    let h=line.match(/^(#{1,6})\s+(.*)$/);
+    if(h){ out.push('<h'+h[1].length+'>'+mdInlineToHtml(h[2])+'</h'+h[1].length+'>'); i++; continue; }
+    if(/^\s*([-*_])(?:[ \t]*\1){2,}[ \t]*$/.test(line)){ out.push('<hr>'); i++; continue; }
+    if(/^\s*>/.test(line)){ const buf=[]; while(i<L.length && /^\s*>/.test(L[i])){ buf.push(L[i].replace(/^\s*>\s?/,'')); i++; } out.push('<blockquote>'+mdInlineToHtml(buf.join('<br>'))+'</blockquote>'); continue; }
+    if(line.includes('|') && i+1<L.length && /-/.test(L[i+1]) && /^[\s|:\-]+$/.test(L[i+1])){ const rows=[]; while(i<L.length && L[i].includes('|') && L[i].trim()){ rows.push(L[i]); i++; } out.push(tbl(rows)); continue; }
+    if(/^\s*<(table|div|details|figure|section|img|hr|blockquote|p|h[1-6]|ul|ol)\b/i.test(line)){ const tm=line.match(/^\s*<([a-z0-9]+)/i), tag=tm?tm[1].toLowerCase():''; const buf=[line];
+      if(tag && !new RegExp('</'+tag+'>','i').test(line) && !/\/>\s*$/.test(line)){ let j=i+1; while(j<L.length && !new RegExp('</'+tag+'>','i').test(L[j])){ buf.push(L[j]); j++; } if(j<L.length){ buf.push(L[j]); i=j+1; } else i=j; } else i++;
+      out.push(sanitizeNotes(buf.join('\n'))); continue; }
+    let im=line.match(/^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/);
+    if(im){ out.push('<img alt="'+esc(im[1])+'" src="'+esc(im[2])+'">'); i++; continue; }
+    if(/^\s*([-*+]|\d+\.)\s+/.test(line)){ const items=[]; while(i<L.length && (/^\s*([-*+]|\d+\.)\s+/.test(L[i]) || (L[i].trim() && /^\s{2,}\S/.test(L[i])))){ items.push(L[i]); i++; } out.push(renderMdList(items,item)); continue; }
+    const buf=[line]; i++; while(i<L.length && L[i].trim() && !/^\s*(#{1,6}\s|[-*+]\s|\d+\.\s|>|```|~~~|\||<)/.test(L[i])){ buf.push(L[i]); i++; }
+    out.push('<p>'+mdInlineToHtml(buf.join(' '))+'</p>');
+  }
+  // final safety: strip event handlers / javascript: URLs
+  return out.join('\n').replace(/\son\w+="[^"]*"/gi,'').replace(/javascript:/gi,'');
+}
+function mdAfterEdit(){ mdRefreshDecorations(); clearTimeout(_mdTimer); _mdTimer=setTimeout(applyMdToMap,300); }
+function mdWrapSel(before, after){ const ed=document.getElementById('mdEditor'); if(!ed) return; const s=ed.selectionStart,e=ed.selectionEnd,sel=ed.value.slice(s,e);
+  ed.value=ed.value.slice(0,s)+before+sel+after+ed.value.slice(e);
+  if(s===e){ ed.selectionStart=ed.selectionEnd=s+before.length; } else { ed.selectionStart=s+before.length; ed.selectionEnd=e+before.length; }
+  ed.focus(); mdAfterEdit(); }
+function mdLinePrefix(pfx){ const ed=document.getElementById('mdEditor'); if(!ed) return; const s=ed.selectionStart,e=ed.selectionEnd; const ls=ed.value.lastIndexOf('\n',s-1)+1;
+  const block=ed.value.slice(ls,Math.max(e,ls)); const out=block.split('\n').map(l=>pfx+l).join('\n');
+  ed.value=ed.value.slice(0,ls)+out+ed.value.slice(Math.max(e,ls)); ed.selectionStart=ls; ed.selectionEnd=ls+out.length; ed.focus(); mdAfterEdit(); }
+function mdLineToggle(pfx){ const ed=document.getElementById('mdEditor'); if(!ed) return; const s=ed.selectionStart; const ls=ed.value.lastIndexOf('\n',s-1)+1; let le=ed.value.indexOf('\n',ls); if(le<0) le=ed.value.length;
+  let line=ed.value.slice(ls,le).replace(/^#{1,6}\s+/,''); const nl=pfx+line; ed.value=ed.value.slice(0,ls)+nl+ed.value.slice(le); ed.selectionStart=ed.selectionEnd=ls+nl.length; ed.focus(); mdAfterEdit(); }
+function mdInsertText(text, caret){ const ed=document.getElementById('mdEditor'); if(!ed) return; const s=ed.selectionStart; ed.value=ed.value.slice(0,s)+text+ed.value.slice(ed.selectionEnd); const pos=s+(caret!=null?caret:text.length); ed.selectionStart=ed.selectionEnd=pos; ed.focus(); mdAfterEdit(); }
+function mdFormat(a){ const ed=document.getElementById('mdEditor'); if(!ed||ed.readOnly) return;
+  switch(a){
+    case 'bold': mdWrapSel('**','**'); break;
+    case 'italic': mdWrapSel('*','*'); break;
+    case 'strike': mdWrapSel('~~','~~'); break;
+    case 'code': mdWrapSel('`','`'); break;
+    case 'h1': mdLineToggle('# '); break;
+    case 'h2': mdLineToggle('## '); break;
+    case 'h3': mdLineToggle('### '); break;
+    case 'quote': mdLinePrefix('> '); break;
+    case 'ul': mdLinePrefix('- '); break;
+    case 'ol': mdLinePrefix('1. '); break;
+    case 'hr': mdInsertText('\n\n---\n\n'); break;
+    case 'link': mdWrapSel('[','](url)'); break;
+    case 'image': mdInsertText('![alt](url)', 2); break;
+    case 'codeblock': mdInsertText('\n```\n\n```\n', 5); break;
+    case 'table': mdInsertText('\n| Column A | Column B |\n| --- | --- |\n| Cell 1 | Cell 2 |\n'); break;
+  }
+}
+function mdTogglePreview(){
+  mdPreview=!mdPreview;
+  const pane=document.getElementById('mdPane'); if(!pane) return;
+  pane.classList.toggle('md-preview', mdPreview);
+  const btn=pane.querySelector('.md-prev-btn'); if(btn){ btn.classList.toggle('on', mdPreview); btn.textContent=mdPreview?'Edit':'Preview'; }
+  if(mdPreview){ const ed=document.getElementById('mdEditor'), prev=pane.querySelector('.md-prev'); if(ed&&prev) prev.innerHTML=mdToHtml(ed.value); }
+}
 function mdHighlight(text){
   const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const lines=text.split('\n'); let inFence=false, inComment=false, out='';
+  const lines=text.split('\n'); let inFence=false, inComment=false; const parts=[];
   for(let i=0;i<lines.length;i++){
     const raw=lines[i]; let html;
     if(inComment){ html='<span class="hl-comment">'+esc(raw)+'</span>'; if(/--&gt;|-->/.test(raw)) inComment=false; }
@@ -1583,19 +1666,24 @@ function mdHighlight(text){
     else if(inFence){ html='<span class="hl-code">'+esc(raw)+'</span>'; if(/^\s*(```+|~~~+)\s*$/.test(raw)) inFence=false; }
     else if(/^\s*(```+|~~~+)/.test(raw)){ inFence=true; html='<span class="hl-fence">'+esc(raw)+'</span>'; }
     else html=_hlLine(raw);
-    out+='<div class="hl-line" data-l="'+i+'">'+(html||'&nbsp;')+'</div>';
+    parts.push(html||'');
   }
-  return out;
+  return parts.join('\n');
 }
-function mdSyncScroll(){ const ed=document.getElementById('mdEditor'); if(!ed) return; const hl=document.querySelector('#mdPane .md-hl'), gut=document.querySelector('#mdPane .md-gutter'); if(hl){ hl.scrollTop=ed.scrollTop; hl.scrollLeft=ed.scrollLeft; } if(gut){ gut.scrollTop=ed.scrollTop; } }
+function mdSyncScroll(){ const ed=document.getElementById('mdEditor'); if(!ed) return; const hl=document.querySelector('#mdPane .md-hl'), gut=document.querySelector('#mdPane .md-gutter'); if(hl){ hl.scrollTop=ed.scrollTop; hl.scrollLeft=ed.scrollLeft; } if(gut){ gut.scrollTop=ed.scrollTop; } mdPlaceActiveBar(); }
 function mdUpdateActive(){
   const ed=document.getElementById('mdEditor'); if(!ed) return;
   const before=ed.value.slice(0, ed.selectionStart);
   const line=before.split('\n').length-1, col=before.length-(before.lastIndexOf('\n')+1);
-  document.querySelectorAll('#mdPane .active').forEach(e=>e.classList.remove('active'));
-  const h=document.querySelector('#mdPane .md-hl .hl-line[data-l="'+line+'"]'); if(h) h.classList.add('active');
+  _mdActiveLine=line;
+  document.querySelectorAll('#mdPane .md-gutter .gl.active').forEach(e=>e.classList.remove('active'));
   const g=document.querySelector('#mdPane .md-gutter .gl[data-l="'+line+'"]'); if(g) g.classList.add('active');
   const pos=document.querySelector('#mdPane .md-pos'); if(pos) pos.textContent='Ln '+(line+1)+', Col '+(col+1);
+  mdPlaceActiveBar();
+}
+function mdPlaceActiveBar(){   // position the active-line highlight to match the caret exactly (12=pad-top, 20=line-height)
+  const ed=document.getElementById('mdEditor'), bar=document.querySelector('#mdPane .md-active'); if(!ed||!bar) return;
+  bar.style.transform='translateY('+(12 + _mdActiveLine*20 - ed.scrollTop)+'px)';
 }
 function mdRefreshDecorations(){
   const ed=document.getElementById('mdEditor'); if(!ed) return;
@@ -2274,6 +2362,7 @@ function startBlockEdit(id, el){
 }
 function startEdit(id){
   if(READONLY) return;
+  if(map.nodes[id] && map.nodes[id].hr) return;   // dividers aren't editable
   const el=document.querySelector(`.node[data-id="${id}"]`); if(!el) return;
   if(map.nodes[id] && map.nodes[id].html){ startBlockEdit(id, el); return; }   // edit code/table in place
   const textEl=el.querySelector('.node-text')||el;
@@ -5276,7 +5365,7 @@ function importFile(){
 // Convert basic inline markdown (**bold**, *italic*, ~~strike~~) to our HTML.
 function mdInlineToHtml(t){
   const hasHtml = INLINE_HTML_RE.test(t);    // raw inline HTML (<b>, <sub>, <a>, ...) present?
-  const hasMd = /\*\*[^*]+\*\*|(?:^|[^*])\*[^*]+\*|~~[^~]+~~|`[^`]+`|(?:^|[^!])\[[^\]]+\]\([^)]+\)/.test(t);
+  const hasMd = /!\[[^\]]*\]\([^)]+\)|\*\*[^*]+\*\*|(?:^|[^*])\*[^*]+\*|~~[^~]+~~|`[^`]+`|(?:^|[^!])\[[^\]]+\]\([^)]+\)/.test(t);
   if(!hasHtml && !hasMd) return t;            // plain text stays plain
   // keep any raw formatting HTML (sanitized) rather than escaping it to literal text
   let s = hasHtml ? sanitizeInlineHTML(t) : escapeHtml(t);
@@ -5284,6 +5373,7 @@ function mdInlineToHtml(t){
   s = s.replace(/(^|[^*])\*([^*]+)\*/g, '$1<i>$2</i>');
   s = s.replace(/~~([^~]+)~~/g, '<s>$1</s>');
   s = s.replace(/`([^`]+)`/g, '$1');
+  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)[^)]*\)/g, (m,alt,src)=>'<img alt="'+alt.replace(/"/g,'&quot;')+'" src="'+src.replace(/"/g,'&quot;')+'" loading="lazy">');   // inline image
   s = s.replace(/(^|[^!])\[([^\]]+)\]\(([^)]+)\)/g, '$1<a href="$3" target="_blank" rel="noopener noreferrer">$2</a>');
   return s;
 }
@@ -5418,7 +5508,7 @@ function parseMarkdownOutline(text, filename){
       continue;
     }
     // Horizontal rule (---, ***, ___) -> separator, not a node
-    if(/^\s*([-*_])(?:[ \t]*\1){2,}[ \t]*$/.test(line)) continue;
+    if(/^\s*([-*_])(?:[ \t]*\1){2,}[ \t]*$/.test(line)){ add('', base()+1, null, {hr:true}); continue; }   // horizontal rule -> divider node
     // A bare block wrapper on its own line (<p ...>, </p>, <div>, <center>, <figure>...) -> unwrap (no node)
     if(/^<\/?(?:p|div|center|figure|picture|section|article)\b[^>]*>$/i.test(line.trim())) continue;
     const h = line.match(/^(#{1,6})\s+(.*)$/);
@@ -5443,13 +5533,13 @@ function parseMarkdownOutline(text, filename){
     // A bold-led paragraph immediately followed by a list acts as a sub-heading:
     // it becomes the parent of that list (e.g. "**Editing & canvas**" over its bullets).
     if(nextIsBullet(i)){   // a lead-in line directly above a list -> parent of that list
-      add(line.trim(), lastHeadingDepth + 1);
+      add(line.trim(), lastHeadingDepth + 1, null, {para:true});
       subDepth = lastHeadingDepth + 1;
       continue;
     }
     // Plain paragraph: hang under the current section (unwrap a surrounding block tag)
     const para = stripWrap(line.trim());
-    if(para) add(para, base() + 1);
+    if(para) add(para, base() + 1, null, {para:true});   // plain line -> paragraph child (no bullet marker)
   }
   // The filename is the map TITLE, not a node. When the whole document hangs off a
   // single top-level node (the common case: one `# Heading`), promote it to the root
@@ -5628,6 +5718,7 @@ function buildMarkdown(startId, opts){
     if(withMeta){ const mm=_nodeMeta(n); if(mm) nmeta[path]=mm; }
     if(lineMap) lm[lines.length]=id;
     const pad='  '.repeat(bd);
+    if(n.hr){ lines.push(pad+'---'); return; }   // divider round-trips as ---
     if(n.html){   // block node (table / code / raw HTML) at the current bullet indent
       if(n.raw){ n.html.split('\n').forEach(l=>lines.push(l.trim()?pad+l:l)); return; }
       const lang=(rich && n.lang) ? n.lang : '';
@@ -5650,9 +5741,11 @@ function buildMarkdown(startId, opts){
       childrenOf(id).forEach((c,i)=>walk(c, 0, path+'.'+i));       // heading's children start a fresh bullet indent
     } else {
       const box = (rich && n.task) ? (n.task==='done' ? '[x] ' : '[ ] ') : '';
-      lines.push(`${pad}- ${box}${first}`);
-      if(rich){ emitNotes(n, `${pad}  `); } else { const nt=notesText(n); if(nt) nt.split('\n').forEach(l=>lines.push(`${pad}  > ${l}`)); }
-      if(rich && n.image && /^https?:\/\//i.test(n.image)) lines.push(`${pad}  ![image](${n.image})`);
+      const isPara = rich && n.para && !n.task;                 // keep plain paragraphs plain (no bullet)
+      lines.push(isPara ? `${pad}${first}` : `${pad}- ${box}${first}`);
+      const notePad = isPara ? pad : `${pad}  `;
+      if(rich){ emitNotes(n, notePad); } else { const nt=notesText(n); if(nt) nt.split('\n').forEach(l=>lines.push(`${notePad}> ${l}`)); }
+      if(rich && n.image && /^https?:\/\//i.test(n.image)) lines.push(`${notePad}![image](${n.image})`);
       childrenOf(id).forEach((c,i)=>walk(c, bd+1, path+'.'+i));
     }
   };
