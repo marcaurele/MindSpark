@@ -1538,7 +1538,7 @@ function ensureMdPane(){
     if(e.key==='Tab'){ e.preventDefault(); const a=ed.selectionStart,b=ed.selectionEnd; ed.value=ed.value.slice(0,a)+'  '+ed.value.slice(b); ed.selectionStart=ed.selectionEnd=a+2; mdRefreshDecorations(); clearTimeout(_mdTimer); _mdTimer=setTimeout(applyMdToMap,300); }
   });
   const syncNodeFromCaret=()=>{ if(_mdSelSync) return; const line=ed.value.slice(0,ed.selectionStart).split('\n').length-1; let id=null; for(let l=line;l>=0;l--){ if(_mdLines[l]){ id=_mdLines[l]; break; } } if(id && map.nodes[id]){ _mdSelSync=true; select(id); _mdSelSync=false; } };
-  ed.addEventListener('click', ()=>{ mdUpdateActive(); syncNodeFromCaret(); });
+  ed.addEventListener('click', ()=>{ mdUpdateActive(); syncNodeFromCaret(); requestAnimationFrame(mdUpdateActive); });
   document.addEventListener('selectionchange', ()=>{ if(mdMode && document.activeElement===document.getElementById('mdEditor')) mdUpdateActive(); });
   ed.addEventListener('keyup', e=>{ mdUpdateActive(); if(e.key && e.key.indexOf('Arrow')===0) syncNodeFromCaret(); });
   const rz=pane.querySelector('.md-resize');
@@ -1683,6 +1683,7 @@ function mdUpdateActive(){
   const g=document.querySelector('#mdPane .md-gutter .gl[data-l="'+line+'"]'); if(g) g.classList.add('active');
   const pos=document.querySelector('#mdPane .md-pos'); if(pos) pos.textContent='Ln '+(line+1)+', Col '+(col+1);
   mdPlaceActiveBar();
+  requestAnimationFrame(mdPlaceActiveBar);   // re-place after the browser settles any click auto-scroll
 }
 function mdPlaceActiveBar(){   // position the active-line highlight to match the caret exactly (12=pad-top, 20=line-height)
   const ed=document.getElementById('mdEditor'), bar=document.querySelector('#mdPane .md-active'); if(!ed||!bar) return;
