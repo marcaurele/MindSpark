@@ -1510,7 +1510,7 @@ function relayoutDuringEdit(id){
    NODE OPERATIONS
    ============================================================ */
 /* ---- Markdown mode: edit the map as text with a live two-way preview (v1) ---- */
-let mdMode=false, _mdSyncing=false, _mdTimer=0, _mdLines=[], _mdSelSync=false, _mdActiveLine=0, mdPreview=false;
+let mdMode=false, _mdSyncing=false, _mdTimer=0, _mdLines=[], _mdSelSync=false, _mdActiveLine=0, mdPreview=false, _mdLH=20, _mdPT=12;
 function ensureMdPane(){
   if(document.getElementById('mdPane')) return;
   const app=document.querySelector('.app'), stage=document.querySelector('.stage'); if(!app||!stage) return;
@@ -1520,6 +1520,8 @@ function ensureMdPane(){
     +'<textarea id="mdEditor" spellcheck="false" wrap="off" placeholder="# Central idea&#10;- a branch&#10;  - a leaf"></textarea><div class="md-prev" aria-hidden="true"></div></div></div>'
     +'<div class="md-resize" title="Drag to resize"></div>';
   app.insertBefore(pane, stage);
+  document.body.classList.add('md-ready');
+  window.addEventListener('resize', ()=>{ if(mdMode) mdCalibrate(); });
   pane.querySelector('.md-close').addEventListener('click',()=>toggleMdMode(false));
   pane.querySelector('.md-prev-btn').addEventListener('click', mdTogglePreview);
   pane.querySelector('.md-toolbar').addEventListener('mousedown', e=>{ const b=e.target.closest('button[data-fmt]'); if(b){ e.preventDefault(); mdFormat(b.dataset.fmt); } });
@@ -1537,12 +1539,13 @@ function ensureMdPane(){
   });
   const syncNodeFromCaret=()=>{ if(_mdSelSync) return; const line=ed.value.slice(0,ed.selectionStart).split('\n').length-1; let id=null; for(let l=line;l>=0;l--){ if(_mdLines[l]){ id=_mdLines[l]; break; } } if(id && map.nodes[id]){ _mdSelSync=true; select(id); _mdSelSync=false; } };
   ed.addEventListener('click', ()=>{ mdUpdateActive(); syncNodeFromCaret(); });
+  document.addEventListener('selectionchange', ()=>{ if(mdMode && document.activeElement===document.getElementById('mdEditor')) mdUpdateActive(); });
   ed.addEventListener('keyup', e=>{ mdUpdateActive(); if(e.key && e.key.indexOf('Arrow')===0) syncNodeFromCaret(); });
   const rz=pane.querySelector('.md-resize');
-  rz.addEventListener('mousedown',e=>{
+  rz.addEventListener('mousedown',e=>{ document.body.classList.add('md-resizing');
     e.preventDefault(); const x0=e.clientX, w0=pane.getBoundingClientRect().width;
     const mv=ev=>{ const w=Math.max(240, Math.min(window.innerWidth*0.72, w0+(ev.clientX-x0))); app.style.setProperty('--md-w', w+'px'); };
-    const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); try{fit();}catch(_){} };
+    const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); document.body.classList.remove('md-resizing'); try{fit();}catch(_){} };
     window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
   });
 }
@@ -1554,8 +1557,7 @@ function mdHighlightNode(id){   // node -> select + scroll its line in the edito
   const arr=ed.value.split('\n'); let start=0; for(let i=0;i<line;i++) start+=arr[i].length+1;
   try{ ed.setSelectionRange(start, start); }catch(e){}   // caret at line start (no whole-line selection)
   ed.scrollLeft=0;                                       // don't jump horizontally on open
-  const lh=parseFloat(getComputedStyle(ed).lineHeight)||18;
-  ed.scrollTop=Math.max(0, line*lh - ed.clientHeight/2);
+  ed.scrollTop=Math.max(0, line*_mdLH - ed.clientHeight/2);
   mdUpdateActive(); mdSyncScroll();
 }
 // ---- VS Code-style decorations: syntax highlight + line numbers + active line ----
@@ -1608,8 +1610,9 @@ function mdToHtml(md){
     if(/^\s*>/.test(line)){ const buf=[]; while(i<L.length && /^\s*>/.test(L[i])){ buf.push(L[i].replace(/^\s*>\s?/,'')); i++; } out.push('<blockquote>'+mdInlineToHtml(buf.join('<br>'))+'</blockquote>'); continue; }
     if(line.includes('|') && i+1<L.length && /-/.test(L[i+1]) && /^[\s|:\-]+$/.test(L[i+1])){ const rows=[]; while(i<L.length && L[i].includes('|') && L[i].trim()){ rows.push(L[i]); i++; } out.push(tbl(rows)); continue; }
     if(/^\s*<(table|div|details|figure|section|img|hr|blockquote|p|h[1-6]|ul|ol)\b/i.test(line)){ const tm=line.match(/^\s*<([a-z0-9]+)/i), tag=tm?tm[1].toLowerCase():''; const buf=[line];
-      if(tag && !new RegExp('</'+tag+'>','i').test(line) && !/\/>\s*$/.test(line)){ let j=i+1; while(j<L.length && !new RegExp('</'+tag+'>','i').test(L[j])){ buf.push(L[j]); j++; } if(j<L.length){ buf.push(L[j]); i=j+1; } else i=j; } else i++;
-      out.push(sanitizeNotes(buf.join('\n'))); continue; }
+      const VOID=/^(img|hr|br|input|source|col|area|embed|track|wbr|link|meta)$/;
+      if(tag && !VOID.test(tag) && !new RegExp('</'+tag+'>','i').test(line) && !/\/>\s*$/.test(line)){ let j=i+1, found=false; while(j<L.length){ buf.push(L[j]); if(new RegExp('</'+tag+'>','i').test(L[j])){ found=true; j++; break; } j++; } if(found){ i=j; } else { buf.length=1; i++; } } else i++;
+      out.push(buf.join('\n').replace(/<\/?(script|style|iframe|object|embed|link|meta)\b[^>]*>/gi,'').replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,'').replace(/\b(href|src)\s*=\s*("\s*javascript:[^"]*"|'\s*javascript:[^']*')/gi,'$1="#"')); continue; }
     let im=line.match(/^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/);
     if(im){ out.push('<img alt="'+esc(im[1])+'" src="'+esc(im[2])+'">'); i++; continue; }
     if(/^\s*([-*+]|\d+\.)\s+/.test(line)){ const items=[]; while(i<L.length && (/^\s*([-*+]|\d+\.)\s+/.test(L[i]) || (L[i].trim() && /^\s{2,}\S/.test(L[i])))){ items.push(L[i]); i++; } out.push(renderMdList(items,item)); continue; }
@@ -1683,7 +1686,7 @@ function mdUpdateActive(){
 }
 function mdPlaceActiveBar(){   // position the active-line highlight to match the caret exactly (12=pad-top, 20=line-height)
   const ed=document.getElementById('mdEditor'), bar=document.querySelector('#mdPane .md-active'); if(!ed||!bar) return;
-  bar.style.transform='translateY('+(12 + _mdActiveLine*20 - ed.scrollTop)+'px)';
+  bar.style.transform='translateY('+(_mdPT + _mdActiveLine*_mdLH - ed.scrollTop)+'px)';
 }
 function mdRefreshDecorations(){
   const ed=document.getElementById('mdEditor'); if(!ed) return;
@@ -1692,7 +1695,21 @@ function mdRefreshDecorations(){
   hl.innerHTML=mdHighlight(ed.value);
   let g=''; for(let i=0;i<n;i++) g+='<div class="gl" data-l="'+i+'">'+(i+1)+'</div>';
   gut.innerHTML=g;
+  mdCalibrate();
   mdUpdateActive(); mdSyncScroll();
+}
+function mdCalibrate(){   // derive the textarea's real line-height + padding and share it with the overlay/gutter/bar
+  const ed=document.getElementById('mdEditor'); if(!ed) return;
+  const cs=getComputedStyle(ed);
+  _mdPT=parseFloat(cs.paddingTop)||12;
+  const pb=parseFloat(cs.paddingBottom)||12, n=(ed.value.match(/\n/g)||[]).length+1;
+  let lh=parseFloat(cs.lineHeight);
+  if(ed.scrollHeight > ed.clientHeight + 4 && n>2){ lh=(ed.scrollHeight-_mdPT-pb)/n; }   // trust the measurement only when content overflows
+  if(!(lh>6 && lh<80)) lh=20;
+  _mdLH=lh;
+  const hl=document.querySelector('#mdPane .md-hl'), gut=document.querySelector('#mdPane .md-gutter'), bar=document.querySelector('#mdPane .md-active');
+  if(hl) hl.style.lineHeight=lh+'px'; if(gut) gut.style.lineHeight=lh+'px'; if(bar) bar.style.height=lh+'px';
+  mdPlaceActiveBar();
 }
 function applyMdToMap(){
   const ed=document.getElementById('mdEditor'); if(!ed||!mdMode) return;
@@ -1708,11 +1725,13 @@ function applyMdToMap(){
 }
 function toggleMdMode(on){
   const want=(on===undefined)?!mdMode:!!on; if(want===mdMode) return;
-  ensureMdPane(); mdMode=want; document.body.classList.toggle('md-mode', mdMode);
+  ensureMdPane();
+  const _pane=document.getElementById('mdPane'); if(_pane) void _pane.offsetWidth;   // reflow so the first open animates from width 0
+  mdMode=want; document.body.classList.toggle('md-mode', mdMode);
   const btn=document.getElementById('mdToggle'); if(btn) btn.classList.toggle('on', mdMode);
   if(mdMode){ syncTextFromMap(); const ed=document.getElementById('mdEditor'); if(ed){ ed.readOnly=!!(typeof READONLY!=='undefined' && READONLY); ed.focus(); } if(sel) mdHighlightNode(sel); }
   else if(!(typeof READONLY!=='undefined' && READONLY)) pushHistory();   // one undo entry for the md session
-  requestAnimationFrame(()=>{ try{ fit(); }catch(e){} });
+  setTimeout(()=>{ try{ fit(); }catch(e){} try{ if(mdMode) mdCalibrate(); }catch(e){} }, 260);   // re-fit + re-align once the pane finished sliding
 }
 function pushHistory(){
   history=history.slice(0,hpos+1);

@@ -115,9 +115,11 @@
   /* ===== App shell ===== */
   .app{display:grid;grid-template-columns:auto 1fr;grid-template-rows:minmax(0,1fr);height:calc(100vh / var(--ui-zoom, 1));height:calc(100dvh / var(--ui-zoom, 1))}
   /* Markdown mode: split pane (editor | live map) */
-  body.md-mode .app{grid-template-columns:auto var(--md-w,40%) minmax(0,1fr)}
-  #mdPane{display:none;position:relative;flex-direction:column;min-width:0;min-height:0;background:var(--paper);border-right:1px solid var(--line)}
-  body.md-mode #mdPane{display:flex}
+  body.md-ready .app{grid-template-columns:auto auto minmax(0,1fr)}   /* md pane takes the middle track once it exists */
+  #mdPane{width:0;overflow:hidden;position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--paper);border-right:1px solid var(--line);transition:width .22s cubic-bezier(.4,0,.2,1)}
+  body.md-mode #mdPane{width:var(--md-w,40vw)}
+  body.md-resizing #mdPane{transition:none}                            /* no easing while dragging the divider */
+  @media (prefers-reduced-motion: reduce){ #mdPane{transition:none} }
   #mdPane .md-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600;color:var(--ink-soft)}
   #mdPane .md-pos{margin-left:auto;font-size:11px;font-weight:400;color:var(--ink-soft);font-variant-numeric:tabular-nums}
   /* markdown editor formatting toolbar */
@@ -181,7 +183,7 @@
   #mdPane .hl-hr{color:var(--ink-soft)}
   #mdPane .hl-tag{color:#22a06b}
   #mdPane .hl-url{color:#3b82f6;text-decoration:underline}
-  #mdPane .md-resize{position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:6}
+  #mdPane .md-resize{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;z-index:6}
   .tb#mdToggle.on{background:var(--accent);color:#fff}
 
   /* ===== Sidebar ===== */
@@ -714,8 +716,9 @@
   @media (max-width: 720px){
     /* Single-column grid: stage takes the whole screen; sidebar overlays it */
     .app{grid-template-columns:1fr}
-    body.md-mode .app{grid-template-columns:1fr}
-    body.md-mode .stage{display:none}
+    body.md-ready .app{grid-template-columns:1fr}                     /* single column; md pane overlays */
+    #mdPane{position:fixed;top:0;left:0;bottom:0;width:min(94vw,560px);z-index:200;box-shadow:var(--shadow-lg);transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+    body.md-mode #mdPane{width:min(94vw,560px);transform:translateX(0)}
     #mdPane .md-resize{display:none}
     .side{
       position:fixed; top:0; left:0; bottom:0; width:min(280px, 86vw);
