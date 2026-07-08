@@ -438,10 +438,10 @@ function applyView(){
   const bar=$('#nodebar');
   if(bar){
     if(sel && map && map.nodes[sel]){
-      const n=map.nodes[sel];
-      bar.style.top=(n.y+(n.h||40)+12/view.k)+'px';
+      positionAndClampNodeBar(bar, map.nodes[sel]);
+    }else{
+      bar.style.transform=`translateX(-50%) scale(${1/view.k})`;
     }
-    bar.style.transform=`translateX(-50%) scale(${1/view.k})`;
   }
   updateMinimapViewport();
 }
@@ -1511,12 +1511,19 @@ function relayoutDuringEdit(id){
    ============================================================ */
 /* ---- Markdown mode: edit the map as text with a live two-way preview (v1) ---- */
 let mdMode=false, _mdSyncing=false, _mdTimer=0, _mdLines=[], _mdSelSync=false, _mdActiveLine=0, mdPreview=false, _mdLH=20, _mdPT=12;
+// ---- Fold-aware text model ----
+// `_mdFullText` is the ALWAYS-COMPLETE markdown (source of truth for parsing back into
+// the map). `ed.value` only ever holds the *visible* subset of its lines — whatever's
+// left after removing any folded ranges — and `_mdView` is the mapping between the two.
+// Folds are stored as a Set of _mdFullText line indices (the anchor/parent line of each
+// folded range); indices are kept in sync across edits in mdCommitVisibleEdit().
+let _mdFullText='', _mdFolds=new Set(), _mdView=null, _mdPrevVisible='';
 function ensureMdPane(){
   if(document.getElementById('mdPane')) return;
   const app=document.querySelector('.app'), stage=document.querySelector('.stage'); if(!app||!stage) return;
   const pane=document.createElement('div'); pane.id='mdPane';
   pane.innerHTML='<div class="md-head"><span class="md-ttl">Markdown</span><span class="md-pos"></span><button class="md-prev-btn" title="Toggle rendered preview">Preview</button><button class="md-close" title="Exit Markdown mode (Esc)">\u2715</button></div>'
-    +'<div class="md-toolbar"><button data-fmt="bold" title="Bold"><b>B</b></button><button data-fmt="italic" title="Italic"><i>I</i></button><button data-fmt="strike" title="Strikethrough"><s>S</s></button><button data-fmt="code" title="Inline code">&lt;/&gt;</button><span class="md-sep"></span><button data-fmt="h1" title="Heading 1">H1</button><button data-fmt="h2" title="Heading 2">H2</button><button data-fmt="h3" title="Heading 3">H3</button><span class="md-sep"></span><button data-fmt="quote" title="Blockquote">\u275D</button><button data-fmt="ul" title="Bullet list">\u2022</button><button data-fmt="ol" title="Numbered list">1.</button><button data-fmt="hr" title="Divider">\u2014</button><span class="md-sep"></span><button data-fmt="link" title="Link">\uD83D\uDD17</button><button data-fmt="image" title="Image">\uD83D\uDDBC</button><button data-fmt="codeblock" title="Code block">\u2317</button><button data-fmt="table" title="Table">\u25A6</button></div><div class="md-body"><div class="md-gutter" aria-hidden="true"></div><div class="md-code"><div class="md-active" aria-hidden="true"></div><pre class="md-hl" aria-hidden="true"></pre>'
+    +'<div class="md-toolbar"><button data-fmt="bold" title="Bold"><b>B</b></button><button data-fmt="italic" title="Italic"><i>I</i></button><button data-fmt="strike" title="Strikethrough"><s>S</s></button><button data-fmt="code" title="Inline code">&lt;/&gt;</button><span class="md-sep"></span><button data-fmt="h1" title="Heading 1">H1</button><button data-fmt="h2" title="Heading 2">H2</button><button data-fmt="h3" title="Heading 3">H3</button><span class="md-sep"></span><button data-fmt="quote" title="Blockquote">\u275D</button><button data-fmt="ul" title="Bullet list">\u2022</button><button data-fmt="ol" title="Numbered list">1.</button><button data-fmt="hr" title="Divider">\u2014</button><span class="md-sep"></span><button data-fmt="link" title="Link">\uD83D\uDD17</button><button data-fmt="image" title="Image">\uD83D\uDDBC</button><button data-fmt="codeblock" title="Code block">\u2317</button><button data-fmt="table" title="Table">\u25A6</button></div><div class="md-body"><div class="md-gutter" aria-hidden="true"></div><div class="md-code"><pre class="md-hl" aria-hidden="true"></pre>'
     +'<textarea id="mdEditor" spellcheck="false" wrap="off" placeholder="# Central idea&#10;- a branch&#10;  - a leaf"></textarea><div class="md-prev" aria-hidden="true"></div></div></div>'
     +'<div class="md-resize" title="Drag to resize"></div>';
   app.insertBefore(pane, stage);
@@ -1526,7 +1533,7 @@ function ensureMdPane(){
   pane.querySelector('.md-prev-btn').addEventListener('click', mdTogglePreview);
   pane.querySelector('.md-toolbar').addEventListener('mousedown', e=>{ const b=e.target.closest('button[data-fmt]'); if(b){ e.preventDefault(); mdFormat(b.dataset.fmt); } });
   const ed=pane.querySelector('#mdEditor');
-  ed.addEventListener('input',()=>{ mdRefreshDecorations(); clearTimeout(_mdTimer); _mdTimer=setTimeout(applyMdToMap, 300); });
+  ed.addEventListener('input', mdAfterEdit);
   ed.addEventListener('scroll', mdSyncScroll);
   ed.addEventListener('keydown',e=>{
     if(e.key==='Escape'){ e.preventDefault(); toggleMdMode(false); return; }
@@ -1535,12 +1542,19 @@ function ensureMdPane(){
       if(k==='y' || (k==='z' && e.shiftKey)){ e.preventDefault(); redo(); return; }
       if(k==='b'){ e.preventDefault(); mdFormat('bold'); return; }
       if(k==='i'){ e.preventDefault(); mdFormat('italic'); return; } }
-    if(e.key==='Tab'){ e.preventDefault(); const a=ed.selectionStart,b=ed.selectionEnd; ed.value=ed.value.slice(0,a)+'  '+ed.value.slice(b); ed.selectionStart=ed.selectionEnd=a+2; mdRefreshDecorations(); clearTimeout(_mdTimer); _mdTimer=setTimeout(applyMdToMap,300); }
+    if(e.key==='Tab'){ e.preventDefault(); const a=ed.selectionStart,b=ed.selectionEnd; ed.value=ed.value.slice(0,a)+'  '+ed.value.slice(b); ed.selectionStart=ed.selectionEnd=a+2; mdAfterEdit(); }
   });
-  const syncNodeFromCaret=()=>{ if(_mdSelSync) return; const line=ed.value.slice(0,ed.selectionStart).split('\n').length-1; let id=null; for(let l=line;l>=0;l--){ if(_mdLines[l]){ id=_mdLines[l]; break; } } if(id && map.nodes[id]){ _mdSelSync=true; select(id); _mdSelSync=false; } };
-  ed.addEventListener('click', ()=>{ mdUpdateActive(); syncNodeFromCaret(); requestAnimationFrame(mdUpdateActive); });
+  const syncNodeFromCaret=()=>{ if(_mdSelSync) return; const vline=ed.value.slice(0,ed.selectionStart).split('\n').length-1; const line=_mdView?_mdView.visLineToFull[vline]:vline; let id=null; for(let l=line;l>=0;l--){ if(_mdLines[l]){ id=_mdLines[l]; break; } } if(id && map.nodes[id]){ _mdSelSync=true; select(id); _mdSelSync=false; } };
+  ed.addEventListener('click', ()=>{ mdUpdateActive(); syncNodeFromCaret(); });
   document.addEventListener('selectionchange', ()=>{ if(mdMode && document.activeElement===document.getElementById('mdEditor')) mdUpdateActive(); });
   ed.addEventListener('keyup', e=>{ mdUpdateActive(); if(e.key && e.key.indexOf('Arrow')===0) syncNodeFromCaret(); });
+  // Fold toggles live in the gutter (one per foldable line) — the only place that can
+  // receive clicks, since the overlay sits *underneath* the invisible-but-interactive
+  // textarea and would never see a pointer event even with pointer-events:auto on a child.
+  pane.querySelector('.md-gutter').addEventListener('mousedown', e=>{
+    const b=e.target.closest('.gl-fold[data-full]'); if(!b) return;
+    e.preventDefault(); mdToggleFold(+b.dataset.full);
+  });
   const rz=pane.querySelector('.md-resize');
   rz.addEventListener('mousedown',e=>{ document.body.classList.add('md-resizing');
     e.preventDefault(); const x0=e.clientX, w0=pane.getBoundingClientRect().width;
@@ -1549,15 +1563,27 @@ function ensureMdPane(){
     window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
   });
 }
-function syncTextFromMap(){ const ed=document.getElementById('mdEditor'); if(!ed) return; _mdSyncing=true; try{ ed.value=buildMarkdown(undefined,{rich:true,meta:true,lineMap:_mdLines}); }catch(e){} _mdSyncing=false; mdRefreshDecorations(); }
+function syncTextFromMap(){
+  const ed=document.getElementById('mdEditor'); if(!ed) return;
+  _mdSyncing=true;
+  try{ _mdFullText=buildMarkdown(undefined,{rich:true,meta:true,lineMap:_mdLines}); }catch(e){ _mdFullText=''; }
+  _mdSyncing=false;
+  _mdFolds=new Set();          // external changes (undo, canvas edits, map switch) start fully expanded
+  const view=mdBuildView(); _mdView=view;
+  const vis=mdVisibleText(view);
+  ed.value=vis; _mdPrevVisible=vis;
+  mdRefreshDecorations();
+}
 function mdHighlightNode(id){   // node -> select + scroll its line in the editor
   const ed=document.getElementById('mdEditor'); if(!ed) return;
   let line=-1; for(const k in _mdLines){ if(_mdLines[k]===id){ line=+k; break; } }
   if(line<0) return;
-  const arr=ed.value.split('\n'); let start=0; for(let i=0;i<line;i++) start+=arr[i].length+1;
+  if(mdUnfoldAncestorsOf(line)) mdRefreshDecorations();   // reveal the line if it was hidden in a fold
+  const vline=(_mdView&&_mdView.fullToVis[line]!=null) ? _mdView.fullToVis[line] : line;
+  const arr=ed.value.split('\n'); let start=0; for(let i=0;i<vline;i++) start+=(arr[i]||'').length+1;
   try{ ed.setSelectionRange(start, start); }catch(e){}   // caret at line start (no whole-line selection)
   ed.scrollLeft=0;                                       // don't jump horizontally on open
-  ed.scrollTop=Math.max(0, line*_mdLH - ed.clientHeight/2);
+  ed.scrollTop=Math.max(0, vline*_mdLH - ed.clientHeight/2);
   mdUpdateActive(); mdSyncScroll();
 }
 // ---- VS Code-style decorations: syntax highlight + line numbers + active line ----
@@ -1657,9 +1683,103 @@ function mdTogglePreview(){
   const pane=document.getElementById('mdPane'); if(!pane) return;
   pane.classList.toggle('md-preview', mdPreview);
   const btn=pane.querySelector('.md-prev-btn'); if(btn){ btn.classList.toggle('on', mdPreview); btn.textContent=mdPreview?'Edit':'Preview'; }
-  if(mdPreview){ const ed=document.getElementById('mdEditor'), prev=pane.querySelector('.md-prev'); if(ed&&prev) prev.innerHTML=mdToHtml(ed.value); }
+  if(mdPreview){ const prev=pane.querySelector('.md-prev'); if(prev) prev.innerHTML=mdToHtml(_mdFullText); }   // full text: preview isn't affected by folds
 }
-function mdHighlight(text){
+// ---- Folding: outline depth per line, independent of the full parser ----
+// Mirrors parseMarkdownOutline()'s nesting rules (heading level; bullet indent relative
+// to the nearest heading/lead-in paragraph; fenced code + GFM tables as one atomic unit)
+// closely enough that a fold's boundary always matches a node's subtree, without needing
+// a full parse on every keystroke. Lines that aren't a heading/bullet/block-owner (blank
+// lines, blockquote/notes lines, plain paragraph continuations) get `null`: they're not
+// fold anchors themselves, they just fold away together with whatever anchor precedes them.
+function mdLineDepths(text){
+  const L=text.split('\n');
+  const depth=new Array(L.length).fill(null);
+  let lastHeadingDepth=0, subDepth=null;
+  const base=()=>(subDepth!=null?subDepth:lastHeadingDepth);
+  const nextIsBullet=from=>{ for(let k=from+1;k<L.length;k++){ if(!L[k].trim()) continue; return /^\s*(?:[-*+]|\d+\.)\s+/.test(L[k]); } return false; };
+  for(let i=0;i<L.length;i++){
+    const line=L[i];
+    const fence=line.match(/^(\s*)(`{3,}|~{3,})/);
+    if(fence){
+      const ind=fence[1], fch=fence[2][0], flen=fence[2].length;
+      depth[i]=base()+1+Math.floor(ind.length/2);
+      let j=i+1; while(j<L.length){ const cl=L[j].match(/^\s*(`{3,}|~{3,})\s*$/); if(cl && cl[1][0]===fch && cl[1].length>=flen) break; j++; }
+      i=j; continue;
+    }
+    if(line.includes('|') && line.trim() && i+1<L.length && L[i+1].includes('|') && /-/.test(L[i+1]) && /^[\s|:-]+$/.test(L[i+1])){
+      const ind=(line.match(/^\s*/)||[''])[0].length;
+      depth[i]=base()+1+Math.floor(ind/2);
+      let j=i+2; while(j<L.length && L[j].includes('|') && L[j].trim()) j++;
+      i=j-1; continue;
+    }
+    if(!line.trim()) continue;
+    const h=line.match(/^(#{1,6})\s+/);
+    if(h){ lastHeadingDepth=h[1].length; subDepth=null; depth[i]=lastHeadingDepth; continue; }
+    if(/^\s*>/.test(line)) continue;   // blockquote/notes line: attaches to its owner
+    const bullet=line.match(/^(\s*)(?:[-*+]|\d+\.)\s+/);
+    if(bullet){ const indent=bullet[1].replace(/\t/g,'  ').length; depth[i]=base()+1+Math.floor(indent/2); continue; }
+    if(nextIsBullet(i)){ depth[i]=lastHeadingDepth+1; subDepth=lastHeadingDepth+1; continue; }   // lead-in paragraph above a list
+  }
+  return depth;
+}
+function mdFoldRange(depths, anchor){   // [start,end) of lines nested under `anchor`, or null if nothing to fold
+  const d=depths[anchor]; if(d==null) return null;
+  for(let j=anchor+1;j<depths.length;j++){ if(depths[j]!=null && depths[j]<=d) return j>anchor+1 ? [anchor+1,j] : null; }
+  return depths.length>anchor+1 ? [anchor+1, depths.length] : null;
+}
+// Builds the mapping between the full (authoritative) text and the visible (folded) text
+// that actually lives in the textarea. Cached on _mdView after every render.
+function mdBuildView(){
+  const fullLines=_mdFullText.split('\n');
+  const depths=mdLineDepths(_mdFullText);
+  const allRanges=new Map();
+  for(let i=0;i<depths.length;i++){ if(depths[i]!=null){ const r=mdFoldRange(depths,i); if(r) allRanges.set(i,r); } }
+  const hidden=new Set(), foldInfo=new Map();
+  for(const a of _mdFolds){
+    const r=allRanges.get(a); if(!r) continue;
+    for(let k=r[0];k<r[1];k++) hidden.add(k);
+    foldInfo.set(a, {start:r[0], end:r[1], count:r[1]-r[0]});
+  }
+  const visLineToFull=[], fullToVis=new Array(fullLines.length).fill(-1);
+  for(let i=0;i<fullLines.length;i++){ if(hidden.has(i)) continue; fullToVis[i]=visLineToFull.length; visLineToFull.push(i); }
+  return { fullLines, depths, allRanges, hidden, foldInfo, visLineToFull, fullToVis };
+}
+function mdVisibleText(view){ return view.visLineToFull.map(i=>view.fullLines[i]).join('\n'); }
+function mdRenderGutter(view){
+  let g='';
+  for(let vi=0; vi<view.visLineToFull.length; vi++){
+    const fi=view.visLineToFull[vi];
+    const foldable=view.allRanges.has(fi);
+    const folded=foldable && _mdFolds.has(fi);
+    const btn=foldable
+      ? '<span class="gl-fold" data-full="'+fi+'" title="'+(folded?'Unfold':'Fold')+'">'+(folded?'\u25B8':'\u25BE')+'</span>'
+      : '<span class="gl-fold"></span>';
+    g+='<div class="gl" data-l="'+vi+'">'+btn+'<span class="gl-num">'+(fi+1)+'</span></div>';
+  }
+  return g;
+}
+// Reveals every fold that hides `fullLineIdx`. Returns true if anything changed.
+function mdUnfoldAncestorsOf(fullLineIdx){
+  const view=_mdView||mdBuildView(); let changed=false;
+  for(const [a,info] of view.foldInfo){ if(fullLineIdx>=info.start && fullLineIdx<info.end){ _mdFolds.delete(a); changed=true; } }
+  return changed;
+}
+function mdToggleFold(fullLineIdx){
+  const ed=document.getElementById('mdEditor'); if(!ed) return;
+  if(_mdFolds.has(fullLineIdx)) _mdFolds.delete(fullLineIdx); else _mdFolds.add(fullLineIdx);
+  const view=mdBuildView(); _mdView=view;
+  const vis=mdVisibleText(view);
+  ed.value=vis; _mdPrevVisible=vis;
+  const vline=view.fullToVis[fullLineIdx];
+  if(vline!=null && vline>=0){
+    const arr=vis.split('\n'); let start=0; for(let i=0;i<vline;i++) start+=(arr[i]||'').length+1;
+    try{ ed.setSelectionRange(start,start); }catch(e){}
+  }
+  mdRefreshDecorations();
+  ed.focus();
+}
+function mdHighlight(text, view){
   const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const lines=text.split('\n'); let inFence=false, inComment=false; const parts=[];
   for(let i=0;i<lines.length;i++){
@@ -1669,11 +1789,25 @@ function mdHighlight(text){
     else if(inFence){ html='<span class="hl-code">'+esc(raw)+'</span>'; if(/^\s*(```+|~~~+)\s*$/.test(raw)) inFence=false; }
     else if(/^\s*(```+|~~~+)/.test(raw)){ inFence=true; html='<span class="hl-fence">'+esc(raw)+'</span>'; }
     else html=_hlLine(raw);
-    parts.push(html||'');
+    let chip='';
+    if(view){
+      const fi=view.visLineToFull[i];
+      const info=fi!=null ? view.foldInfo.get(fi) : null;
+      if(info) chip=' <span class="md-fold-chip">\u22EF '+info.count+' line'+(info.count===1?'':'s')+' folded</span>';
+    }
+    // Real block-level rows (not just newline-joined spans) so the active-line highlight
+    // is a plain CSS class on the actual row — always pixel-perfect, in or out of view,
+    // with no separate position math to keep in sync while clicking/scrolling.
+    parts.push('<div class="hl-line" data-l="'+i+'">'+(html||'')+chip+'</div>');
   }
-  return parts.join('\n');
+  return parts.join('');
 }
-function mdSyncScroll(){ const ed=document.getElementById('mdEditor'); if(!ed) return; const hl=document.querySelector('#mdPane .md-hl'), gut=document.querySelector('#mdPane .md-gutter'); if(hl){ hl.scrollTop=ed.scrollTop; hl.scrollLeft=ed.scrollLeft; } if(gut){ gut.scrollTop=ed.scrollTop; } mdPlaceActiveBar(); }
+function mdSyncScroll(){
+  const ed=document.getElementById('mdEditor'); if(!ed) return;
+  const hl=document.querySelector('#mdPane .md-hl'), gut=document.querySelector('#mdPane .md-gutter');
+  if(hl){ hl.scrollTop=ed.scrollTop; hl.scrollLeft=ed.scrollLeft; }
+  if(gut){ gut.scrollTop=ed.scrollTop; }
+}
 function mdUpdateActive(){
   const ed=document.getElementById('mdEditor'); if(!ed) return;
   const before=ed.value.slice(0, ed.selectionStart);
@@ -1681,25 +1815,20 @@ function mdUpdateActive(){
   _mdActiveLine=line;
   document.querySelectorAll('#mdPane .md-gutter .gl.active').forEach(e=>e.classList.remove('active'));
   const g=document.querySelector('#mdPane .md-gutter .gl[data-l="'+line+'"]'); if(g) g.classList.add('active');
+  document.querySelectorAll('#mdPane .md-hl .hl-line.active').forEach(e=>e.classList.remove('active'));
+  const hlRow=document.querySelector('#mdPane .md-hl .hl-line[data-l="'+line+'"]'); if(hlRow) hlRow.classList.add('active');
   const pos=document.querySelector('#mdPane .md-pos'); if(pos) pos.textContent='Ln '+(line+1)+', Col '+(col+1);
-  mdPlaceActiveBar();
-  requestAnimationFrame(mdPlaceActiveBar);   // re-place after the browser settles any click auto-scroll
-}
-function mdPlaceActiveBar(){   // position the active-line highlight to match the caret exactly (12=pad-top, 20=line-height)
-  const ed=document.getElementById('mdEditor'), bar=document.querySelector('#mdPane .md-active'); if(!ed||!bar) return;
-  bar.style.transform='translateY('+(_mdPT + _mdActiveLine*_mdLH - ed.scrollTop)+'px)';
 }
 function mdRefreshDecorations(){
   const ed=document.getElementById('mdEditor'); if(!ed) return;
   const hl=document.querySelector('#mdPane .md-hl'), gut=document.querySelector('#mdPane .md-gutter'); if(!hl||!gut) return;
-  const n=ed.value.split('\n').length;
-  hl.innerHTML=mdHighlight(ed.value);
-  let g=''; for(let i=0;i<n;i++) g+='<div class="gl" data-l="'+i+'">'+(i+1)+'</div>';
-  gut.innerHTML=g;
+  const view=mdBuildView(); _mdView=view;
+  hl.innerHTML=mdHighlight(ed.value, view);
+  gut.innerHTML=mdRenderGutter(view);
   mdCalibrate();
   mdUpdateActive(); mdSyncScroll();
 }
-function mdCalibrate(){   // derive the textarea's real line-height + padding and share it with the overlay/gutter/bar
+function mdCalibrate(){   // derive the textarea's real line-height + padding (used to centre a target line when jumping to it)
   const ed=document.getElementById('mdEditor'); if(!ed) return;
   const cs=getComputedStyle(ed);
   _mdPT=parseFloat(cs.paddingTop)||12;
@@ -1708,14 +1837,72 @@ function mdCalibrate(){   // derive the textarea's real line-height + padding an
   if(ed.scrollHeight > ed.clientHeight + 4 && n>2){ lh=(ed.scrollHeight-_mdPT-pb)/n; }   // trust the measurement only when content overflows
   if(!(lh>6 && lh<80)) lh=20;
   _mdLH=lh;
-  const hl=document.querySelector('#mdPane .md-hl'), gut=document.querySelector('#mdPane .md-gutter'), bar=document.querySelector('#mdPane .md-active');
-  if(hl) hl.style.lineHeight=lh+'px'; if(gut) gut.style.lineHeight=lh+'px'; if(bar) bar.style.height=lh+'px';
-  mdPlaceActiveBar();
+  const hl=document.querySelector('#mdPane .md-hl'), gut=document.querySelector('#mdPane .md-gutter');
+  if(hl) hl.style.lineHeight=lh+'px'; if(gut) gut.style.lineHeight=lh+'px';
+}
+// ---- Merging a textarea edit (typing, paste, toolbar action, …) back into _mdFullText ----
+function mdLineDiff(oldLines,newLines){
+  let p=0; const maxP=Math.min(oldLines.length,newLines.length);
+  while(p<maxP && oldLines[p]===newLines[p]) p++;
+  let s=0; while(s<maxP-p && oldLines[oldLines.length-1-s]===newLines[newLines.length-1-s]) s++;
+  return { p, oldEnd:oldLines.length-s, newEnd:newLines.length-s };
+}
+function mdCommitVisibleEdit(){
+  const ed=document.getElementById('mdEditor'); if(!ed) return;
+  const newVis=ed.value;
+  if(newVis===_mdPrevVisible) return;
+  const view=_mdView||mdBuildView();
+  const oldLines=_mdPrevVisible.split('\n'), newLines=newVis.split('\n');
+  const {p, oldEnd, newEnd}=mdLineDiff(oldLines, newLines);
+  const fullOldStart = p<view.visLineToFull.length ? view.visLineToFull[p] : view.fullLines.length;
+  const fullOldEnd = oldEnd>p ? view.visLineToFull[oldEnd-1]+1 : fullOldStart;
+  // Safety check: does the replaced span skip over any folded (hidden) full-text lines?
+  // A textarea can only ever show/edit visible lines, so if the visible-to-full mapping
+  // isn't consecutive across the replaced range, some hidden content sits inside it.
+  let gapCrossed=false;
+  if(oldEnd>p){ const span=view.visLineToFull[oldEnd-1]-view.visLineToFull[p]; if(span!==(oldEnd-1-p)) gapCrossed=true; }
+  if(gapCrossed){
+    // Never silently drop hidden content: reveal it and let the user redo the edit
+    // against the now fully-visible text, instead of deleting what they couldn't see.
+    let changed=false;
+    for(const [a,info] of view.foldInfo){ if(info.end>fullOldStart && info.start<fullOldEnd){ _mdFolds.delete(a); changed=true; } }
+    const freshView=mdBuildView(); _mdView=freshView;
+    const freshVis=mdVisibleText(freshView);
+    ed.value=freshVis; _mdPrevVisible=freshVis;
+    if(changed) toast('Expanded a folded section — try that edit again');
+    return;
+  }
+  const newFullLines=newLines.slice(p,newEnd);
+  const fullLines=view.fullLines.slice();
+  fullLines.splice(fullOldStart, fullOldEnd-fullOldStart, ...newFullLines);
+  _mdFullText=fullLines.join('\n');
+  const delta=newFullLines.length-(fullOldEnd-fullOldStart);
+  const nextFolds=new Set();
+  for(const a of _mdFolds){
+    if(a>=fullOldStart && a<fullOldEnd){
+      // The anchor's own line was inside the replaced span. If it was a plain in-place
+      // edit (that one line swapped for exactly one new line — by far the common case,
+      // e.g. fixing a typo in a folded heading), keep the fold anchored there. Otherwise
+      // the line's identity is gone, so the fold is dropped — which just means its
+      // content becomes visible again, never that it's lost.
+      if(a===fullOldStart && newFullLines.length>0) nextFolds.add(fullOldStart);
+      continue;
+    }
+    nextFolds.add(a>=fullOldEnd ? a+delta : a);
+  }
+  _mdFolds=nextFolds;
+  _mdPrevVisible=newVis;   // ed.value itself is left exactly as the browser already has it
+}
+function mdAfterEdit(){
+  mdCommitVisibleEdit();
+  mdRefreshDecorations();
+  clearTimeout(_mdTimer);
+  _mdTimer=setTimeout(applyMdToMap, 300);
 }
 function applyMdToMap(){
   const ed=document.getElementById('mdEditor'); if(!ed||!mdMode) return;
   if(typeof READONLY!=='undefined' && READONLY) return;
-  let parsed; try{ parsed=parseMarkdownOutline(ed.value, map.title||'Map'); }catch(e){ return; }
+  let parsed; try{ parsed=parseMarkdownOutline(_mdFullText, map.title||'Map'); }catch(e){ return; }   // full text: folds must never delete nodes
   if(!parsed||!parsed.rootId||!parsed.nodes||!parsed.nodes[parsed.rootId]) return;   // ignore un-parseable/empty text
   _mdSyncing=true;
   sel=null; document.querySelectorAll('.node.sel').forEach(n=>n.classList.remove('sel')); document.getElementById('nodebar')?.remove();
@@ -2523,6 +2710,48 @@ document.addEventListener('click',e=>{
   }
 });
 
+// Where the node bar *would* sit if there were no viewport edges to worry
+// about: horizontally centred under the node, with a constant ~12px
+// on-screen gap below it regardless of zoom (a world-space gap would shrink
+// when zoomed out).
+function nodeBarBasePosition(n){
+  return {
+    left: n.x+(n.w||0)/2,
+    top:  n.y+(n.h||40)+12/view.k
+  };
+}
+
+// Keeps the (already-appended) node bar fully inside the visible canvas
+// area, nudging it back on-screen if the node it belongs to sits near an
+// edge. Always recomputes from the canonical base position first, so
+// corrections never accumulate/drift across repeated calls (e.g. while
+// panning or zooming with a node selected).
+function positionAndClampNodeBar(bar, n){
+  const pos=nodeBarBasePosition(n);
+  bar.style.left=pos.left+'px';
+  bar.style.top=pos.top+'px';
+  bar.style.transformOrigin='top center';
+  // The bar lives inside the zoomable viewport, so counter-scale it by 1/zoom
+  // to keep it a constant on-screen size no matter how far the map is zoomed.
+  bar.style.transform=`translateX(-50%) scale(${1/view.k})`;
+  if(!stage) return;
+  const bounds=stage.getBoundingClientRect();
+  const margin=8;
+  const rect=bar.getBoundingClientRect();
+  const k=view.k||1;
+  let dx=0, dy=0;
+  const maxLeft=bounds.right-margin, minLeft=bounds.left+margin;
+  if(rect.right>maxLeft) dx=maxLeft-rect.right;
+  if(rect.left+dx<minLeft) dx=minLeft-rect.left;   // bar wider than the stage: pin to the left edge rather than overflow both sides
+  const maxTop=bounds.bottom-margin, minTop=bounds.top+margin;
+  if(rect.bottom>maxTop) dy=maxTop-rect.bottom;
+  if(rect.top+dy<minTop) dy=minTop-rect.top;
+  if(dx||dy){
+    bar.style.left=(pos.left+dx/k)+'px';
+    bar.style.top=(pos.top+dy/k)+'px';
+  }
+}
+
 function positionNodeBar(){
   $('#nodebar')?.remove();
   if(READONLY) return;            // read-only shared view shows no editing toolbar
@@ -2540,14 +2769,6 @@ function positionNodeBar(){
   const hl = n.highlight || 'transparent';
 
   const bar=document.createElement('div'); bar.className='nodebar'; bar.id='nodebar';
-  bar.style.left=(n.x+(n.w||0)/2)+'px';
-  // Constant ~12px on-screen gap below the node regardless of canvas zoom, so
-  // the bar never overlaps the node (a world-space gap would shrink when zoomed out).
-  bar.style.top=(n.y+(n.h||40)+12/view.k)+'px';
-  bar.style.transformOrigin='top center';
-  // The bar lives inside the zoomable viewport, so counter-scale it by 1/zoom
-  // to keep it a constant on-screen size no matter how far the map is zoomed.
-  bar.style.transform=`translateX(-50%) scale(${1/view.k})`;
   bar.innerHTML=`
     <div class="nb-group">
       <button data-a="child" title="Add child (Tab)">＋</button>
@@ -2576,6 +2797,10 @@ function positionNodeBar(){
     <div class="nb-div"></div>
     <span class="swatches" title="Card color">${(isRoot?PALETTE:NODE_COLORS).map(c=>`<span class="sw" data-c="${c}" style="background:${c};${c==='#ffffff'?'border-color:var(--line)':''}"></span>`).join('')}</span>`;
   viewport.appendChild(bar);
+  // Position after appending so we can measure the bar's real on-screen size
+  // and clamp it to stay fully inside the visible canvas, however close to
+  // an edge the node is.
+  positionAndClampNodeBar(bar, n);
   bar.addEventListener('mousedown',e=>e.stopPropagation());
   // Prevent toolbar clicks from stealing focus from a node being edited,
   // so the contentEditable text-selection survives execCommand calls.
