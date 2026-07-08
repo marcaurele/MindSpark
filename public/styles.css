@@ -153,6 +153,10 @@
   /* rendered preview */
   #mdPane .md-prev-btn{margin-left:2px;border:1px solid var(--line);background:transparent;color:var(--ink-soft);cursor:pointer;font-size:11px;font-weight:600;padding:2px 9px;border-radius:6px}
   #mdPane .md-prev-btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  #mdPane .md-pdf-btn{display:none;border:1px solid var(--line);background:transparent;color:var(--ink-soft);cursor:pointer;font-size:11px;font-weight:600;padding:2px 9px;border-radius:6px}
+  #mdPane .md-pdf-btn:hover{background:var(--paper-2,rgba(127,127,127,.12));color:var(--ink)}
+  #mdPane.md-preview .md-pos{display:none}
+  #mdPane.md-preview .md-pdf-btn{display:inline-flex;margin-left:auto}
   #mdPane .md-prev{position:absolute;inset:0;display:none;overflow:auto;padding:16px 22px;background:var(--paper);color:var(--ink);z-index:4;line-height:1.6;text-align:left}
   #mdPane.md-preview .md-prev{display:block}
   #mdPane.md-preview .md-hl,#mdPane.md-preview #mdEditor,#mdPane.md-preview .md-gutter{display:none}
@@ -1488,4 +1492,31 @@ body.no-banner.shared-view .stage{ top:0; }
   *::-webkit-scrollbar-thumb:hover{background:var(--ink-soft)}
   *::-webkit-scrollbar-corner{background:transparent}
   html{scrollbar-color:var(--line-2,var(--line)) transparent;scrollbar-width:thin}
+}
+
+/* ===== PDF export (markdown preview -> browser print -> Save as PDF) =====
+   #mdPrintRoot is populated on demand by mdDownloadPdf() and is otherwise empty/hidden.
+   Forces light, ink-friendly colors regardless of the app's active theme. */
+#mdPrintRoot{display:none}
+@media print{
+  body.md-printing > *:not(#mdPrintRoot){display:none !important}
+  body.md-printing #mdPrintRoot{
+    display:block !important;position:static !important;padding:0 32px;
+    color:#1a1a1a;background:#fff;
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  #mdPrintRoot h1{font-size:1.9em;margin:0 0 .4em;line-height:1.25;color:#111;border-bottom:1px solid #ccc;padding-bottom:.2em}
+  #mdPrintRoot h1,#mdPrintRoot h2,#mdPrintRoot h3{page-break-after:avoid}
+  #mdPrintRoot h2,#mdPrintRoot h3{margin:.9em 0 .3em;line-height:1.25;color:#111}
+  #mdPrintRoot h2{font-size:1.35em;border-bottom:1px solid #ccc;padding-bottom:.2em}
+  #mdPrintRoot h3{font-size:1.1em}
+  #mdPrintRoot p,#mdPrintRoot ul,#mdPrintRoot ol,#mdPrintRoot blockquote{margin:.5em 0}
+  #mdPrintRoot pre.mp-code{background:#f2f2f2;padding:10px 12px;border-radius:6px;overflow:auto;font-size:12px;page-break-inside:avoid}
+  #mdPrintRoot code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  #mdPrintRoot table{border-collapse:collapse;font-size:.95em;page-break-inside:avoid}
+  #mdPrintRoot th,#mdPrintRoot td{border:1px solid #ccc;padding:5px 9px}
+  #mdPrintRoot blockquote{border-left:3px solid #ccc;margin-left:0;padding:.2em 0 .2em 12px;color:#555}
+  #mdPrintRoot img{max-width:100%}
+  #mdPrintRoot hr{border:0;border-top:1px solid #ccc;margin:1em 0}
+  #mdPrintRoot a{color:#2a5db0;text-decoration:underline}
 }

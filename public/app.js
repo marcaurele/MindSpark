@@ -1522,7 +1522,7 @@ function ensureMdPane(){
   if(document.getElementById('mdPane')) return;
   const app=document.querySelector('.app'), stage=document.querySelector('.stage'); if(!app||!stage) return;
   const pane=document.createElement('div'); pane.id='mdPane';
-  pane.innerHTML='<div class="md-head"><span class="md-ttl">Markdown</span><span class="md-pos"></span><button class="md-prev-btn" title="Toggle rendered preview">Preview</button><button class="md-close" title="Exit Markdown mode (Esc)">\u2715</button></div>'
+  pane.innerHTML='<div class="md-head"><span class="md-ttl">Markdown</span><span class="md-pos"></span><button class="md-pdf-btn" title="Download the rendered preview as a PDF">Download PDF</button><button class="md-prev-btn" title="Toggle rendered preview">Preview</button><button class="md-close" title="Exit Markdown mode (Esc)">\u2715</button></div>'
     +'<div class="md-toolbar"><button data-fmt="bold" title="Bold"><b>B</b></button><button data-fmt="italic" title="Italic"><i>I</i></button><button data-fmt="strike" title="Strikethrough"><s>S</s></button><button data-fmt="code" title="Inline code">&lt;/&gt;</button><span class="md-sep"></span><button data-fmt="h1" title="Heading 1">H1</button><button data-fmt="h2" title="Heading 2">H2</button><button data-fmt="h3" title="Heading 3">H3</button><span class="md-sep"></span><button data-fmt="quote" title="Blockquote">\u275D</button><button data-fmt="ul" title="Bullet list">\u2022</button><button data-fmt="ol" title="Numbered list">1.</button><button data-fmt="hr" title="Divider">\u2014</button><span class="md-sep"></span><button data-fmt="link" title="Link">\uD83D\uDD17</button><button data-fmt="image" title="Image">\uD83D\uDDBC</button><button data-fmt="codeblock" title="Code block">\u2317</button><button data-fmt="table" title="Table">\u25A6</button></div><div class="md-body"><div class="md-gutter" aria-hidden="true"></div><div class="md-code"><pre class="md-hl" aria-hidden="true"></pre>'
     +'<textarea id="mdEditor" spellcheck="false" wrap="off" placeholder="# Central idea&#10;- a branch&#10;  - a leaf"></textarea><div class="md-prev" aria-hidden="true"></div></div></div>'
     +'<div class="md-resize" title="Drag to resize"></div>';
@@ -1531,6 +1531,7 @@ function ensureMdPane(){
   window.addEventListener('resize', ()=>{ if(mdMode) mdCalibrate(); });
   pane.querySelector('.md-close').addEventListener('click',()=>toggleMdMode(false));
   pane.querySelector('.md-prev-btn').addEventListener('click', mdTogglePreview);
+  pane.querySelector('.md-pdf-btn').addEventListener('click', mdDownloadPdf);
   pane.querySelector('.md-toolbar').addEventListener('mousedown', e=>{ const b=e.target.closest('button[data-fmt]'); if(b){ e.preventDefault(); mdFormat(b.dataset.fmt); } });
   const ed=pane.querySelector('#mdEditor');
   ed.addEventListener('input', mdAfterEdit);
@@ -1543,6 +1544,9 @@ function ensureMdPane(){
       if(k==='b'){ e.preventDefault(); mdFormat('bold'); return; }
       if(k==='i'){ e.preventDefault(); mdFormat('italic'); return; } }
     if(e.key==='Tab'){ e.preventDefault(); const a=ed.selectionStart,b=ed.selectionEnd; ed.value=ed.value.slice(0,a)+'  '+ed.value.slice(b); ed.selectionStart=ed.selectionEnd=a+2; mdAfterEdit(); }
+    if(e.key==='Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey){
+      if(mdHandleEnter(ed)){ e.preventDefault(); mdAfterEdit(); }
+    }
   });
   const syncNodeFromCaret=()=>{ if(_mdSelSync) return; const vline=ed.value.slice(0,ed.selectionStart).split('\n').length-1; const line=_mdView?_mdView.visLineToFull[vline]:vline; let id=null; for(let l=line;l>=0;l--){ if(_mdLines[l]){ id=_mdLines[l]; break; } } if(id && map.nodes[id]){ _mdSelSync=true; select(id); _mdSelSync=false; } };
   ed.addEventListener('click', ()=>{ mdUpdateActive(); syncNodeFromCaret(); });
@@ -1565,10 +1569,29 @@ function ensureMdPane(){
 }
 function syncTextFromMap(){
   const ed=document.getElementById('mdEditor'); if(!ed) return;
+  const oldLines=_mdLines, oldFolds=_mdFolds;   // remember before rebuilding, to carry fold state across the resync
+  const newLines=[];
   _mdSyncing=true;
-  try{ _mdFullText=buildMarkdown(undefined,{rich:true,meta:true,lineMap:_mdLines}); }catch(e){ _mdFullText=''; }
+  try{ _mdFullText=buildMarkdown(undefined,{rich:true,meta:true,lineMap:newLines}); }catch(e){ _mdFullText=''; }
   _mdSyncing=false;
-  _mdFolds=new Set();          // external changes (undo, canvas edits, map switch) start fully expanded
+  _mdLines=newLines;
+  // Carry folds over by node identity — a section folded before a canvas-side style
+  // change (or any other resync) stays folded at that node's new line, instead of
+  // silently popping back open on every edit.
+  if(oldFolds.size){
+    const nodeIdToNewLine=new Map();
+    for(let i=0;i<newLines.length;i++){ if(newLines[i]!=null) nodeIdToNewLine.set(newLines[i], i); }
+    const nextFolds=new Set();
+    for(const oldLine of oldFolds){
+      const id=oldLines[oldLine];
+      if(id==null) continue;
+      const newLine=nodeIdToNewLine.get(id);
+      if(newLine!=null) nextFolds.add(newLine);
+    }
+    _mdFolds=nextFolds;
+  } else {
+    _mdFolds=new Set();
+  }
   const view=mdBuildView(); _mdView=view;
   const vis=mdVisibleText(view);
   ed.value=vis; _mdPrevVisible=vis;
@@ -1678,12 +1701,102 @@ function mdFormat(a){ const ed=document.getElementById('mdEditor'); if(!ed||ed.r
     case 'table': mdInsertText('\n| Column A | Column B |\n| --- | --- |\n| Cell 1 | Cell 2 |\n'); break;
   }
 }
+// Smart Enter: continue lists/quotes onto the next line the way markmap-repl's CodeMirror
+// editor does, and auto-close a fenced code block right after its opening fence. Returns
+// true if it handled the keypress (caller must preventDefault + commit); false lets the
+// browser's default Enter behaviour run (plain paragraph text, or a selection replace).
+function mdHandleEnter(ed){
+  if(ed.readOnly) return false;
+  if(ed.selectionStart!==ed.selectionEnd) return false;   // let default Enter replace a real selection
+  const val=ed.value, pos=ed.selectionStart;
+  const lineStart=val.lastIndexOf('\n', pos-1)+1;
+  let lineEnd=val.indexOf('\n', pos); if(lineEnd<0) lineEnd=val.length;
+  const line=val.slice(lineStart, pos);           // current line's text up to the caret
+  const fullLine=val.slice(lineStart, lineEnd);    // whole current line (fence detection needs the full line)
+  const atLineEnd=pos>=lineEnd;
+  const insertAt=(text,caretOffset)=>{ ed.value=val.slice(0,pos)+text+val.slice(pos); ed.selectionStart=ed.selectionEnd=pos+(caretOffset!=null?caretOffset:text.length); };
+  const replaceLine=(text,caretOffset)=>{ ed.value=val.slice(0,lineStart)+text+val.slice(lineEnd); ed.selectionStart=ed.selectionEnd=lineStart+(caretOffset!=null?caretOffset:text.length); };
+
+  // Are we currently inside a fenced code block? Count fence lines strictly above this one.
+  const before=val.slice(0, lineStart);
+  const fenceCount=(before.match(/^[ \t]*(`{3,}|~{3,})/gm)||[]).length;
+  const inFence=fenceCount%2===1;
+
+  if(!inFence){
+    const fenceOpen=fullLine.match(/^(\s*)(`{3,}|~{3,})(\S*)\s*$/);
+    if(fenceOpen && atLineEnd){
+      const indent=fenceOpen[1], marker=fenceOpen[2];
+      insertAt('\n'+indent+'\n'+indent+marker, 1+indent.length);
+      return true;
+    }
+  }
+  if(inFence){
+    const indent=(fullLine.match(/^\s*/)||[''])[0];   // just keep code indentation, no list logic inside a fence
+    insertAt('\n'+indent);
+    return true;
+  }
+
+  const task=line.match(/^(\s*)([-*+])(\s+)(\[[ xX]\]\s+)(.*)$/);
+  if(task){
+    const [, indent, bullet, gap, , body]=task;
+    if(!body.trim() && atLineEnd){ replaceLine(''); return true; }   // empty item -> exit the list
+    insertAt('\n'+indent+bullet+gap+'[ ] ');
+    return true;
+  }
+  const ul=line.match(/^(\s*)([-*+])(\s+)(.*)$/);
+  if(ul){
+    const [, indent, bullet, gap, body]=ul;
+    if(!body.trim() && atLineEnd){ replaceLine(''); return true; }
+    insertAt('\n'+indent+bullet+gap);
+    return true;
+  }
+  const ol=line.match(/^(\s*)(\d+)([.)])(\s+)(.*)$/);
+  if(ol){
+    const [, indent, num, sep, gap, body]=ol;
+    if(!body.trim() && atLineEnd){ replaceLine(''); return true; }
+    insertAt('\n'+indent+(parseInt(num,10)+1)+sep+gap);
+    return true;
+  }
+  const bq=line.match(/^(\s*(?:>\s?)+)(.*)$/);
+  if(bq && bq[1].trim()){
+    const [, prefix, body]=bq;
+    if(!body.trim() && atLineEnd){ replaceLine(''); return true; }
+    insertAt('\n'+prefix);
+    return true;
+  }
+  return false;
+}
 function mdTogglePreview(){
   mdPreview=!mdPreview;
   const pane=document.getElementById('mdPane'); if(!pane) return;
   pane.classList.toggle('md-preview', mdPreview);
   const btn=pane.querySelector('.md-prev-btn'); if(btn){ btn.classList.toggle('on', mdPreview); btn.textContent=mdPreview?'Edit':'Preview'; }
   if(mdPreview){ const prev=pane.querySelector('.md-prev'); if(prev) prev.innerHTML=mdToHtml(_mdFullText); }   // full text: preview isn't affected by folds
+}
+// "Download PDF": renders the full markdown into a dedicated print-only container and
+// hands off to the browser's native print dialog (Save as PDF works everywhere without
+// pulling in a PDF-generation library, keeping this a zero-dependency app). Print-specific
+// CSS (see styles.css) hides the rest of the app and forces light, ink-friendly colors
+// regardless of the active theme.
+function mdDownloadPdf(){
+  if(!map) return;
+  let root=document.getElementById('mdPrintRoot');
+  if(!root){ root=document.createElement('div'); root.id='mdPrintRoot'; document.body.appendChild(root); }
+  const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const title=map.title||'Mind Map';
+  root.innerHTML='<h1>'+esc(title)+'</h1>'+mdToHtml(_mdFullText);   // full text: PDF export isn't affected by folds
+  const oldTitle=document.title;
+  document.title=(title.replace(/[\\/:*?"<>|]/g,'').trim())||'mindmap';
+  document.body.classList.add('md-printing');
+  let cleaned=false;
+  const cleanup=()=>{
+    if(cleaned) return; cleaned=true;
+    document.body.classList.remove('md-printing');
+    document.title=oldTitle;
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  setTimeout(()=>{ window.print(); setTimeout(cleanup, 1000); }, 30);   // tiny delay lets the print layout settle first
 }
 // ---- Folding: outline depth per line, independent of the full parser ----
 // Mirrors parseMarkdownOutline()'s nesting rules (heading level; bullet indent relative
@@ -1837,8 +1950,13 @@ function mdCalibrate(){   // derive the textarea's real line-height + padding (u
   if(ed.scrollHeight > ed.clientHeight + 4 && n>2){ lh=(ed.scrollHeight-_mdPT-pb)/n; }   // trust the measurement only when content overflows
   if(!(lh>6 && lh<80)) lh=20;
   _mdLH=lh;
-  const hl=document.querySelector('#mdPane .md-hl'), gut=document.querySelector('#mdPane .md-gutter');
-  if(hl) hl.style.lineHeight=lh+'px'; if(gut) gut.style.lineHeight=lh+'px';
+  // NOTE: deliberately NOT writing this back as hl.style.lineHeight / gut.style.lineHeight.
+  // The overlay, gutter, and textarea all share one CSS-declared line-height (20px) already,
+  // which keeps every row in the three layers pixel-identical by construction. Overriding it
+  // here with a heuristic measurement (only once content overflows — i.e. exactly when the
+  // editor is scrolled) is what caused the active-line highlight to drift below the real
+  // caret row on scrolled text. _mdLH/_mdPT are still used for the scroll-into-view centring
+  // math in mdHighlightNode(), which only needs an approximate value.
 }
 // ---- Merging a textarea edit (typing, paste, toolbar action, …) back into _mdFullText ----
 function mdLineDiff(oldLines,newLines){
@@ -5811,6 +5929,7 @@ function parseMarkdownOutline(text, filename){
         if(mm.color) n.color=mm.color; if(mm.textColor) n.textColor=mm.textColor;
         if(mm.w){ n.width=mm.w; n.w=mm.w; } if(mm.h){ n.height=mm.h; n.h=mm.h; }
         if(mm.collapsed) n.collapsed=true; if(mm.bold) n.bold=true;
+        if(mm.italic) n.italic=true; if(mm.underline) n.underline=true; if(mm.strike) n.strike=true;
         if(mm.fontSize) n.fontSize=mm.fontSize; if(mm.listType) n.listType=mm.listType;
         if(mm.highlight) n.highlight=mm.highlight; if(mm.align) n.align=mm.align;
         if(mm.image) n.image=mm.image; if(mm.ref) n.ref=true; if(mm.citation) n.citation=mm.citation;
@@ -5931,6 +6050,9 @@ function _nodeMeta(n){   // per-node info that JSON has but Markdown can't expre
   if(n.height) m.h=n.height;
   if(n.collapsed) m.collapsed=1;
   if(n.bold) m.bold=1;
+  if(n.italic) m.italic=1;
+  if(n.underline) m.underline=1;
+  if(n.strike) m.strike=1;
   if(n.fontSize) m.fontSize=n.fontSize;
   if(n.listType) m.listType=n.listType;
   if(n.highlight) m.highlight=n.highlight;
@@ -5961,10 +6083,10 @@ function buildMarkdown(startId, opts){
     const n=map.nodes[id];
     if(!n) return;
     if(withMeta){ const mm=_nodeMeta(n); if(mm) nmeta[path]=mm; }
-    if(lineMap) lm[lines.length]=id;
     const pad='  '.repeat(bd);
-    if(n.hr){ lines.push(pad+'---'); return; }   // divider round-trips as ---
+    if(n.hr){ if(lineMap) lm[lines.length]=id; lines.push(pad+'---'); return; }   // divider round-trips as ---
     if(n.html){   // block node (table / code / raw HTML) at the current bullet indent
+      if(lineMap) lm[lines.length]=id;
       if(n.raw){ n.html.split('\n').forEach(l=>lines.push(l.trim()?pad+l:l)); return; }
       const lang=(rich && n.lang) ? n.lang : '';
       notesToMdBlocks(n.html).forEach(b=>{
@@ -5979,12 +6101,14 @@ function buildMarkdown(startId, opts){
     const hlevel = (id===root) ? 1 : ((rich && n.hlevel) ? n.hlevel : 0);   // imported headings re-emit as #/##/###
     if(hlevel){
       if(lines.length && lines[lines.length-1]!=='') lines.push('');
+      if(lineMap) lm[lines.length]=id;   // record AFTER the spacer line, so it points at the heading text itself
       lines.push('#'.repeat(hlevel)+' '+first);
       if(rich){ emitNotes(n, ''); } else { const nt=notesText(n); if(nt) lines.push('', nt); }
       if(rich && n.image && /^https?:\/\//i.test(n.image)) lines.push(`![image](${n.image})`);
       lines.push('');
       childrenOf(id).forEach((c,i)=>walk(c, 0, path+'.'+i));       // heading's children start a fresh bullet indent
     } else {
+      if(lineMap) lm[lines.length]=id;
       const box = (rich && n.task) ? (n.task==='done' ? '[x] ' : '[ ] ') : '';
       const isPara = rich && n.para && !n.task;                 // keep plain paragraphs plain (no bullet)
       lines.push(isPara ? `${pad}${first}` : `${pad}- ${box}${first}`);
