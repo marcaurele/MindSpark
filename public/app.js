@@ -449,6 +449,7 @@ function clearNodes(){ document.querySelectorAll('.node').forEach(n=>n.remove())
 
 function render(){
   clearNodes(); edges.innerHTML='';
+  clearFormulaCache();
   if(!map){
     $('#empty').style.display='grid';
     $('#nodebar')?.remove();              // no node toolbar on a blank canvas
@@ -525,8 +526,27 @@ function render(){
     // Text lives in its own span so contentEditable doesn't tangle with the handles
     const t=document.createElement('span'); t.className='node-text';
     if(n.hr){ el.classList.add('hr-node'); t.classList.add('node-hr'); t.textContent=''; }
-    else if(n.html){ el.classList.add('block-node'); t.classList.add('node-block'); t.innerHTML = sanitizeNotes(n.html); }
-    else renderNodeText(t, n.text||'', n.listType);
+    else if(n.html){ el.classList.add('block-node'); if(n.frontmatter) el.classList.add('frontmatter-node'); t.classList.add('node-block'); t.innerHTML = sanitizeNotes(n.html); }
+    else {
+      const plainCheck = nodeTextPlain(n.text||'').trim();
+      if(plainCheck.startsWith('=')){
+        // Formula node: show the computed result (Excel-style), not the literal "=...".
+        // n.text itself is never touched here, so editing/markdown export still see the
+        // raw formula.
+        el.classList.add('formula-node');
+        const val = computeNodeValue(id);
+        if(val && typeof val==='object' && val.error){
+          el.classList.add('formula-error');
+          t.textContent = '#ERROR';
+          t.title = plainCheck+' \u2014 '+val.error;
+        } else {
+          t.textContent = formatFormulaResult(val);
+          t.title = plainCheck;
+        }
+      } else {
+        renderNodeText(t, n.text||'', n.listType);
+      }
+    }
     // Per-node styling
     if(n.fontSize) t.style.fontSize=n.fontSize+'px';
     if(n.bold) t.style.fontWeight='700';
@@ -542,6 +562,14 @@ function render(){
     }
     if(n.listType) t.classList.add('node-text-list','list-'+n.listType);
     el.appendChild(t);
+    // Hover-only watermark: when this node was created/last edited. Off by default so it
+    // never clutters the map — only appears as a subtle background detail on hover.
+    if(!n.hr && (n.created || n.updated)){
+      const wm=document.createElement('span');
+      wm.className='node-watermark'; wm.setAttribute('aria-hidden','true');
+      wm.textContent=formatNodeTimestamp(n.updated||n.created);
+      el.appendChild(wm);
+    }
 
     // ---- Quick-action handles (appear on hover; collapse stays visible) ----
     const mkHandle=(cls,label,title,onClick)=>{
@@ -1025,6 +1053,16 @@ function renderFormattedWithMath(container, text){
     }
     node.parentNode.replaceChild(frag, node);
   });
+}
+// Formats a node's created/updated timestamp for the hover watermark — e.g. "Jul 15, 2026 · 3:42 PM".
+// Uses the browser's own locale, same as everything else in the app that shows a date.
+function formatNodeTimestamp(ts){
+  if(!ts) return '';
+  try{
+    const d=new Date(ts);
+    if(isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})+' \u00b7 '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+  }catch(e){ return ''; }
 }
 function renderNodeText(container, text, listType){
   container.textContent='';
@@ -2101,7 +2139,7 @@ function addNode(parentId,asSibling){
   const palette=NODE_COLORS.slice(1);
   const color=palette[Math.floor(Math.random()*palette.length)];
   map.nodes[id]={id,text:'New topic',parent,
-    x:pn.x+(side==='left'?-180:180),y:pn.y+40,side, color};
+    x:pn.x+(side==='left'?-180:180),y:pn.y+40,side, color, created:Date.now()};
   if(pn.collapsed) pn.collapsed=false;
   pushHistory();
   // Stable auto-layout tidies the tree (the new node is inserted in order and
@@ -2721,6 +2759,102 @@ function startBlockEdit(id, el){
   };
   box.addEventListener('blur',onBlur); box.addEventListener('keydown',onKey);
 }
+// ---- Formula function autocomplete: Excel-style "=SU" suggests SUM(...) while typing ----
+let _formulaAC = null;   // { el, matches, replaceStart, replaceEnd, activeIndex, textEl, nodeId }
+function _caretTextOffset(el){
+  const sel=window.getSelection();
+  if(!sel.rangeCount) return (el.textContent||'').length;
+  const range=sel.getRangeAt(0);
+  const pre=range.cloneRange();
+  pre.selectNodeContents(el);
+  pre.setEnd(range.endContainer, range.endOffset);
+  return pre.toString().length;
+}
+function _setCaretTextOffset(el, offset){
+  const sel=window.getSelection();
+  const range=document.createRange();
+  let remaining=offset, node=null, foundOffset=0;
+  const walker=document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+  while(walker.nextNode()){
+    const tn=walker.currentNode;
+    if(remaining<=tn.textContent.length){ node=tn; foundOffset=remaining; break; }
+    remaining-=tn.textContent.length;
+  }
+  if(node) range.setStart(node, foundOffset);
+  else { range.selectNodeContents(el); range.collapse(false); sel.removeAllRanges(); sel.addRange(range); return; }
+  range.collapse(true);
+  sel.removeAllRanges(); sel.addRange(range);
+}
+// Pure trigger-detection: are we, right now, in a position where a function name could
+// start (right after "=", an operator, "(", "," or whitespace, inside a formula)? Returns
+// the partial name typed so far and where to splice in the chosen suggestion.
+function detectFormulaAutocompleteTrigger(text, caretOffset){
+  if(!text.trimStart().startsWith('=')) return null;
+  const before=text.slice(0, caretOffset);
+  const m=before.match(/(?:^|[=+\-*/%^(,\s])([A-Za-z]{0,20})$/);
+  if(!m) return null;
+  const partial=m[1];
+  return { partial, replaceStart:caretOffset-partial.length, replaceEnd:caretOffset };
+}
+function closeFormulaAutocomplete(){
+  if(_formulaAC){ _formulaAC.el.remove(); _formulaAC=null; }
+}
+function _renderFormulaAcActive(){
+  if(!_formulaAC) return;
+  [..._formulaAC.el.children].forEach((row,i)=>row.classList.toggle('active', i===_formulaAC.activeIndex));
+  const activeRow=_formulaAC.el.children[_formulaAC.activeIndex];
+  if(activeRow) activeRow.scrollIntoView({block:'nearest'});
+}
+function _insertFormulaSuggestion(){
+  if(!_formulaAC) return;
+  const f=_formulaAC.matches[_formulaAC.activeIndex]; if(!f) return;
+  const {textEl, replaceStart, replaceEnd, nodeId}=_formulaAC;
+  const text=textEl.textContent||'';
+  const insertion = f.name==='PI' ? f.name : f.name+'(';   // PI is a bare constant, no parens
+  const newText = text.slice(0,replaceStart)+insertion+text.slice(replaceEnd);
+  textEl.textContent=newText;
+  _setCaretTextOffset(textEl, replaceStart+insertion.length);
+  closeFormulaAutocomplete();
+  textEl.focus();
+  relayoutDuringEdit(nodeId);
+}
+function updateFormulaAutocomplete(textEl, nodeId){
+  const text=textEl.textContent||'';
+  const caret=_caretTextOffset(textEl);
+  const trig=detectFormulaAutocompleteTrigger(text, caret);
+  if(!trig){ closeFormulaAutocomplete(); return; }
+  const partial=trig.partial.toUpperCase();
+  const matches=FORMULA_FUNC_INFO.filter(f=>f.name.startsWith(partial)).slice(0,8);
+  if(!matches.length){ closeFormulaAutocomplete(); return; }
+  if(!_formulaAC){
+    const pop=document.createElement('div'); pop.className='formula-ac';
+    document.body.appendChild(pop);
+    _formulaAC = { el:pop, matches:[], replaceStart:0, replaceEnd:0, activeIndex:0, textEl, nodeId };
+  }
+  _formulaAC.matches=matches; _formulaAC.replaceStart=trig.replaceStart; _formulaAC.replaceEnd=trig.replaceEnd; _formulaAC.activeIndex=0;
+  _formulaAC.textEl=textEl; _formulaAC.nodeId=nodeId;
+  _formulaAC.el.innerHTML='';
+  matches.forEach(f=>{
+    const row=document.createElement('div'); row.className='formula-ac-row';
+    row.innerHTML='<span class="formula-ac-sig">'+f.sig+'</span><span class="formula-ac-desc">'+f.desc+'</span>';
+    row.addEventListener('mousedown', e=>{ e.preventDefault(); _insertFormulaSuggestion(); });
+    _formulaAC.el.appendChild(row);
+  });
+  _renderFormulaAcActive();
+  const rect=textEl.getBoundingClientRect();
+  _formulaAC.el.style.left=Math.round(rect.left)+'px';
+  _formulaAC.el.style.top=Math.round(rect.bottom+6)+'px';
+}
+// Called first from the editing keydown handler; returns true if it handled the key
+// (so the caller should stop — e.g. Enter selects a suggestion instead of finishing the edit).
+function formulaAutocompleteKeydown(e){
+  if(!_formulaAC) return false;
+  if(e.key==='ArrowDown'){ e.preventDefault(); _formulaAC.activeIndex=Math.min(_formulaAC.matches.length-1, _formulaAC.activeIndex+1); _renderFormulaAcActive(); return true; }
+  if(e.key==='ArrowUp'){ e.preventDefault(); _formulaAC.activeIndex=Math.max(0, _formulaAC.activeIndex-1); _renderFormulaAcActive(); return true; }
+  if(e.key==='Tab' || e.key==='Enter'){ e.preventDefault(); _insertFormulaSuggestion(); return true; }
+  if(e.key==='Escape'){ closeFormulaAutocomplete(); return true; }
+  return false;
+}
 function startEdit(id){
   if(READONLY) return;
   if(map.nodes[id] && map.nodes[id].hr) return;   // dividers aren't editable
@@ -2746,6 +2880,7 @@ function startEdit(id){
   const s=getSelection(); s.removeAllRanges(); s.addRange(range);
   let _editRAF=0;
   const finish=(commit)=>{
+    closeFormulaAutocomplete();
     textEl.contentEditable='false'; el.classList.remove('editing');
     textEl.removeEventListener('blur',onBlur); textEl.removeEventListener('keydown',onKey);
     textEl.removeEventListener('input',onInput);
@@ -2767,6 +2902,7 @@ function startEdit(id){
       // the selection is wrapped in inline formatting (matches plain-text behaviour).
       if(newText && newText !== 'Untitled') newText = newText.replace(/&amp;(#\d+;|#x[0-9a-fA-F]+;|[a-zA-Z][a-zA-Z0-9]*;)/g, '&$1');
       map.nodes[id].text = newText;
+      map.nodes[id].updated = Date.now();
       // Title sync — for the root and only when user hasn't renamed the map manually
       if(id===map.rootId && map.titleAuto===true){
         // Strip tags for the title
@@ -2786,6 +2922,7 @@ function startEdit(id){
   const onBlur=()=>finish(true);
   const onInput=()=>{
     tryMarkdownShortcut();
+    updateFormulaAutocomplete(textEl, id);
     // Keep the map tidy as the node grows (GitMind-style live reflow), throttled
     // to one re-layout per animation frame so typing stays smooth.
     if(_editRAF) cancelAnimationFrame(_editRAF);
@@ -2793,6 +2930,7 @@ function startEdit(id){
   };
   const onKey=e=>{
     e.stopPropagation();
+    if(formulaAutocompleteKeydown(e)) return;   // popup open: let it handle nav/select/dismiss first
     // Standard contentEditable shortcuts: Ctrl/Cmd+B / I / U toggle inline
     if((e.ctrlKey||e.metaKey) && !e.shiftKey){
       const k=e.key.toLowerCase();
@@ -2974,6 +3112,7 @@ function positionNodeBar(){
       ed.querySelector('.node-text')?.focus();
     } else {
       map.nodes[sel][prop] = !map.nodes[sel][prop];
+      map.nodes[sel].updated = Date.now();
       pushHistory(); render();
     }
   };
@@ -2991,6 +3130,7 @@ function positionNodeBar(){
       // Whole-node toggle (legacy behaviour, kept for users who haven't entered edit mode)
       const cur = map.nodes[sel].listType;
       map.nodes[sel].listType = (cur===kind ? null : kind);
+      map.nodes[sel].updated = Date.now();
       pushHistory(); render();
     }
   };
@@ -3507,8 +3647,8 @@ function animateViewTo(target, duration){
 // Centre the map's bounding box in the current stage viewport WITHOUT changing
 // zoom — used when the viewport size changes (e.g. entering/leaving focus mode)
 // so the map doesn't appear to jump sideways.
-function recenter(){
-  if(!map) return;
+function computeRecenterView(){   // pure calculation — does not touch `view` or the DOM
+  if(!map) return null;
   const hidden=hiddenSet();
   let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
   for(const id in map.nodes){
@@ -3517,11 +3657,14 @@ function recenter(){
     minx=Math.min(minx,n.x); miny=Math.min(miny,n.y);
     maxx=Math.max(maxx,n.x+(n.w||120)); maxy=Math.max(maxy,n.y+(n.h||40));
   }
-  if(!isFinite(minx)) return;
+  if(!isFinite(minx)) return null;
   const {w:SW,h:SH}=_stageSize();
   const cx=(minx+maxx)/2, cy=(miny+maxy)/2;
-  view.x = SW/2 - cx*view.k;
-  view.y = SH/2 - cy*view.k;
+  return { x: SW/2 - cx*view.k, y: SH/2 - cy*view.k, k: view.k };
+}
+function recenter(){
+  const t=computeRecenterView(); if(!t) return;
+  view.x=t.x; view.y=t.y;
   applyView(); _markStage();
 }
 
@@ -4105,6 +4248,22 @@ const TEMPLATES = {
       { k:'ch2', parent:'choose', text:'Prefer the simplest that works' }
     ],
     links:[ { from:'auto', to:'aug' } ]
+  },
+  claude_skill: {
+    name:'Claude Agent Skill', desc:'Scaffold a SKILL.md — instructions Claude loads dynamically for a specialized task',
+    color:'#8c5da7', group:'ai', icon:'🧩',
+    nodes:[
+      { k:'root', text:'My Skill Name', notes:'<p>A <strong>Skill</strong> is a folder with a <code>SKILL.md</code> file that teaches Claude how to do a specific task in a repeatable way \u2014 e.g. following your brand guidelines, or your team\u2019s specific workflow. The YAML block below is the file\u2019s required frontmatter; edit its table like any other node. See <a href="https://github.com/anthropics/skills" target="_blank" rel="noopener noreferrer">github.com/anthropics/skills</a>.</p>' },
+      { k:'fm', parent:'root', text:'', frontmatter:true,
+        html:'<table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td>name</td><td>my-skill-name</td></tr><tr><td>description</td><td>A clear description of what this skill does and when to use it</td></tr></tbody></table>' },
+      { k:'instr', parent:'root', text:'Add your instructions here that Claude will follow when this skill is active' },
+      { k:'ex',  parent:'root', text:'Examples' },
+      { k:'ex1', parent:'ex',   text:'Example usage 1' },
+      { k:'ex2', parent:'ex',   text:'Example usage 2' },
+      { k:'gl',  parent:'root', text:'Guidelines' },
+      { k:'gl1', parent:'gl',   text:'Guideline 1' },
+      { k:'gl2', parent:'gl',   text:'Guideline 2' }
+    ]
   },
   rtcce: {
     name: 'Role / Task / Context / Constraints / Examples',
@@ -4898,7 +5057,8 @@ async function createMapFromTemplate(templateId){
   });
   // Optional per-node fields a template may set to showcase features.
   const OPT = ['notes','image','ref','citation','fontSize','bold','italic',
-    'underline','strike','textColor','highlight','align','listType','collapsed','width','height'];
+    'underline','strike','textColor','highlight','align','listType','collapsed','width','height',
+    'html','frontmatter','raw','lang'];
   tpl.nodes.forEach(n => {
     const nid = keyToId[n.k];
     const node = {
@@ -5512,7 +5672,7 @@ function addResponseAsNodes(parentId, answer){
   const bullets=lines.filter(l=>/^([-*•]|\d+[.)])\s+/.test(l));
   const mk=(text, notes)=>{
     const id=uid();
-    map.nodes[id]={ id, text:text.slice(0,200), parent:parentId, x:0, y:0, side:null, color:'#fff' };
+    map.nodes[id]={ id, text:text.slice(0,200), parent:parentId, x:0, y:0, side:null, color:'#fff', created:Date.now() };
     if(notes) map.nodes[id].notes='<p>'+escapeHtml(notes).replace(/\n/g,'<br>')+'</p>';
   };
   if(bullets.length>=2 && bullets.length>=lines.length*0.5){
@@ -5856,6 +6016,55 @@ function parseOPML(text, filename){
   return { id:uid(), title, titleAuto:false, color:'#e0613a', rootId, nodes };
 }
 // Parse a Markdown / plain-text outline (headings and/or nested bullets) into a map.
+// Parses simple "key: value" YAML frontmatter lines into an ordered list of {key,value}
+// pairs. Not a general YAML parser — frontmatter for things like a Claude Skill (or most
+// static-site front matter) is flat key: value pairs, optionally quoted; a continuation
+// line (no "key:" prefix, e.g. a wrapped block-scalar description) is appended to the
+// previous field's value rather than attempting a full YAML block-scalar parse.
+function parseFrontmatterFields(raw){
+  const inner = raw.replace(/^---\r?\n/, '').replace(/\r?\n---\s*$/, '');
+  const lines = inner.split(/\r?\n/);
+  const fields = [];
+  for(const line of lines){
+    if(!line.trim()) continue;
+    const m = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if(!m){ if(fields.length) fields[fields.length-1].value += ' '+line.trim(); continue; }
+    let [, key, value] = m;
+    value = value.trim();
+    if(value.length>1 && ((value[0]==="'" && value[value.length-1]==="'") || (value[0]==='"' && value[value.length-1]==='"'))){
+      value = value.slice(1,-1);
+    }
+    fields.push({ key, value });
+  }
+  return fields;
+}
+function frontmatterFieldsToHtml(fields){
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let h = '<table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>';
+  fields.forEach(f=>{ h += '<tr><td>'+esc(f.key)+'</td><td>'+esc(f.value)+'</td></tr>'; });
+  h += '</tbody></table>';
+  return h;
+}
+// Inverse of frontmatterFieldsToHtml: reads a frontmatter table node's rows back into a
+// "---\nkey: value\n---" YAML block for export.
+function frontmatterNodeToYaml(n){
+  const tpl=document.createElement('template'); tpl.innerHTML=n.html||'';
+  const rows=[...tpl.content.querySelectorAll('tbody tr')];
+  const lines=['---'];
+  rows.forEach(tr=>{
+    const cells=tr.querySelectorAll('td'); if(cells.length<2) return;
+    const key=(cells[0].textContent||'').trim(); if(!key) return;
+    let value=(cells[1].textContent||'').trim();
+    // Re-quote if the value has characters YAML would otherwise treat specially (colon,
+    // leading/trailing whitespace, empty, or a leading character with special YAML meaning).
+    if(value==='' || /^\s|\s$/.test(value) || /[:#{}\[\],&*!|>'"%@`]/.test(value)){
+      value = "'"+value.replace(/'/g, "''")+"'";
+    }
+    lines.push(key+': '+value);
+  });
+  lines.push('---');
+  return lines.join('\n');
+}
 function parseMarkdownOutline(text, filename){
   let _meta=null;
   { const mm = text.match(/^\uFEFF?\s*<!--\s*mindspark\s*\r?\n([\s\S]*?)\r?\n\s*-->\s*\r?\n?/i);
@@ -5867,6 +6076,19 @@ function parseMarkdownOutline(text, filename){
   const nodes = {};
   const rootId = uid();
   nodes[rootId] = { id:rootId, text:title, parent:null, side:'root', x:0, y:0 };
+  // Frontmatter (a leading YAML block — e.g. a Claude Skill's `name`/`description`, or a
+  // static-site page's front matter) becomes a real, visible, editable child node instead of
+  // being silently dropped: rendered as a small "Field | Value" table so it's readable at a
+  // glance and directly editable, and re-emitted as proper --- YAML --- at the very top of the
+  // file when the map is exported back to Markdown (see buildMarkdown / frontmatterNodeToYaml).
+  // Inserted into `nodes` before the main parse loop runs so it naturally lands as the first
+  // child once the sole-top-level-heading gets promoted to root, below.
+  let frontmatterId = null;
+  if(_frontmatter){
+    frontmatterId = uid();
+    const fields = parseFrontmatterFields(_frontmatter);
+    nodes[frontmatterId] = { id:frontmatterId, parent:rootId, x:0, y:0, frontmatter:true, html: frontmatterFieldsToHtml(fields) };
+  }
   const stack = [{ id:rootId, depth:0 }];
   let sideCounter = 0, lastHeadingDepth = 0, subDepth = null;
   const add = (txt, depth, task, extra) => {
@@ -5876,7 +6098,11 @@ function parseMarkdownOutline(text, filename){
     let side = 'right';
     if(parentId===rootId) side = (sideCounter++ % 2) ? 'left' : 'right';
     else side = nodes[parentId].side || 'right';
-    nodes[id] = { id, text:mdInlineToHtml(txt), parent:parentId, side, x:0, y:0 };
+    // A formula ("=SUM(children)", "=2*3*4", ...) is verbatim, code-like content — never run
+    // it through inline-markdown scanning, which would happily mangle e.g. the asterisks in
+    // "=2*3*4" into a spurious *italic* span.
+    const isFormula = txt.trim().startsWith('=');
+    nodes[id] = { id, text: isFormula ? txt.trim() : mdInlineToHtml(txt), parent:parentId, side, x:0, y:0 };
     if(task) nodes[id].task = task;
     if(extra) Object.assign(nodes[id], extra);
     stack.push({ id, depth });
@@ -5972,13 +6198,16 @@ function parseMarkdownOutline(text, filename){
   // The filename is the map TITLE, not a node. When the whole document hangs off a
   // single top-level node (the common case: one `# Heading`), promote it to the root
   // and drop the filename wrapper — matching how markmap renders a Markdown file.
+  // (The frontmatter node, if any, doesn't count as "real" content for this check — a
+  // skill.md with one heading plus its frontmatter should still promote the heading.)
   let finalRoot = rootId;
-  const tops = Object.values(nodes).filter(n => n.parent === rootId);
+  const tops = Object.values(nodes).filter(n => n.parent === rootId && n.id !== frontmatterId);
   if(tops.length === 1){
     const promoted = tops[0];
     promoted.parent = null; promoted.side = 'root';
     delete nodes[rootId];
     finalRoot = promoted.id;
+    if(frontmatterId) nodes[frontmatterId].parent = finalRoot;
   }
   // Balanced left/right split (each branch kept consistent) so the imported map isn't
   // lopsided — the parser can't call the DOM-bound balanceRootSides().
@@ -5998,6 +6227,7 @@ function parseMarkdownOutline(text, filename){
         if(mm.fontSize) n.fontSize=mm.fontSize; if(mm.listType) n.listType=mm.listType;
         if(mm.highlight) n.highlight=mm.highlight; if(mm.align) n.align=mm.align;
         if(mm.image) n.image=mm.image; if(mm.ref) n.ref=true; if(mm.citation) n.citation=mm.citation;
+        if(mm.created) n.created=mm.created; if(mm.updated) n.updated=mm.updated;
       }
       kidsOrd(id).forEach((c,i)=>applyMeta(c.id, path+'.'+i));
     };
@@ -6008,6 +6238,329 @@ function parseMarkdownOutline(text, filename){
   if(_meta&&_meta.layout) out.layout=_meta.layout;
   if(_meta&&_meta.vars) out.vars=_meta.vars;
   return out;
+}
+
+// ============================================================================
+// Formula engine: Excel-like calculations for nodes.
+//
+// A node becomes a "formula" when its (plain) text starts with '='. Supports:
+//  - arithmetic: + - * / % ^ (right-assoc), parens, unary +/-
+//  - comparisons: < > <= >= == !=  (produce 1/0, usable in IF)
+//  - functions: SUM AVERAGE/AVG MIN MAX COUNT ROUND ABS SQRT POW MOD FLOOR
+//               CEIL/CEILING TRUNC IF LOG LOG10 EXP PI E
+//  - SUM(children) etc: aggregate over the current node's direct children
+//  - {Label}: reference another node by label — matches either a bare-number
+//    node's full text, or (for the natural "Rent: 1200" mind-map pattern) the
+//    part before the colon, so a descriptively-labeled node is both readable
+//    AND referenceable from a sibling formula.
+//
+// Plain (non-formula) node text is still usable as a *value* if it parses as
+// a number (optionally with $ / % / thousands separators, or a "Label: n"
+// prefix) — so a parent can SUM(children) over a mix of plain numbers and
+// sub-formulas, same as Excel treats a bare "42" cell as a number.
+// ============================================================================
+class FormulaError extends Error {}
+const FORMULA_FUNCS = {
+  SUM:     args => args.reduce((a,b)=>a+b, 0),
+  AVERAGE: args => args.length ? args.reduce((a,b)=>a+b,0)/args.length : 0,
+  AVG:     args => FORMULA_FUNCS.AVERAGE(args),
+  MIN:     args => { if(!args.length) throw new FormulaError('MIN needs at least one value'); return Math.min(...args); },
+  MAX:     args => { if(!args.length) throw new FormulaError('MAX needs at least one value'); return Math.max(...args); },
+  COUNT:   args => args.length,
+  ROUND:   args => { const x=args[0], n=args.length>1?args[1]:0; const f=Math.pow(10,n); return Math.round(x*f)/f; },
+  ABS:     args => Math.abs(args[0]),
+  SQRT:    args => { if(args[0]<0) throw new FormulaError('SQRT of a negative number'); return Math.sqrt(args[0]); },
+  POW:     args => Math.pow(args[0], args[1]),
+  MOD:     args => { if(args[1]===0) throw new FormulaError('Division by zero'); return args[0] % args[1]; },
+  FLOOR:   args => Math.floor(args[0]),
+  CEIL:    args => Math.ceil(args[0]),
+  CEILING: args => Math.ceil(args[0]),
+  TRUNC:   args => Math.trunc(args[0]),
+  LOG:     args => Math.log(args[0]),
+  LOG10:   args => Math.log10(args[0]),
+  EXP:     args => Math.exp(args[0]),
+};
+// Function signatures shown in the formula autocomplete popup.
+const FORMULA_FUNC_INFO = [
+  {name:'SUM',     sig:'SUM(a, b, ...)',      desc:'Adds up values \u2014 try SUM(children)'},
+  {name:'AVERAGE', sig:'AVERAGE(a, b, ...)',  desc:'Mean of values \u2014 try AVERAGE(children)'},
+  {name:'AVG',     sig:'AVG(a, b, ...)',      desc:'Alias for AVERAGE'},
+  {name:'MIN',     sig:'MIN(a, b, ...)',      desc:'Smallest value'},
+  {name:'MAX',     sig:'MAX(a, b, ...)',      desc:'Largest value'},
+  {name:'COUNT',   sig:'COUNT(a, b, ...)',    desc:'How many values'},
+  {name:'ROUND',   sig:'ROUND(x, digits)',    desc:'Rounds x to given decimals'},
+  {name:'ABS',     sig:'ABS(x)',              desc:'Absolute value'},
+  {name:'SQRT',    sig:'SQRT(x)',             desc:'Square root'},
+  {name:'POW',     sig:'POW(x, y)',           desc:'x to the power of y'},
+  {name:'MOD',     sig:'MOD(x, y)',           desc:'Remainder of x / y'},
+  {name:'FLOOR',   sig:'FLOOR(x)',            desc:'Round down'},
+  {name:'CEIL',    sig:'CEIL(x)',             desc:'Round up'},
+  {name:'TRUNC',   sig:'TRUNC(x)',            desc:'Drop the decimal part'},
+  {name:'IF',      sig:'IF(cond, then, else)',desc:'Branches on a condition'},
+  {name:'LOG',     sig:'LOG(x)',              desc:'Natural log'},
+  {name:'LOG10',   sig:'LOG10(x)',            desc:'Base-10 log'},
+  {name:'EXP',     sig:'EXP(x)',              desc:'e to the power of x'},
+  {name:'PI',      sig:'PI',                  desc:'3.14159...'},
+];
+function _formulaTokenize(src){
+  const toks=[]; let i=0; const n=src.length;
+  while(i<n){
+    const c=src[i];
+    if(/\s/.test(c)){ i++; continue; }
+    if(c==='{'){
+      const j=src.indexOf('}', i+1);
+      if(j<0) throw new FormulaError('Unclosed { reference');
+      toks.push({t:'ref', v:src.slice(i+1,j).trim()}); i=j+1; continue;
+    }
+    if(/[0-9]/.test(c) || (c==='.' && /[0-9]/.test(src[i+1]||''))){
+      let j=i, dot=false;
+      while(j<n && (/[0-9]/.test(src[j]) || (src[j]==='.' && !dot))){ if(src[j]==='.') dot=true; j++; }
+      toks.push({t:'num', v:parseFloat(src.slice(i,j))}); i=j; continue;
+    }
+    if(/[A-Za-z_]/.test(c)){
+      let j=i; while(j<n && /[A-Za-z0-9_]/.test(src[j])) j++;
+      toks.push({t:'ident', v:src.slice(i,j)}); i=j; continue;
+    }
+    if(c==='<' || c==='>' || c==='!'){
+      if(src[i+1]==='='){ toks.push({t:'op', v:c+'='}); i+=2; continue; }
+      toks.push({t:'op', v:c}); i++; continue;
+    }
+    if(c==='='){
+      if(src[i+1]==='='){ toks.push({t:'op', v:'=='}); i+=2; continue; }
+      toks.push({t:'op', v:'=='}); i++; continue;   // lone "=" also means equality inside an expression
+    }
+    if('+-*/%^'.includes(c)){ toks.push({t:'op', v:c}); i++; continue; }
+    if(c==='('){ toks.push({t:'('}); i++; continue; }
+    if(c===')'){ toks.push({t:')'}); i++; continue; }
+    if(c===','){ toks.push({t:','}); i++; continue; }
+    throw new FormulaError('Unexpected character: "'+c+'"');
+  }
+  toks.push({t:'eof'});
+  return toks;
+}
+function _formulaParse(toks){
+  let p=0;
+  const peek=()=>toks[p];
+  const next=()=>toks[p++];
+  function expect(t){ const tok=next(); if(tok.t!==t) throw new FormulaError('Expected "'+t+'"'); return tok; }
+  function parseExpression(){ return parseComparison(); }
+  function parseComparison(){
+    let left=parseAdd();
+    const t=peek();
+    if(t.t==='op' && ['<','>','<=','>=','==','!='].includes(t.v)){
+      next(); const right=parseAdd();
+      return {type:'cmp', op:t.v, left, right};
+    }
+    return left;
+  }
+  function parseAdd(){
+    let node=parseTerm();
+    while(peek().t==='op' && (peek().v==='+'||peek().v==='-')){
+      const op=next().v; node={type:'bin', op, left:node, right:parseTerm()};
+    }
+    return node;
+  }
+  function parseTerm(){
+    let node=parsePower();
+    while(peek().t==='op' && (peek().v==='*'||peek().v==='/'||peek().v==='%')){
+      const op=next().v; node={type:'bin', op, left:node, right:parsePower()};
+    }
+    return node;
+  }
+  function parsePower(){
+    const base=parseUnary();
+    if(peek().t==='op' && peek().v==='^'){ next(); return {type:'bin', op:'^', left:base, right:parsePower()}; }
+    return base;
+  }
+  function parseUnary(){
+    if(peek().t==='op' && (peek().v==='-'||peek().v==='+')){
+      const op=next().v; return {type:'unary', op, arg:parseUnary()};
+    }
+    return parsePrimary();
+  }
+  function parseArg(){
+    if(peek().t==='ident' && peek().v.toLowerCase()==='children' && toks[p+1] && toks[p+1].t!=='('){
+      next(); return {type:'children'};
+    }
+    return parseExpression();
+  }
+  function parsePrimary(){
+    const t=peek();
+    if(t.t==='num'){ next(); return {type:'num', value:t.v}; }
+    if(t.t==='ref'){ next(); return {type:'ref', label:t.v}; }
+    if(t.t==='('){ next(); const e=parseExpression(); expect(')'); return e; }
+    if(t.t==='ident'){
+      next();
+      const name=t.v.toUpperCase();
+      if(peek().t==='('){
+        next();
+        const args=[];
+        if(peek().t!==')'){
+          args.push(parseArg());
+          while(peek().t===','){ next(); args.push(parseArg()); }
+        }
+        expect(')');
+        return {type:'call', name, args};
+      }
+      if(name==='CHILDREN') return {type:'children'};
+      return {type:'const', name};
+    }
+    throw new FormulaError('Unexpected token in formula');
+  }
+  const ast=parseExpression();
+  if(peek().t!=='eof') throw new FormulaError('Unexpected trailing input');
+  return ast;
+}
+function _assertNum(v, where){
+  if(v && typeof v==='object' && '__children' in v) throw new FormulaError('children can only be used as a whole function argument, e.g. SUM(children)');
+  if(typeof v!=='number' || !isFinite(v)) throw new FormulaError('Expected a number'+(where?(' ('+where+')'):''));
+}
+function _formulaEval(node, ctx){
+  switch(node.type){
+    case 'num': return node.value;
+    case 'const':
+      if(node.name==='PI') return Math.PI;
+      if(node.name==='E') return Math.E;
+      throw new FormulaError('Unknown name: '+node.name);
+    case 'children': return { __children: ctx.children() };
+    case 'ref': {
+      const v = ctx.resolveRef(node.label);
+      if(v==null) throw new FormulaError('Cannot resolve {'+node.label+'}');
+      _assertNum(v, '{'+node.label+'}');
+      return v;
+    }
+    case 'unary': {
+      const v=_formulaEval(node.arg, ctx); _assertNum(v);
+      return node.op==='-' ? -v : v;
+    }
+    case 'bin': {
+      const l=_formulaEval(node.left, ctx), r=_formulaEval(node.right, ctx);
+      _assertNum(l); _assertNum(r);
+      switch(node.op){
+        case '+': return l+r;
+        case '-': return l-r;
+        case '*': return l*r;
+        case '/': if(r===0) throw new FormulaError('Division by zero'); return l/r;
+        case '%': if(r===0) throw new FormulaError('Division by zero'); return l%r;
+        case '^': return Math.pow(l,r);
+      }
+      break;
+    }
+    case 'cmp': {
+      const l=_formulaEval(node.left, ctx), r=_formulaEval(node.right, ctx);
+      _assertNum(l); _assertNum(r);
+      switch(node.op){
+        case '<': return l<r?1:0;   case '>': return l>r?1:0;
+        case '<=': return l<=r?1:0; case '>=': return l>=r?1:0;
+        case '==': return l===r?1:0; case '!=': return l!==r?1:0;
+      }
+      break;
+    }
+    case 'call': {
+      if(node.name==='IF'){
+        if(node.args.length!==3) throw new FormulaError('IF needs 3 arguments: IF(cond, then, else)');
+        const cond=_formulaEval(node.args[0], ctx); _assertNum(cond, 'IF condition');
+        return cond ? _formulaEval(node.args[1], ctx) : _formulaEval(node.args[2], ctx);
+      }
+      if(node.name==='PI' && node.args.length===0) return Math.PI;
+      const fn=FORMULA_FUNCS[node.name];
+      if(!fn) throw new FormulaError('Unknown function: '+node.name+'()');
+      const flat=[];
+      for(const a of node.args){
+        const v=_formulaEval(a, ctx);
+        if(v && typeof v==='object' && '__children' in v) flat.push(...v.__children);
+        else { _assertNum(v, 'argument to '+node.name); flat.push(v); }
+      }
+      return fn(flat);
+    }
+  }
+  throw new FormulaError('Malformed formula');
+}
+function evalFormula(src, ctx){
+  const toks=_formulaTokenize(src);
+  const ast=_formulaParse(toks);
+  const v=_formulaEval(ast, ctx);
+  _assertNum(v, 'result');
+  return v;
+}
+function parseNumericLiteral(text){
+  if(text==null) return null;
+  let s=String(text).trim();
+  if(!s) return null;
+  let percent=false;
+  if(/%$/.test(s)){ percent=true; s=s.slice(0,-1).trim(); }
+  s=s.replace(/^[$\u20ac\u00a3\u00a5]\s*/,'').replace(/,/g,'');
+  if(!/^-?\d+(\.\d+)?$/.test(s)) return null;
+  const v=parseFloat(s);
+  return percent ? v/100 : v;
+}
+function parseLabeledValue(text){
+  const s=String(text||'').trim();
+  const m=s.match(/^(.+?):\s*(.+)$/);
+  if(m){
+    const val=parseNumericLiteral(m[2]);
+    if(val!=null) return { label:m[1].trim(), value:val };
+  }
+  return { label:s, value:parseNumericLiteral(s) };
+}
+// Cleared at the start of every render() so formulas always reflect the current map;
+// memoized within a single pass so a value referenced by several formulas is only computed once.
+let _formulaCache=new Map();
+function clearFormulaCache(){ _formulaCache=new Map(); }
+function computeNodeValue(nodeId, visiting){
+  if(_formulaCache.has(nodeId)) return _formulaCache.get(nodeId);
+  if(!visiting) visiting=new Set();
+  if(visiting.has(nodeId)) return {error:'Circular reference'};
+  const n = map && map.nodes[nodeId];
+  if(!n) return null;
+  const plain = nodeTextPlain(n.text||'').trim();
+  if(!plain.startsWith('=')){
+    const num = parseLabeledValue(plain).value;
+    _formulaCache.set(nodeId, num);
+    return num;
+  }
+  const nextVisiting = new Set(visiting); nextVisiting.add(nodeId);
+  const ctx = {
+    children: () => childrenOf(nodeId).map(cid=>computeNodeValue(cid, nextVisiting)).filter(v=> typeof v==='number' && isFinite(v)),
+    resolveRef: (label) => {
+      const norm = s => (s||'').trim().toLowerCase();
+      const target = norm(label);
+      const tried=new Set();
+      const tryList = (ids)=>{
+        for(const cid of ids){
+          if(tried.has(cid) || cid===nodeId) continue; tried.add(cid);
+          const cn=map.nodes[cid]; if(!cn) continue;
+          const cnPlain = nodeTextPlain(cn.text||'');
+          if(norm(parseLabeledValue(cnPlain).label)===target){
+            const v=computeNodeValue(cid, nextVisiting);
+            return (v && typeof v==='object' && v.error) ? undefined : v;
+          }
+        }
+        return undefined;
+      };
+      let v;
+      if(n.parent!=null){ v=tryList(childrenOf(n.parent)); if(v!==undefined) return v; }
+      v=tryList(childrenOf(nodeId)); if(v!==undefined) return v;
+      v=tryList(Object.keys(map.nodes)); if(v!==undefined) return v;
+      return null;
+    }
+  };
+  let result;
+  try{ result = evalFormula(plain.slice(1), ctx); }
+  catch(e){ result = { error: (e && e.message) || 'Formula error' }; }
+  _formulaCache.set(nodeId, result);
+  return result;
+}
+// Formats a computed formula value for display in the node (e.g. trims float noise).
+function formatFormulaResult(v){
+  if(v==null) return '\u2014';
+  if(typeof v==='object' && v.error) return '#ERROR';
+  if(typeof v==='number'){
+    if(!isFinite(v)) return '#ERROR';
+    const rounded = Math.round(v*1e6)/1e6;
+    return String(rounded);
+  }
+  return '\u2014';
 }
 
 // Strip HTML to plain text but keep newlines from <br> and block elements
@@ -6122,6 +6675,8 @@ function _nodeMeta(n){   // per-node info that JSON has but Markdown can't expre
   if(n.image) m.image=n.image;
   if(n.ref) m.ref=1;
   if(n.citation) m.citation=n.citation;
+  if(n.created) m.created=n.created;
+  if(n.updated) m.updated=n.updated;
   return Object.keys(m).length? m : null;
 }
 function buildMarkdown(startId, opts){
@@ -6144,6 +6699,7 @@ function buildMarkdown(startId, opts){
   const walk=(id, bd, path)=>{
     const n=map.nodes[id];
     if(!n) return;
+    if(n.frontmatter) return;   // emitted separately as YAML frontmatter at the very top instead — never inline
     if(withMeta){ const mm=_nodeMeta(n); if(mm) nmeta[path]=mm; }
     const pad='  '.repeat(bd);
     if(n.hr){ if(lineMap) lm[lines.length]=id; lines.push(pad+'---'); return; }   // divider round-trips as ---
@@ -6185,8 +6741,19 @@ function buildMarkdown(startId, opts){
       childrenOf(id).forEach((c,i)=>walk(c, bd+1, path+'.'+i));
     }
   };
+  // A frontmatter child of root (Claude Skill name/description, etc.) is emitted as real
+  // YAML --- frontmatter --- at the very top of the file, not as inline content.
+  let frontmatterYaml = null;
+  { const fmChild = childrenOf(root).find(cid => map.nodes[cid] && map.nodes[cid].frontmatter);
+    if(fmChild) frontmatterYaml = frontmatterNodeToYaml(map.nodes[fmChild]);
+  }
   walk(root, 0, '0');
   let out=lines, shift=0; const prefix=[];
+  // Frontmatter must be the literal first bytes of the file — that's what makes it valid
+  // YAML frontmatter to any external tool (including Claude's own skill loader) — so it
+  // goes before even our own <!-- mindspark ... --> round-trip comment.
+  if(frontmatterYaml){ frontmatterYaml.split('\n').forEach(l=>prefix.push(l)); prefix.push(''); }
+  else if(rich && map.frontmatter){ map.frontmatter.split('\n').forEach(l=>prefix.push(l)); prefix.push(''); }   // legacy fallback
   if(withMeta){
     const meta={ v:1 };
     if(map.layout) meta.layout=map.layout;
@@ -6195,7 +6762,6 @@ function buildMarkdown(startId, opts){
     if(Object.keys(nmeta).length) meta.nodes=nmeta;
     if(Object.keys(meta).length>1){ prefix.push('<!-- mindspark', JSON.stringify(meta), '-->', ''); }
   }
-  if(rich && map.frontmatter){ map.frontmatter.split('\n').forEach(l=>prefix.push(l)); prefix.push(''); }
   if(prefix.length){ out=prefix.concat(lines); shift=prefix.length; }
   if(lineMap){ lineMap.length=0; for(const k in lm) lineMap[+k+shift]=lm[k]; }
   return out.join('\n');
@@ -7055,7 +7621,7 @@ const THEMES = [
   {id:'light',           name:'Light',           swatch:['#f4efe6','#ffffff','#e0613a']},
   {id:'dark',            name:'Dark',            swatch:['#1e1e1e','#2d2d2d','#3794ff']},
   {id:'dracula',         name:'Dracula',         swatch:['#282a36','#44475a','#ff79c6']},
-  {id:'monokai',         name:'Monokai',         swatch:['#272822','#3e3d32','#f92672']},
+  {id:'catppuccin',      name:'Catppuccin',      swatch:['#1e1e2e','#181825','#cba6f7']},
   {id:'nord',            name:'Nord',            swatch:['#2e3440','#434c5e','#88c0d0']},
   {id:'github-light',    name:'GitHub Light',    swatch:['#ffffff','#f6f8fa','#0969da']},
   {id:'solarized-light', name:'Solarized Light', swatch:['#fdf6e3','#ffffff','#268bd2']},
@@ -7237,7 +7803,8 @@ document.addEventListener('click',e=>{
 // (prefers-color-scheme) so dark-mode users get dark by default.
 try{
   let saved = localStorage.getItem('mindspark:theme');
-  if(saved==='solarized-dark'){ saved='github-dark'; try{ localStorage.setItem('mindspark:theme', saved); }catch(e){} }   // theme was replaced
+  const RETIRED_THEMES = {'solarized-dark':'github-dark', 'monokai':'catppuccin'};   // replaced themes
+  if(saved && RETIRED_THEMES[saved]){ saved=RETIRED_THEMES[saved]; try{ localStorage.setItem('mindspark:theme', saved); }catch(e){} }
   if(saved) applyTheme(saved);
   else applyTheme(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 }catch(e){}
@@ -7381,8 +7948,9 @@ function toggleFocusMode(){
     exit?.remove();
   }
   // The viewport size changes when chrome is shown/hidden — wait for the layout
-  // to settle, then recentre the map (keeping zoom) so it doesn't jump sideways.
-  requestAnimationFrame(()=>requestAnimationFrame(()=>recenter()));
+  // to settle, then smoothly animate the map back to centred (keeping zoom) so it
+  // doesn't just jump sideways.
+  requestAnimationFrame(()=>requestAnimationFrame(()=>animateViewTo(computeRecenterView(), 220)));
 }
 $('#focusBtn')?.addEventListener('click', toggleFocusMode);
 

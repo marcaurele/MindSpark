@@ -45,16 +45,16 @@
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
-  :root[data-theme="monokai"]{
-    --toolbar-bg:#f8f8f2; --toolbar-text:#272822;
-    --paper:#272822; --paper-2:#1e1f1c; --ink:#f8f8f2; --ink-soft:#a59f85;
-    --line:#3e3d32; --line-2:#75715e;
-    --accent:#f92672; --accent-deep:#d51d63; --teal:#a6e22e;
-    --chrome:#1e1f1c; --chrome-edge:#3e3d32;
-    --node-bg:#3e3d32; --node-ink:#f8f8f2;
-    --canvas-dot:#3e3d32;
-    --stage-glow:rgba(249,38,114,.05);
-    --link:#66d9ef;
+  :root[data-theme="catppuccin"]{   /* Catppuccin Mocha — https://github.com/catppuccin/catppuccin */
+    --toolbar-bg:#f5e0dc; --toolbar-text:#1e1e2e;
+    --paper:#1e1e2e; --paper-2:#181825; --ink:#cdd6f4; --ink-soft:#a6adc8;
+    --line:#313244; --line-2:#45475a;
+    --accent:#cba6f7; --accent-deep:#a674e0; --teal:#94e2d5;
+    --chrome:#181825; --chrome-edge:#313244;
+    --node-bg:#313244; --node-ink:#cdd6f4;
+    --canvas-dot:#313244;
+    --stage-glow:rgba(203,166,247,.05);
+    --link:#89b4fa;
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
@@ -296,6 +296,64 @@
   .node.dim{opacity:.28}
   .node.match{outline:2.5px solid var(--teal);outline-offset:2px}
   .node .badge{display:none}  /* legacy, no longer rendered */
+  /* Hover-only "created/last edited" watermark — a quiet background detail, not shown
+     by default so it never competes with the node's actual content. */
+  .node .node-watermark{
+    position:absolute; right:7px; bottom:4px; left:7px;
+    pointer-events:none; overflow:hidden;
+    font-family:var(--sans); font-size:9px; font-weight:600; letter-spacing:.02em;
+    color:currentColor; opacity:0;
+    transition:opacity .18s ease;
+    white-space:nowrap; text-overflow:ellipsis;
+    text-align:right;
+  }
+  .node:hover .node-watermark{opacity:.32}
+  .node.editing .node-watermark{opacity:0 !important}   /* never fight with the caret while typing */
+  /* Formula nodes ("=SUM(children)" etc): a small fx badge marks the node as a live
+     calculation, and the result shows in a tabular-numeral style so a column of computed
+     values lines up like a spreadsheet. The title tooltip (native, on hover) reveals the
+     actual formula text. */
+  .node.formula-node{position:relative}
+  .node.formula-node::before{
+    content:'\0192x'; position:absolute; top:-7px; left:-7px;
+    width:16px; height:16px; border-radius:50%;
+    background:var(--accent); color:#fff;
+    font-size:9px; font-weight:700; font-style:normal;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 1px 3px rgba(0,0,0,.25);
+    pointer-events:none;
+  }
+  .node.formula-node .node-text{font-variant-numeric:tabular-nums}
+  .node.formula-error{border-color:#e5484d}
+  .node.formula-error::before{background:#e5484d}
+  .node.formula-error .node-text{color:#e5484d}
+  /* Frontmatter node (a skill.md's YAML name/description block, etc.): a small badge marks
+     it as metadata rather than regular outline content — the table itself is the normal
+     block-node table rendering, this is purely a visual "what is this" hint. */
+  .node.frontmatter-node{position:relative}
+  .node.frontmatter-node::before{
+    content:'YAML'; position:absolute; top:-9px; left:8px;
+    padding:1px 5px; border-radius:4px;
+    background:var(--teal); color:#fff;
+    font-size:8px; font-weight:700; font-style:normal; letter-spacing:.03em;
+    box-shadow:0 1px 3px rgba(0,0,0,.25);
+    pointer-events:none;
+  }
+  /* Formula function autocomplete popup (Excel-style "=SU" -> suggests SUM) */
+  .formula-ac{
+    position:fixed; z-index:1200; min-width:220px; max-width:320px; max-height:220px;
+    overflow-y:auto; background:var(--chrome); border:1px solid var(--line);
+    border-radius:8px; box-shadow:var(--shadow-lg); padding:4px; font-family:var(--sans);
+  }
+  .formula-ac-row{
+    display:flex; flex-direction:column; gap:1px; padding:5px 8px; border-radius:5px;
+    cursor:pointer; line-height:1.3;
+  }
+  .formula-ac-row.active,.formula-ac-row:hover{background:var(--accent); }
+  .formula-ac-row.active .formula-ac-sig,.formula-ac-row:hover .formula-ac-sig,
+  .formula-ac-row.active .formula-ac-desc,.formula-ac-row:hover .formula-ac-desc{color:#fff}
+  .formula-ac-sig{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;font-weight:700;color:var(--ink)}
+  .formula-ac-desc{font-size:11px;color:var(--ink-soft)}
 
   /* ===== Quick-action handles on nodes (appear on hover) ===== */
   .node .handle{
@@ -374,7 +432,7 @@
 
   /* ===== Notes editor — styled as a sticky note ===== */
   :root{ --sticky:#fff7b0; --sticky-edge:#f2e27a; --sticky-ink:#4a431f; }
-  :root[data-theme="dark"], :root[data-theme="dracula"], :root[data-theme="monokai"],
+  :root[data-theme="dark"], :root[data-theme="dracula"], :root[data-theme="catppuccin"],
   :root[data-theme="nord"], :root[data-theme="github-dark"]{
     --sticky:#3a3520; --sticky-edge:#5c5430; --sticky-ink:#f3ecc4;
   }
