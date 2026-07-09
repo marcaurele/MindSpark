@@ -45,7 +45,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
-  :root[data-theme="catppuccin"]{   /* Catppuccin Mocha — https://github.com/catppuccin/catppuccin */
+  :root[data-theme="catppuccin-dark"]{   /* Catppuccin Mocha — https://github.com/catppuccin/catppuccin */
     --toolbar-bg:#f5e0dc; --toolbar-text:#1e1e2e;
     --paper:#1e1e2e; --paper-2:#181825; --ink:#cdd6f4; --ink-soft:#a6adc8;
     --line:#313244; --line-2:#45475a;
@@ -57,6 +57,19 @@
     --link:#89b4fa;
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
+  }
+  :root[data-theme="catppuccin-light"]{   /* Catppuccin Latte — https://github.com/catppuccin/catppuccin */
+    --toolbar-bg:#4c4f69; --toolbar-text:#eff1f5;
+    --paper:#eff1f5; --paper-2:#e6e9ef; --ink:#4c4f69; --ink-soft:#6c6f85;
+    --line:#ccd0da; --line-2:#bcc0cc;
+    --accent:#8839ef; --accent-deep:#6c2bc7; --teal:#179299;
+    --chrome:#e6e9ef; --chrome-edge:#ccd0da;
+    --node-bg:#ffffff; --node-ink:#4c4f69;
+    --canvas-dot:#ccd0da;
+    --stage-glow:rgba(136,57,239,.04);
+    --link:#1e66f5;
+    --shadow:0 1px 3px rgba(76,79,105,.12),0 8px 24px rgba(76,79,105,.12);
+    --shadow-lg:0 12px 40px rgba(76,79,105,.18);
   }
   :root[data-theme="nord"]{
     --toolbar-bg:#eceff4; --toolbar-text:#2e3440;
@@ -297,18 +310,19 @@
   .node.dim{opacity:.28}
   .node.match{outline:2.5px solid var(--teal);outline-offset:2px}
   .node .badge{display:none}  /* legacy, no longer rendered */
-  /* Hover-only "created/last edited" watermark — a quiet background detail, not shown
-     by default so it never competes with the node's actual content. */
+  /* Hover-only "created/last edited" watermark — sits just below the node (not inside it,
+     which used to collide with the node's own vertically-centered text on shorter nodes)
+     so it never overlaps the actual content. */
   .node .node-watermark{
-    position:absolute; right:7px; bottom:4px; left:7px;
+    position:absolute; left:0; right:0; top:100%; margin-top:3px;
     pointer-events:none; overflow:hidden;
     font-family:var(--sans); font-size:9px; font-weight:600; letter-spacing:.02em;
-    color:currentColor; opacity:0;
+    color:var(--ink-soft); opacity:0;
     transition:opacity .18s ease;
     white-space:nowrap; text-overflow:ellipsis;
-    text-align:right;
+    text-align:center;
   }
-  .node:hover .node-watermark{opacity:.32}
+  .node:hover .node-watermark{opacity:.85}
   .node.editing .node-watermark{opacity:0 !important}   /* never fight with the caret while typing */
   /* Formula nodes ("=SUM(children)" etc): a small fx badge marks the node as a live
      calculation, and the result shows in a tabular-numeral style so a column of computed
@@ -433,7 +447,7 @@
 
   /* ===== Notes editor — styled as a sticky note ===== */
   :root{ --sticky:#fff7b0; --sticky-edge:#f2e27a; --sticky-ink:#4a431f; }
-  :root[data-theme="dark"], :root[data-theme="dracula"], :root[data-theme="catppuccin"],
+  :root[data-theme="dark"], :root[data-theme="dracula"], :root[data-theme="catppuccin-dark"],
   :root[data-theme="nord"], :root[data-theme="github-dark"]{
     --sticky:#3a3520; --sticky-edge:#5c5430; --sticky-ink:#f3ecc4;
   }

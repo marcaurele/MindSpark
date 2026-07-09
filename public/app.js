@@ -1417,9 +1417,38 @@ function balanceRootSides(){
   const half=Math.ceil(kids.length/2);
   kids.forEach((k,i)=>{ map.nodes[k].side = (i<half) ? 'right' : 'left'; });
 }
+// FLIP-animates nodes from their pre-layout positions (captured in `before`, {id:{x,y}})
+// to wherever autoLayout() just placed them. Used after tidy layout / collapse-expand-all
+// / any autoLayout() re-render, so the map eases into its new shape instead of jumping.
+function flipAnimateNodes(before){
+  if(!before || document.body.classList.contains('node-dragging')) return;
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const toAnimate=[];
+  document.querySelectorAll('.node[data-id]').forEach(el=>{
+    const id=el.dataset.id, b=before[id], n=map && map.nodes[id];
+    if(!b || !n) return;                     // brand-new node, or map gone: nothing to FLIP from
+    const dx=b.x-n.x, dy=b.y-n.y;
+    if(Math.abs(dx)<0.5 && Math.abs(dy)<0.5) return;   // negligible/no movement
+    el.style.transition='none';
+    el.style.transform=`translate(${dx}px,${dy}px)`;
+    toAnimate.push(el);
+  });
+  if(!toAnimate.length) return;
+  void document.body.offsetHeight;   // force layout so the browser registers the starting transform before animating away from it
+  requestAnimationFrame(()=>{
+    toAnimate.forEach(el=>{ el.style.transition='transform .22s cubic-bezier(.4,0,.2,1)'; el.style.transform=''; });
+    setTimeout(()=>{ toAnimate.forEach(el=>{ el.style.transition=''; }); }, 260);   // hand back to the normal CSS transition afterward
+  });
+}
 function autoLayout(noRender){
   if(!map) return;
   const _prevCI=_ci; _ci=buildChildIndex();   // O(1) childrenOf for the whole layout
+  // Snapshot current positions before anything below moves them — used to FLIP-animate
+  // into the new layout once it's rendered (see flipAnimateNodes), so "tidy layout" and
+  // "collapse/expand all" ease into place instead of jumping. render() clears and rebuilds
+  // node DOM elements from scratch, so a plain CSS left/top transition can't apply here —
+  // this replays the movement manually via a transform on the fresh elements instead.
+  const _beforePos={}; for(const id in map.nodes){ const n=map.nodes[id]; _beforePos[id]={x:n.x,y:n.y}; }
   try{
   // Render-to-measure only if some visible node has no measured size yet (e.g.
   // it was just revealed by expanding). This avoids a full extra render on every
@@ -1452,7 +1481,7 @@ function autoLayout(noRender){
     const assign = id => { map.nodes[id].side='down'; childrenOf(id).forEach(assign); };
     childrenOf(map.rootId).forEach(assign);
     place(map.rootId, 0, 0);
-    if(!noRender){ render(); scheduleSave(); } return;
+    if(!noRender){ render(); scheduleSave(); flipAnimateNodes(_beforePos); } return;
   }
 
   const kids=childrenOf(map.rootId);
@@ -1513,7 +1542,7 @@ function autoLayout(noRender){
   let lTop=-(leftSet.reduce((s,k,i)=>s+heightOf(k)+(i?VGAP:0),0))/2 + rootMid;
   leftSet.forEach(k=>{ const h=heightOf(k); const w=map.nodes[k].w||120; place(k, root.x-w-HGAP, lTop, -1); lTop+=h+VGAP; });
 
-  if(!noRender){ render(); scheduleSave(); }
+  if(!noRender){ render(); scheduleSave(); flipAnimateNodes(_beforePos); }
   } finally { _ci=_prevCI; }
 }
 
@@ -1606,7 +1635,7 @@ function ensureMdPane(){
   rz.addEventListener('mousedown',e=>{ document.body.classList.add('md-resizing');
     e.preventDefault(); const x0=e.clientX, w0=pane.getBoundingClientRect().width;
     const mv=ev=>{ const w=Math.max(240, Math.min(window.innerWidth*0.72, w0+(ev.clientX-x0))); app.style.setProperty('--md-w', w+'px'); };
-    const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); document.body.classList.remove('md-resizing'); try{fit();}catch(_){} };
+    const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); document.body.classList.remove('md-resizing'); try{ animateViewTo(computeFitView(), 220); }catch(_){} };
     window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
   });
 }
@@ -2124,8 +2153,10 @@ function toggleMdMode(on){
   setTimeout(()=>{ try{ animateViewTo(computeFitView(), 260); }catch(e){} try{ if(mdMode) mdCalibrate(); }catch(e){} }, 260);   // smoothly re-fit once the pane finished sliding, instead of snapping
 }
 function pushHistory(){
+  const snapshot = JSON.stringify({nodes:map.nodes,rootId:map.rootId,title:map.title,color:map.color,links:map.links||[],layout:map.layout,vars:map.vars||{}});
+  if(history.length && hpos>=0 && history[hpos]===snapshot) return;   // nothing actually changed — don't save/flash "Saving…" for no reason
   history=history.slice(0,hpos+1);
-  history.push(JSON.stringify({nodes:map.nodes,rootId:map.rootId,title:map.title,color:map.color,links:map.links||[],layout:map.layout,vars:map.vars||{}}));
+  history.push(snapshot);
   if(history.length>60) history.shift();
   hpos=history.length-1;
   updateUndo();
@@ -3191,6 +3222,7 @@ let dropTarget=null;   // id of node currently hovered as a reparent target
 // Snapshot positions of `id` and all its descendants so the whole subtree
 // can move together during a drag, then reset cleanly on cancel.
 function beginSubtreeDrag(id, mx, my){
+  document.body.classList.add('node-dragging');   // suspend the position transition below while actively dragging (must track the pointer 1:1, not ease into place)
   const subtree={};
   withChildIndex(()=>{
     const collect = i => {
@@ -3442,6 +3474,7 @@ window.addEventListener('mousemove',e=>{
   if(!_moveRAF) _moveRAF=requestAnimationFrame(_applyMove);   // coalesce to one update / frame
 });
 window.addEventListener('mouseup',()=>{
+  document.body.classList.remove('node-dragging');
   if(_moveRAF){ cancelAnimationFrame(_moveRAF); _moveRAF=0; _applyMove(); }
   _movePt=null; _dragHidden=null;
   if(resizing){
@@ -3549,6 +3582,7 @@ window.addEventListener('touchend', e=>{
   const remaining = e.touches ? e.touches.length : 0;
   if(pinch && remaining<2){ pinch=null; }
   if(remaining>0) return;              // still touching
+  document.body.classList.remove('node-dragging');
   if(dragNode){
     if(dropTarget && dragNode!==map.rootId){
       const did = (dropTarget.mode==='on') ? reparent(dragNode, dropTarget.id)
@@ -3567,6 +3601,7 @@ window.addEventListener('touchend', e=>{
 // so dragNode/panning/pinch stay set and every later touch is mis-read as a continuing
 // drag — the canvas looks frozen. Reset all gesture state defensively.
 window.addEventListener('touchcancel', ()=>{
+  document.body.classList.remove('node-dragging');
   if(dragNode){ setDropTarget(null); dragNode=null; }
   if(panning){ panning=false; saveMapView(); }
   pinch=null; resizing=null; moved=false;
@@ -7537,7 +7572,7 @@ $('#collapseAll')?.addEventListener('click', ()=>{
 $('#undo').onclick=undo; $('#redo').onclick=redo;
 document.getElementById('mdToggle')?.addEventListener('click',()=>toggleMdMode());
 $('#zoomIn').onclick=()=>zoom(1.15); $('#zoomOut').onclick=()=>zoom(.87);
-$('#zoomFit').onclick=()=>{ fit(); userZoom=view.k; saveMapView(); };
+$('#zoomFit').onclick=()=>{ const t=computeFitView(); if(t){ animateViewTo(t,220); userZoom=t.k; } saveMapView(); };
 $('#minimap')?.addEventListener('mousedown', e=>{ e.stopPropagation(); minimapJump(e.clientX, e.clientY); });
 $('#minimap')?.addEventListener('click', e=>e.stopPropagation());
 // Click the zoom % to enter a custom value
@@ -7635,7 +7670,8 @@ const THEMES = [
   {id:'light',           name:'Light',           swatch:['#f4efe6','#ffffff','#e0613a']},
   {id:'dark',            name:'Dark',            swatch:['#1e1e1e','#2d2d2d','#3794ff']},
   {id:'dracula',         name:'Dracula',         swatch:['#282a36','#44475a','#ff79c6']},
-  {id:'catppuccin',      name:'Catppuccin',      swatch:['#1e1e2e','#181825','#cba6f7']},
+  {id:'catppuccin-light', name:'Catppuccin Light', swatch:['#eff1f5','#e6e9ef','#8839ef']},
+  {id:'catppuccin-dark',  name:'Catppuccin Dark',  swatch:['#1e1e2e','#181825','#cba6f7']},
   {id:'nord',            name:'Nord',            swatch:['#2e3440','#434c5e','#88c0d0']},
   {id:'github-light',    name:'GitHub Light',    swatch:['#ffffff','#f6f8fa','#0969da']},
   {id:'solarized-light', name:'Solarized Light', swatch:['#fdf6e3','#ffffff','#268bd2']},
@@ -7817,7 +7853,7 @@ document.addEventListener('click',e=>{
 // (prefers-color-scheme) so dark-mode users get dark by default.
 try{
   let saved = localStorage.getItem('mindspark:theme');
-  const RETIRED_THEMES = {'solarized-dark':'github-dark', 'monokai':'catppuccin'};   // replaced themes
+  const RETIRED_THEMES = {'solarized-dark':'github-dark', 'monokai':'catppuccin-dark', 'catppuccin':'catppuccin-dark'};   // replaced themes
   if(saved && RETIRED_THEMES[saved]){ saved=RETIRED_THEMES[saved]; try{ localStorage.setItem('mindspark:theme', saved); }catch(e){} }
   if(saved) applyTheme(saved);
   else applyTheme(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
