@@ -1700,9 +1700,19 @@ function mdInlineToHtmlWithMath(txt){
   return mdInlineToHtml(masked).replace(/\uE000(\d+)\uE001/g, (m,idx)=> slots[+idx]!=null ? slots[+idx] : '');
 }
 function mdToHtml(md){
-  md=md.replace(/^\uFEFF?\s*<!--\s*mindspark[\s\S]*?-->\s*\n?/i,'');       // drop meta comment
-  md=md.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n?/,'');               // drop frontmatter
-  const L=md.split('\n'); const out=[]; let i=0;
+  let frontHtml='';
+  // Strip a leading mindspark comment and/or YAML frontmatter block, in whichever order
+  // they appear (loop, not two independent one-shot checks — same reasoning as
+  // parseMarkdownOutline: an anchored check silently stops matching if the other block
+  // ends up first, leaking raw "<!-- mindspark" / "---" text into the rendered preview).
+  for(let guard=0; guard<4; guard++){
+    const mm = md.match(/^\uFEFF?\s*<!--\s*mindspark[\s\S]*?-->\s*\n?/i);
+    if(mm){ md=md.slice(mm[0].length); continue; }
+    const fm = md.match(/^\s*---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+    if(fm){ frontHtml = frontmatterFieldsToHtml(parseFrontmatterFields(fm[0])); md=md.slice(fm[0].length); continue; }
+    break;
+  }
+  const L=md.split('\n'); const out=frontHtml?[frontHtml]:[]; let i=0;
   const esc=x=>x.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const item=x=>mdInlineToHtmlWithMath(x.replace(/^\s*([-*+]|\d+\.)\s+/,'').replace(/^\[[ ]\]\s/,'\u2610 ').replace(/^\[[xX]\]\s/,'\u2611 '));
   const cells=r=>r.replace(/^\s*\|?/,'').replace(/\|?\s*$/,'').split('|').map(c=>c.trim());
@@ -6066,12 +6076,19 @@ function frontmatterNodeToYaml(n){
   return lines.join('\n');
 }
 function parseMarkdownOutline(text, filename){
-  let _meta=null;
-  { const mm = text.match(/^\uFEFF?\s*<!--\s*mindspark\s*\r?\n([\s\S]*?)\r?\n\s*-->\s*\r?\n?/i);
-    if(mm){ try{ _meta=JSON.parse(mm[1].trim()); }catch(e){ _meta=null; } text=text.slice(mm[0].length); } }
-  let _frontmatter=null;
-  { const fm = text.match(/^\s*---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
-    if(fm){ _frontmatter=('---\n'+fm[1].replace(/\s+$/,'')+'\n---'); text=text.slice(fm[0].length); } }
+  let _meta=null, _frontmatter=null;
+  // Strip a leading <!-- mindspark ... --> comment and a leading YAML --- ... --- block,
+  // in whichever order they appear. Looping instead of checking each once matters: if
+  // buildMarkdown ever emits them in a different order than expected, a single anchored
+  // check would silently stop matching the second block, leaving it to leak into the
+  // outline as literal text/nodes instead of being recognized as metadata.
+  for(let guard=0; guard<4; guard++){
+    const mm = text.match(/^\uFEFF?\s*<!--\s*mindspark\s*\r?\n([\s\S]*?)\r?\n\s*-->\s*\r?\n?/i);
+    if(mm){ try{ _meta=JSON.parse(mm[1].trim()); }catch(e){ _meta=null; } text=text.slice(mm[0].length); continue; }
+    const fm = text.match(/^\s*---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+    if(fm){ _frontmatter=('---\n'+fm[1].replace(/\s+$/,'')+'\n---'); text=text.slice(fm[0].length); continue; }
+    break;
+  }
   const title = (filename||'').replace(/\.[^.]+$/, '') || 'Imported';
   const nodes = {};
   const rootId = uid();
@@ -6749,11 +6766,6 @@ function buildMarkdown(startId, opts){
   }
   walk(root, 0, '0');
   let out=lines, shift=0; const prefix=[];
-  // Frontmatter must be the literal first bytes of the file — that's what makes it valid
-  // YAML frontmatter to any external tool (including Claude's own skill loader) — so it
-  // goes before even our own <!-- mindspark ... --> round-trip comment.
-  if(frontmatterYaml){ frontmatterYaml.split('\n').forEach(l=>prefix.push(l)); prefix.push(''); }
-  else if(rich && map.frontmatter){ map.frontmatter.split('\n').forEach(l=>prefix.push(l)); prefix.push(''); }   // legacy fallback
   if(withMeta){
     const meta={ v:1 };
     if(map.layout) meta.layout=map.layout;
@@ -6762,6 +6774,8 @@ function buildMarkdown(startId, opts){
     if(Object.keys(nmeta).length) meta.nodes=nmeta;
     if(Object.keys(meta).length>1){ prefix.push('<!-- mindspark', JSON.stringify(meta), '-->', ''); }
   }
+  if(frontmatterYaml){ frontmatterYaml.split('\n').forEach(l=>prefix.push(l)); prefix.push(''); }
+  else if(rich && map.frontmatter){ map.frontmatter.split('\n').forEach(l=>prefix.push(l)); prefix.push(''); }   // legacy fallback
   if(prefix.length){ out=prefix.concat(lines); shift=prefix.length; }
   if(lineMap){ lineMap.length=0; for(const k in lm) lineMap[+k+shift]=lm[k]; }
   return out.join('\n');

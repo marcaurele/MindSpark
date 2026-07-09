@@ -172,6 +172,7 @@
   #mdPane .md-prev code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
   #mdPane .md-prev table{border-collapse:collapse;font-size:.95em}
   #mdPane .md-prev th,#mdPane .md-prev td{border:1px solid var(--line);padding:5px 9px}
+  #mdPane .md-prev th{background:var(--paper-2,rgba(127,127,127,.12));font-weight:700;text-align:left}
   #mdPane .md-prev blockquote{border-left:3px solid var(--line);margin-left:0;padding:.2em 0 .2em 12px;color:var(--ink-soft)}
   #mdPane .md-prev img{max-width:100%}
   #mdPane .md-prev hr{border:0;border-top:1px solid var(--line);margin:1em 0}
@@ -1573,6 +1574,12 @@ body.no-banner.shared-view .stage{ top:0; }
     color:#1a1a1a;background:#fff;
     font:14px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
   }
+  /* Browsers drop background colors/images when printing unless told otherwise — this is
+     what was silently stripping the code-block shading (and would strip any other
+     background color here too, e.g. a table header tint) even though it renders fine
+     on screen in the live preview. Applies to every descendant, not just #mdPrintRoot
+     itself, since print-color-adjust doesn't reliably cascade in all engines. */
+  #mdPrintRoot, #mdPrintRoot *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; color-adjust:exact; }
   #mdPrintRoot h1{font-size:1.9em;margin:0 0 .4em;line-height:1.25;color:#111;border-bottom:1px solid #ccc;padding-bottom:.2em}
   #mdPrintRoot h1,#mdPrintRoot h2,#mdPrintRoot h3{page-break-after:avoid}
   #mdPrintRoot h2,#mdPrintRoot h3{margin:.9em 0 .3em;line-height:1.25;color:#111}
@@ -1581,8 +1588,9 @@ body.no-banner.shared-view .stage{ top:0; }
   #mdPrintRoot p,#mdPrintRoot ul,#mdPrintRoot ol,#mdPrintRoot blockquote{margin:.5em 0}
   #mdPrintRoot pre.mp-code{background:#f2f2f2;padding:10px 12px;border-radius:6px;overflow:auto;font-size:12px;page-break-inside:avoid}
   #mdPrintRoot code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-  #mdPrintRoot table{border-collapse:collapse;font-size:.95em;page-break-inside:avoid}
+  #mdPrintRoot table{border-collapse:collapse;font-size:.95em;page-break-inside:avoid;margin:.5em 0}
   #mdPrintRoot th,#mdPrintRoot td{border:1px solid #ccc;padding:5px 9px}
+  #mdPrintRoot th{background:#eef0f3;font-weight:700;text-align:left}
   #mdPrintRoot blockquote{border-left:3px solid #ccc;margin-left:0;padding:.2em 0 .2em 12px;color:#555}
   #mdPrintRoot img{max-width:100%}
   #mdPrintRoot hr{border:0;border-top:1px solid #ccc;margin:1em 0}
