@@ -1523,7 +1523,7 @@ function ensureMdPane(){
   const app=document.querySelector('.app'), stage=document.querySelector('.stage'); if(!app||!stage) return;
   const pane=document.createElement('div'); pane.id='mdPane';
   pane.innerHTML='<div class="md-head"><span class="md-ttl">Markdown</span><span class="md-pos"></span><button class="md-pdf-btn" title="Download the rendered preview as a PDF">Download PDF</button><button class="md-prev-btn" title="Toggle rendered preview">Preview</button><button class="md-close" title="Exit Markdown mode (Esc)">\u2715</button></div>'
-    +'<div class="md-toolbar"><button data-fmt="bold" title="Bold"><b>B</b></button><button data-fmt="italic" title="Italic"><i>I</i></button><button data-fmt="strike" title="Strikethrough"><s>S</s></button><button data-fmt="code" title="Inline code">&lt;/&gt;</button><span class="md-sep"></span><button data-fmt="h1" title="Heading 1">H1</button><button data-fmt="h2" title="Heading 2">H2</button><button data-fmt="h3" title="Heading 3">H3</button><span class="md-sep"></span><button data-fmt="quote" title="Blockquote">\u275D</button><button data-fmt="ul" title="Bullet list">\u2022</button><button data-fmt="ol" title="Numbered list">1.</button><button data-fmt="hr" title="Divider">\u2014</button><span class="md-sep"></span><button data-fmt="link" title="Link">\uD83D\uDD17</button><button data-fmt="image" title="Image">\uD83D\uDDBC</button><button data-fmt="codeblock" title="Code block">\u2317</button><button data-fmt="table" title="Table">\u25A6</button></div><div class="md-body"><div class="md-gutter" aria-hidden="true"></div><div class="md-code"><pre class="md-hl" aria-hidden="true"></pre>'
+    +'<div class="md-toolbar"><button data-fmt="bold" title="Bold"><b>B</b></button><button data-fmt="italic" title="Italic"><i>I</i></button><button data-fmt="strike" title="Strikethrough"><s>S</s></button><button data-fmt="code" title="Inline code">&lt;/&gt;</button><span class="md-sep"></span><button data-fmt="h1" title="Heading 1">H1</button><button data-fmt="h2" title="Heading 2">H2</button><button data-fmt="h3" title="Heading 3">H3</button><span class="md-sep"></span><button data-fmt="quote" title="Blockquote">\u275D</button><button data-fmt="ul" title="Bullet list">\u2022</button><button data-fmt="ol" title="Numbered list">1.</button><button data-fmt="hr" title="Divider">\u2014</button><span class="md-sep"></span><button data-fmt="link" title="Link">\uD83D\uDD17</button><button data-fmt="image" title="Image">\uD83D\uDDBC</button><button data-fmt="codeblock" title="Code block">\u2317</button><button data-fmt="table" title="Table">\u25A6</button></div><div class="md-body"><div class="md-gutter" aria-hidden="true"><div class="md-gutter-inner"></div></div><div class="md-code"><pre class="md-hl" aria-hidden="true"><div class="md-hl-inner"></div></pre>'
     +'<textarea id="mdEditor" spellcheck="false" wrap="off" placeholder="# Central idea&#10;- a branch&#10;  - a leaf"></textarea><div class="md-prev" aria-hidden="true"></div></div></div>'
     +'<div class="md-resize" title="Drag to resize"></div>';
   app.insertBefore(pane, stage);
@@ -1549,7 +1549,12 @@ function ensureMdPane(){
     }
   });
   const syncNodeFromCaret=()=>{ if(_mdSelSync) return; const vline=ed.value.slice(0,ed.selectionStart).split('\n').length-1; const line=_mdView?_mdView.visLineToFull[vline]:vline; let id=null; for(let l=line;l>=0;l--){ if(_mdLines[l]){ id=_mdLines[l]; break; } } if(id && map.nodes[id]){ _mdSelSync=true; select(id); _mdSelSync=false; } };
-  ed.addEventListener('click', ()=>{ mdUpdateActive(); syncNodeFromCaret(); });
+  // Full decoration refresh (not just mdUpdateActive) on click: guarantees the gutter and
+  // overlay rows are freshly rebuilt from the textarea's *current* value before we mark the
+  // active one, and re-syncs scroll — so a click can never land against a stale row or a
+  // scroll position the browser has since adjusted (e.g. when the click also brings a
+  // previously-partial row fully into view).
+  ed.addEventListener('click', ()=>{ mdRefreshDecorations(); syncNodeFromCaret(); requestAnimationFrame(()=>mdRefreshDecorations()); });
   document.addEventListener('selectionchange', ()=>{ if(mdMode && document.activeElement===document.getElementById('mdEditor')) mdUpdateActive(); });
   ed.addEventListener('keyup', e=>{ mdUpdateActive(); if(e.key && e.key.indexOf('Arrow')===0) syncNodeFromCaret(); });
   // Fold toggles live in the gutter (one per foldable line) — the only place that can
@@ -1640,23 +1645,39 @@ function renderMdList(items, itemFn){
     return '<'+tag+'>'+n.children.map(c=>'<li>'+c.text+emit(c)+'</li>').join('')+'</'+tag+'>'; };
   return emit(root);
 }
+// Display-only variant of mdInlineToHtml that also renders $...$ / $$...$$ LaTeX to MathML
+// (via the existing dependency-free latexToMathML(), same one the canvas nodes use). Used by
+// mdToHtml() for the Markdown preview and PDF export — NOT by the parser: node text must keep
+// math as literal $...$ source (see htmlToInlineMd's comment) so it stays editable/round-trips.
+function mdInlineToHtmlWithMath(txt){
+  if(!txt || txt.indexOf('$')<0) return mdInlineToHtml(txt);
+  const re=new RegExp(MATH_DELIM_RE.source,'g');
+  const slots=[];
+  const masked = txt.replace(re, (full,dd,inl)=>{
+    const tex = dd!=null ? dd : inl, display = dd!=null;
+    let mathml=null; try{ mathml=latexToMathML(tex, display); }catch(e){ mathml=null; }
+    slots.push(mathml!=null ? mathml : escapeHtml(full));   // fall back to the raw text if it doesn't parse as LaTeX
+    return '\uE000'+(slots.length-1)+'\uE001';               // PUA placeholder survives markdown/HTML processing untouched
+  });
+  return mdInlineToHtml(masked).replace(/\uE000(\d+)\uE001/g, (m,idx)=> slots[+idx]!=null ? slots[+idx] : '');
+}
 function mdToHtml(md){
   md=md.replace(/^\uFEFF?\s*<!--\s*mindspark[\s\S]*?-->\s*\n?/i,'');       // drop meta comment
   md=md.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n?/,'');               // drop frontmatter
   const L=md.split('\n'); const out=[]; let i=0;
   const esc=x=>x.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const item=x=>mdInlineToHtml(x.replace(/^\s*([-*+]|\d+\.)\s+/,'').replace(/^\[[ ]\]\s/,'\u2610 ').replace(/^\[[xX]\]\s/,'\u2611 '));
+  const item=x=>mdInlineToHtmlWithMath(x.replace(/^\s*([-*+]|\d+\.)\s+/,'').replace(/^\[[ ]\]\s/,'\u2610 ').replace(/^\[[xX]\]\s/,'\u2611 '));
   const cells=r=>r.replace(/^\s*\|?/,'').replace(/\|?\s*$/,'').split('|').map(c=>c.trim());
-  const tbl=rows=>'<table><thead><tr>'+cells(rows[0]).map(h=>'<th>'+mdInlineToHtml(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.slice(2).map(r=>'<tr>'+cells(r).map(c=>'<td>'+mdInlineToHtml(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+  const tbl=rows=>'<table><thead><tr>'+cells(rows[0]).map(h=>'<th>'+mdInlineToHtmlWithMath(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.slice(2).map(r=>'<tr>'+cells(r).map(c=>'<td>'+mdInlineToHtmlWithMath(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
   while(i<L.length){
     let line=L[i];
     if(!line.trim()){ i++; continue; }
     let fm=line.match(/^\s*(```+|~~~+)(.*)$/);
     if(fm){ const buf=[]; let j=i+1; while(j<L.length && !/^\s*(```+|~~~+)\s*$/.test(L[j])){ buf.push(L[j]); j++; } out.push('<pre class="mp-code"><code>'+esc(buf.join('\n'))+'</code></pre>'); i=j+1; continue; }
     let h=line.match(/^(#{1,6})\s+(.*)$/);
-    if(h){ out.push('<h'+h[1].length+'>'+mdInlineToHtml(h[2])+'</h'+h[1].length+'>'); i++; continue; }
+    if(h){ out.push('<h'+h[1].length+'>'+mdInlineToHtmlWithMath(h[2])+'</h'+h[1].length+'>'); i++; continue; }
     if(/^\s*([-*_])(?:[ \t]*\1){2,}[ \t]*$/.test(line)){ out.push('<hr>'); i++; continue; }
-    if(/^\s*>/.test(line)){ const buf=[]; while(i<L.length && /^\s*>/.test(L[i])){ buf.push(L[i].replace(/^\s*>\s?/,'')); i++; } out.push('<blockquote>'+mdInlineToHtml(buf.join('<br>'))+'</blockquote>'); continue; }
+    if(/^\s*>/.test(line)){ const buf=[]; while(i<L.length && /^\s*>/.test(L[i])){ buf.push(L[i].replace(/^\s*>\s?/,'')); i++; } out.push('<blockquote>'+mdInlineToHtmlWithMath(buf.join('<br>'))+'</blockquote>'); continue; }
     if(line.includes('|') && i+1<L.length && /-/.test(L[i+1]) && /^[\s|:\-]+$/.test(L[i+1])){ const rows=[]; while(i<L.length && L[i].includes('|') && L[i].trim()){ rows.push(L[i]); i++; } out.push(tbl(rows)); continue; }
     if(/^\s*<(table|div|details|figure|section|img|hr|blockquote|p|h[1-6]|ul|ol)\b/i.test(line)){ const tm=line.match(/^\s*<([a-z0-9]+)/i), tag=tm?tm[1].toLowerCase():''; const buf=[line];
       const VOID=/^(img|hr|br|input|source|col|area|embed|track|wbr|link|meta)$/;
@@ -1666,7 +1687,7 @@ function mdToHtml(md){
     if(im){ out.push('<img alt="'+esc(im[1])+'" src="'+esc(im[2])+'">'); i++; continue; }
     if(/^\s*([-*+]|\d+\.)\s+/.test(line)){ const items=[]; while(i<L.length && (/^\s*([-*+]|\d+\.)\s+/.test(L[i]) || (L[i].trim() && /^\s{2,}\S/.test(L[i])))){ items.push(L[i]); i++; } out.push(renderMdList(items,item)); continue; }
     const buf=[line]; i++; while(i<L.length && L[i].trim() && !/^\s*(#{1,6}\s|[-*+]\s|\d+\.\s|>|```|~~~|\||<)/.test(L[i])){ buf.push(L[i]); i++; }
-    out.push('<p>'+mdInlineToHtml(buf.join(' '))+'</p>');
+    out.push('<p>'+mdInlineToHtmlWithMath(buf.join(' '))+'</p>');
   }
   // final safety: strip event handlers / javascript: URLs
   return out.join('\n').replace(/\son\w+="[^"]*"/gi,'').replace(/javascript:/gi,'');
@@ -1782,11 +1803,13 @@ function mdDownloadPdf(){
   if(!map) return;
   let root=document.getElementById('mdPrintRoot');
   if(!root){ root=document.createElement('div'); root.id='mdPrintRoot'; document.body.appendChild(root); }
-  const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const title=map.title||'Mind Map';
-  root.innerHTML='<h1>'+esc(title)+'</h1>'+mdToHtml(_mdFullText);   // full text: PDF export isn't affected by folds
+  // No separate title heading here — the root/center node's own text is already the
+  // document's first H1 (via buildMarkdown -> mdToHtml), so adding map.title on top of
+  // that would just duplicate or mismatch it. The center node itself is never touched.
+  root.innerHTML=mdToHtml(_mdFullText);   // full text: PDF export isn't affected by folds
   const oldTitle=document.title;
-  document.title=(title.replace(/[\\/:*?"<>|]/g,'').trim())||'mindmap';
+  const suggestedName=(map.title||'mindmap').replace(/[\\/:*?"<>|]/g,'').trim()||'mindmap';
+  document.title=suggestedName;   // browsers use this as the suggested "Save as PDF" filename
   document.body.classList.add('md-printing');
   let cleaned=false;
   const cleanup=()=>{
@@ -1917,9 +1940,20 @@ function mdHighlight(text, view){
 }
 function mdSyncScroll(){
   const ed=document.getElementById('mdEditor'); if(!ed) return;
-  const hl=document.querySelector('#mdPane .md-hl'), gut=document.querySelector('#mdPane .md-gutter');
-  if(hl){ hl.scrollTop=ed.scrollTop; hl.scrollLeft=ed.scrollLeft; }
-  if(gut){ gut.scrollTop=ed.scrollTop; }
+  const hl=document.querySelector('#mdPane .md-hl-inner'), gut=document.querySelector('#mdPane .md-gutter-inner');
+  // A transform on the INNER wrapper, not `scrollTop` on the outer (clipping) element itself.
+  // Setting `scrollTop` gets silently clamped to that element's OWN scrollHeight — and the
+  // overlay's <div>-per-line rows can end up a pixel or two taller/shorter in total than the
+  // textarea's native line rendering (different rendering paths for a <textarea> vs plain
+  // block content), so the clamp would kick in once scrolled far enough, making the
+  // highlighted row drift from the real caret row — exactly the "only happens once there's a
+  // scrollbar" symptom. A transform has no such ceiling: it always shifts by exactly what the
+  // textarea reports, full stop. (Transforming .md-hl/.md-gutter directly would be wrong too —
+  // that would drag their own overflow:hidden clipping box along with it; the transform has to
+  // land on a plain, non-clipping inner element instead.)
+  const dx=-ed.scrollLeft, dy=-ed.scrollTop;
+  if(hl) hl.style.transform='translate('+dx+'px,'+dy+'px)';
+  if(gut) gut.style.transform='translateY('+dy+'px)';
 }
 function mdUpdateActive(){
   const ed=document.getElementById('mdEditor'); if(!ed) return;
@@ -1931,10 +1965,12 @@ function mdUpdateActive(){
   document.querySelectorAll('#mdPane .md-hl .hl-line.active').forEach(e=>e.classList.remove('active'));
   const hlRow=document.querySelector('#mdPane .md-hl .hl-line[data-l="'+line+'"]'); if(hlRow) hlRow.classList.add('active');
   const pos=document.querySelector('#mdPane .md-pos'); if(pos) pos.textContent='Ln '+(line+1)+', Col '+(col+1);
+  mdSyncScroll();   // re-pin the overlay/gutter's own scroll offset to the textarea's, in case
+                    // whatever triggered this call (click, arrow-key nav) also scrolled it
 }
 function mdRefreshDecorations(){
   const ed=document.getElementById('mdEditor'); if(!ed) return;
-  const hl=document.querySelector('#mdPane .md-hl'), gut=document.querySelector('#mdPane .md-gutter'); if(!hl||!gut) return;
+  const hl=document.querySelector('#mdPane .md-hl-inner'), gut=document.querySelector('#mdPane .md-gutter-inner'); if(!hl||!gut) return;
   const view=mdBuildView(); _mdView=view;
   hl.innerHTML=mdHighlight(ed.value, view);
   gut.innerHTML=mdRenderGutter(view);
@@ -2037,7 +2073,7 @@ function toggleMdMode(on){
   const btn=document.getElementById('mdToggle'); if(btn) btn.classList.toggle('on', mdMode);
   if(mdMode){ syncTextFromMap(); const ed=document.getElementById('mdEditor'); if(ed){ ed.readOnly=!!(typeof READONLY!=='undefined' && READONLY); ed.focus(); } if(sel) mdHighlightNode(sel); }
   else if(!(typeof READONLY!=='undefined' && READONLY)) pushHistory();   // one undo entry for the md session
-  setTimeout(()=>{ try{ fit(); }catch(e){} try{ if(mdMode) mdCalibrate(); }catch(e){} }, 260);   // re-fit + re-align once the pane finished sliding
+  setTimeout(()=>{ try{ animateViewTo(computeFitView(), 260); }catch(e){} try{ if(mdMode) mdCalibrate(); }catch(e){} }, 260);   // smoothly re-fit once the pane finished sliding, instead of snapping
 }
 function pushHistory(){
   history=history.slice(0,hpos+1);
@@ -3414,18 +3450,18 @@ function setZoom(percent){
   const k=Math.min(3,Math.max(.1, percent/100));
   view.x=px-(px-view.x)*(k/old); view.y=py-(py-view.y)*(k/old); view.k=k; userZoom=k; applyView(); saveMapView();
 }
-function fit(){
-  if(!map)return;
+function computeFitView(){   // pure calculation — does not touch `view` or the DOM
+  if(!map) return null;
   const xs=[],ys=[],xe=[],ye=[];
   const hidden=hiddenSet();
   for(const id in map.nodes){ if(hidden.has(id))continue; const n=map.nodes[id];xs.push(n.x);ys.push(n.y);xe.push(n.x+(n.w||120));ye.push(n.y+(n.h||40)); }
-  if(!xs.length)return;
+  if(!xs.length) return null;
   const minx=Math.min(...xs),miny=Math.min(...ys),maxx=Math.max(...xe),maxy=Math.max(...ye);
   const {w:SW,h:SH}=_stageSize();
   // If the stage hasn't been laid out yet (e.g. fit() called during initial boot
   // before first paint), bail rather than computing a view that throws the map
   // off-screen — the caller should re-fit once layout settles.
-  if(!(SW>1) || !(SH>1)) return;
+  if(!(SW>1) || !(SH>1)) return null;
   const cw=Math.max(1,maxx-minx), ch=Math.max(1,maxy-miny);
   // Scale the map's bounding box to fit the viewport with a margin. Cap at 100%
   // so a tiny map isn't magnified; this is what makes a big map auto-shrink to
@@ -3434,10 +3470,39 @@ function fit(){
   const availW=Math.max(120, SW - margin*2);
   const availH=Math.max(120, SH - margin*2);
   const k=Math.max(0.1, Math.min(availW/cw, availH/ch, 1));
-  view.k=k;
-  view.x=SW/2 - (minx+cw/2)*k;
-  view.y=SH/2 - (miny+ch/2)*k;
+  return { x: SW/2 - (minx+cw/2)*k, y: SH/2 - (miny+ch/2)*k, k };
+}
+function fit(){
+  const t=computeFitView(); if(!t) return;
+  view.x=t.x; view.y=t.y; view.k=t.k;
   applyView(); _markStage();
+}
+// Smoothly tweens the canvas pan/zoom to a target view over `duration` ms — used where an
+// instant fit()/recenter() snap would read as a jarring jump right after something else (like
+// the Markdown pane's own CSS width transition) already animated smoothly. Same easing curve
+// family as the pane's `cubic-bezier(.4,0,.2,1)` transition, so the two motions read as one
+// continuous, cohesive movement rather than "slide, then snap".
+let _viewAnimRAF=0;
+function animateViewTo(target, duration){
+  if(!target) return;
+  cancelAnimationFrame(_viewAnimRAF);
+  if(typeof window!=='undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    view.x=target.x; view.y=target.y; view.k=target.k; applyView(); _markStage(); return;
+  }
+  const start={x:view.x, y:view.y, k:view.k};
+  const t0=(typeof performance!=='undefined' ? performance.now() : Date.now());
+  const ease=p=>1-Math.pow(1-p,3);   // ease-out cubic
+  const step=(now)=>{
+    const p=Math.min(1, (now-t0)/duration);
+    const e=ease(p);
+    view.x=start.x+(target.x-start.x)*e;
+    view.y=start.y+(target.y-start.y)*e;
+    view.k=start.k+(target.k-start.k)*e;
+    applyView();
+    if(p<1) _viewAnimRAF=requestAnimationFrame(step);
+    else _markStage();
+  };
+  _viewAnimRAF=requestAnimationFrame(step);
 }
 // Centre the map's bounding box in the current stage viewport WITHOUT changing
 // zoom — used when the viewport size changes (e.g. entering/leaving focus mode)
@@ -5928,8 +5993,8 @@ function parseMarkdownOutline(text, filename){
       if(mm && n){
         if(mm.color) n.color=mm.color; if(mm.textColor) n.textColor=mm.textColor;
         if(mm.w){ n.width=mm.w; n.w=mm.w; } if(mm.h){ n.height=mm.h; n.h=mm.h; }
-        if(mm.collapsed) n.collapsed=true; if(mm.bold) n.bold=true;
-        if(mm.italic) n.italic=true; if(mm.underline) n.underline=true; if(mm.strike) n.strike=true;
+        if(mm.collapsed) n.collapsed=true;
+        if(mm.underline) n.underline=true;   // bold/italic/strike round-trip via visible **/*/~~ syntax instead (see buildMarkdown)
         if(mm.fontSize) n.fontSize=mm.fontSize; if(mm.listType) n.listType=mm.listType;
         if(mm.highlight) n.highlight=mm.highlight; if(mm.align) n.align=mm.align;
         if(mm.image) n.image=mm.image; if(mm.ref) n.ref=true; if(mm.citation) n.citation=mm.citation;
@@ -6049,10 +6114,7 @@ function _nodeMeta(n){   // per-node info that JSON has but Markdown can't expre
   if(n.width) m.w=n.width;
   if(n.height) m.h=n.height;
   if(n.collapsed) m.collapsed=1;
-  if(n.bold) m.bold=1;
-  if(n.italic) m.italic=1;
-  if(n.underline) m.underline=1;
-  if(n.strike) m.strike=1;
+  if(n.underline) m.underline=1;   // bold/italic/strike round-trip via visible **/*/~~ syntax instead (see buildMarkdown)
   if(n.fontSize) m.fontSize=n.fontSize;
   if(n.listType) m.listType=n.listType;
   if(n.highlight) m.highlight=n.highlight;
@@ -6096,7 +6158,12 @@ function buildMarkdown(startId, opts){
       });
       return;
     }
-    const body = (rich ? htmlToInlineMd(n.text) : nodeTextPlain(n.text)) || 'Untitled';
+    let body = (rich ? htmlToInlineMd(n.text) : nodeTextPlain(n.text)) || 'Untitled';
+    if(rich){   // whole-node style toggles (nodebar B/I/S buttons) get real markdown syntax, not just metadata
+      if(n.strike) body='~~'+body+'~~';
+      if(n.italic) body='*'+body+'*';
+      if(n.bold) body='**'+body+'**';
+    }
     const first = body.replace(/\n+/g, rich ? '<br>' : ' ');   // keep multi-line text in ONE node
     const hlevel = (id===root) ? 1 : ((rich && n.hlevel) ? n.hlevel : 0);   // imported headings re-emit as #/##/###
     if(hlevel){
@@ -6992,7 +7059,7 @@ const THEMES = [
   {id:'nord',            name:'Nord',            swatch:['#2e3440','#434c5e','#88c0d0']},
   {id:'github-light',    name:'GitHub Light',    swatch:['#ffffff','#f6f8fa','#0969da']},
   {id:'solarized-light', name:'Solarized Light', swatch:['#fdf6e3','#ffffff','#268bd2']},
-  {id:'solarized-dark',  name:'Solarized Dark',  swatch:['#002b36','#073642','#268bd2']}
+  {id:'github-dark',     name:'GitHub Dark',     swatch:['#0d1117','#161b22','#58a6ff']}
 ];
 const MAP_STYLES = [
   {id:'modern',  name:'Modern',  desc:'Soft cards, curved branches'},
@@ -7169,7 +7236,8 @@ document.addEventListener('click',e=>{
 // Apply saved theme at boot. For first-time visitors, follow the OS preference
 // (prefers-color-scheme) so dark-mode users get dark by default.
 try{
-  const saved = localStorage.getItem('mindspark:theme');
+  let saved = localStorage.getItem('mindspark:theme');
+  if(saved==='solarized-dark'){ saved='github-dark'; try{ localStorage.setItem('mindspark:theme', saved); }catch(e){} }   // theme was replaced
   if(saved) applyTheme(saved);
   else applyTheme(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 }catch(e){}

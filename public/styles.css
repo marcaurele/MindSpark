@@ -82,16 +82,16 @@
     --stage-glow:rgba(255,255,255,.5);
     --link:#268bd2;
   }
-  :root[data-theme="solarized-dark"]{
-    --toolbar-bg:#fdf6e3; --toolbar-text:#002b36;
-    --paper:#002b36; --paper-2:#073642; --ink:#93a1a1; --ink-soft:#657b83;
-    --line:#073642; --line-2:#1c5666;
-    --accent:#268bd2; --accent-deep:#1a6fab; --teal:#2aa198;
-    --chrome:#073642; --chrome-edge:#0d4a59;
-    --node-bg:#073642; --node-ink:#eee8d5;
-    --canvas-dot:#0e4655;
-    --stage-glow:rgba(38,139,210,.04);
-    --link:#2aa198;
+  :root[data-theme="github-dark"]{
+    --toolbar-bg:#f0f6fc; --toolbar-text:#0d1117;
+    --paper:#0d1117; --paper-2:#161b22; --ink:#e6edf3; --ink-soft:#8b949e;
+    --line:#30363d; --line-2:#3d444d;
+    --accent:#58a6ff; --accent-deep:#1f6feb; --teal:#3fb950;
+    --chrome:#161b22; --chrome-edge:#30363d;
+    --node-bg:#161b22; --node-ink:#e6edf3;
+    --canvas-dot:#30363d;
+    --stage-glow:rgba(88,166,255,.05);
+    --link:#58a6ff;
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
@@ -142,6 +142,9 @@
   #mdPane .md-code{position:relative;flex:1;min-width:0;overflow:hidden}
   #mdPane .md-hl,#mdEditor{position:absolute;inset:0;margin:0;box-sizing:border-box;padding:12px 14px;border:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:20px;white-space:pre;tab-size:2}
   #mdPane .md-hl{overflow:hidden;pointer-events:none;color:var(--ink)}
+  /* Scroll-sync targets a plain inner wrapper via transform, not the outer .md-hl/.md-gutter
+     (which must stay put so their own overflow:hidden keeps clipping the visible window). */
+  #mdPane .md-hl-inner,#mdPane .md-gutter-inner{will-change:transform}
   #mdPane .md-hl .hl-line{min-height:20px}
   /* active-line highlight: a real background on the actual row div — it's always exactly
      where the caret is, in or out of view, with no separate pixel math to keep in sync
@@ -173,6 +176,8 @@
   #mdPane .md-prev img{max-width:100%}
   #mdPane .md-prev hr{border:0;border-top:1px solid var(--line);margin:1em 0}
   #mdPane .md-prev a{color:#3b82f6}
+  #mdPane .md-prev math{font-size:1.04em}
+  #mdPane .md-prev math[display="block"]{display:block;margin:.6em auto;text-align:center}
   /* horizontal-rule divider node */
   .node.hr-node{min-width:54px;box-shadow:none}
   .node.hr-node .node-hr{display:block;width:54px;height:0;border-top:2px solid var(--ink-soft,#98a2b3);opacity:.6}
@@ -370,7 +375,7 @@
   /* ===== Notes editor — styled as a sticky note ===== */
   :root{ --sticky:#fff7b0; --sticky-edge:#f2e27a; --sticky-ink:#4a431f; }
   :root[data-theme="dark"], :root[data-theme="dracula"], :root[data-theme="monokai"],
-  :root[data-theme="nord"], :root[data-theme="solarized-dark"]{
+  :root[data-theme="nord"], :root[data-theme="github-dark"]{
     --sticky:#3a3520; --sticky-edge:#5c5430; --sticky-ink:#f3ecc4;
   }
   .notes-popup{
@@ -1114,6 +1119,11 @@
 
   /* ===== Print — take the map to a meeting ===== */
   @media print{
+    /* The app is a fixed-viewport SPA (html,body{height:100%;overflow:hidden}) so the
+       canvas never page-scrolls on screen — but that same constraint silently clips ANY
+       print output to a single page's worth of content, however much there actually is.
+       Print has no "viewport" in that sense, so drop the constraint entirely here. */
+    html, body{ height:auto !important; overflow:visible !important; }
     .topbar, .side, .zoombar, .hint, .save-pill, .token-total,
     .nodebar, .search-wrap, .user-pill, .bulk-bar, .focus-exit,
     .picker, .tpl-pop, .export-pop, .theme-panel{ display:none !important; }
@@ -1519,4 +1529,6 @@ body.no-banner.shared-view .stage{ top:0; }
   #mdPrintRoot img{max-width:100%}
   #mdPrintRoot hr{border:0;border-top:1px solid #ccc;margin:1em 0}
   #mdPrintRoot a{color:#2a5db0;text-decoration:underline}
+  #mdPrintRoot math{font-size:1.04em;color:#1a1a1a}
+  #mdPrintRoot math[display="block"]{display:block;margin:.6em auto;text-align:center;page-break-inside:avoid}
 }
