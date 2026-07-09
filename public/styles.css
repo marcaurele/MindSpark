@@ -310,11 +310,11 @@
   .node.dim{opacity:.28}
   .node.match{outline:2.5px solid var(--teal);outline-offset:2px}
   .node .badge{display:none}  /* legacy, no longer rendered */
-  /* Hover-only "created/last edited" watermark — sits just below the node (not inside it,
+  /* Hover-only "created/last edited" watermark — sits just above the node (not inside it,
      which used to collide with the node's own vertically-centered text on shorter nodes)
      so it never overlaps the actual content. */
   .node .node-watermark{
-    position:absolute; left:0; right:0; top:100%; margin-top:3px;
+    position:absolute; left:0; right:0; bottom:100%; margin-bottom:3px;
     pointer-events:none; overflow:hidden;
     font-family:var(--sans); font-size:9px; font-weight:600; letter-spacing:.02em;
     color:var(--ink-soft); opacity:0;

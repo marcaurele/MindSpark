@@ -1668,6 +1668,7 @@ function syncTextFromMap(){
   const vis=mdVisibleText(view);
   ed.value=vis; _mdPrevVisible=vis;
   mdRefreshDecorations();
+  mdRenderPreviewIfActive();
 }
 function mdHighlightNode(id){   // node -> select + scroll its line in the editor
   const ed=document.getElementById('mdEditor'); if(!ed) return;
@@ -1680,6 +1681,10 @@ function mdHighlightNode(id){   // node -> select + scroll its line in the edito
   ed.scrollLeft=0;                                       // don't jump horizontally on open
   ed.scrollTop=Math.max(0, vline*_mdLH - ed.clientHeight/2);
   mdUpdateActive(); mdSyncScroll();
+  // A browser can apply its own "scroll the caret into view" adjustment asynchronously —
+  // a tick after the selection change above — which would silently reintroduce horizontal
+  // scroll. Re-assert once more on the next frame to catch that.
+  requestAnimationFrame(()=>{ ed.scrollLeft=0; mdSyncScroll(); });
 }
 // ---- VS Code-style decorations: syntax highlight + line numbers + active line ----
 function _hlLine(raw){
@@ -1864,12 +1869,17 @@ function mdHandleEnter(ed){
   }
   return false;
 }
+function mdRenderPreviewIfActive(){
+  if(!mdPreview) return;
+  const pane=document.getElementById('mdPane'); if(!pane) return;
+  const prev=pane.querySelector('.md-prev'); if(prev) prev.innerHTML=mdToHtml(_mdFullText);   // full text: preview isn't affected by folds
+}
 function mdTogglePreview(){
   mdPreview=!mdPreview;
   const pane=document.getElementById('mdPane'); if(!pane) return;
   pane.classList.toggle('md-preview', mdPreview);
   const btn=pane.querySelector('.md-prev-btn'); if(btn){ btn.classList.toggle('on', mdPreview); btn.textContent=mdPreview?'Edit':'Preview'; }
-  if(mdPreview){ const prev=pane.querySelector('.md-prev'); if(prev) prev.innerHTML=mdToHtml(_mdFullText); }   // full text: preview isn't affected by folds
+  mdRenderPreviewIfActive();
 }
 // "Download PDF": renders the full markdown into a dedicated print-only container and
 // hands off to the browser's native print dialog (Save as PDF works everywhere without
@@ -2148,7 +2158,22 @@ function toggleMdMode(on){
   const _pane=document.getElementById('mdPane'); if(_pane) void _pane.offsetWidth;   // reflow so the first open animates from width 0
   mdMode=want; document.body.classList.toggle('md-mode', mdMode);
   const btn=document.getElementById('mdToggle'); if(btn) btn.classList.toggle('on', mdMode);
-  if(mdMode){ syncTextFromMap(); const ed=document.getElementById('mdEditor'); if(ed){ ed.readOnly=!!(typeof READONLY!=='undefined' && READONLY); ed.focus(); } if(sel) mdHighlightNode(sel); }
+  if(mdMode){
+    syncTextFromMap();
+    const ed=document.getElementById('mdEditor');
+    if(ed){
+      ed.readOnly=!!(typeof READONLY!=='undefined' && READONLY);
+      ed.focus();
+      if(sel) mdHighlightNode(sel);
+      else{ try{ ed.setSelectionRange(0,0); }catch(e){} ed.scrollTop=0; ed.scrollLeft=0; mdUpdateActive(); mdSyncScroll(); }
+      // Belt-and-suspenders: a browser can apply its own "scroll the caret into view"
+      // adjustment asynchronously (a tick after focus/selection change), which would
+      // silently reintroduce horizontal scroll after the synchronous reset above. Re-assert
+      // once more on the next frame to catch that — same defensive pattern as the earlier
+      // click-auto-scroll fix for the active-line highlight.
+      requestAnimationFrame(()=>{ ed.scrollLeft=0; mdSyncScroll(); });
+    }
+  }
   else if(!(typeof READONLY!=='undefined' && READONLY)) pushHistory();   // one undo entry for the md session
   setTimeout(()=>{ try{ animateViewTo(computeFitView(), 260); }catch(e){} try{ if(mdMode) mdCalibrate(); }catch(e){} }, 260);   // smoothly re-fit once the pane finished sliding, instead of snapping
 }
@@ -3629,11 +3654,17 @@ stage.addEventListener('wheel',e=>{
 },{passive:false});
 
 function zoom(f){ const {w,h}=_stageSize();const px=w/2,py=h/2;const old=view.k;
-  const k=Math.min(3,Math.max(.1,view.k*f));view.x=px-(px-view.x)*(k/old);view.y=py-(py-view.y)*(k/old);view.k=k;userZoom=k;applyView();saveMapView();}
+  const k=Math.min(3,Math.max(.1,view.k*f));
+  const tx=px-(px-view.x)*(k/old), ty=py-(py-view.y)*(k/old);
+  userZoom=k;
+  animateViewTo({x:tx,y:ty,k}, 160, saveMapView);
+}
 function setZoom(percent){
   const {w,h}=_stageSize();const px=w/2,py=h/2;const old=view.k;
   const k=Math.min(3,Math.max(.1, percent/100));
-  view.x=px-(px-view.x)*(k/old); view.y=py-(py-view.y)*(k/old); view.k=k; userZoom=k; applyView(); saveMapView();
+  const tx=px-(px-view.x)*(k/old), ty=py-(py-view.y)*(k/old);
+  userZoom=k;
+  animateViewTo({x:tx,y:ty,k}, 160, saveMapView);
 }
 function computeFitView(){   // pure calculation — does not touch `view` or the DOM
   if(!map) return null;
@@ -3668,11 +3699,11 @@ function fit(){
 // family as the pane's `cubic-bezier(.4,0,.2,1)` transition, so the two motions read as one
 // continuous, cohesive movement rather than "slide, then snap".
 let _viewAnimRAF=0;
-function animateViewTo(target, duration){
+function animateViewTo(target, duration, onDone){
   if(!target) return;
   cancelAnimationFrame(_viewAnimRAF);
   if(typeof window!=='undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
-    view.x=target.x; view.y=target.y; view.k=target.k; applyView(); _markStage(); return;
+    view.x=target.x; view.y=target.y; view.k=target.k; applyView(); _markStage(); if(onDone) onDone(); return;
   }
   const start={x:view.x, y:view.y, k:view.k};
   const t0=(typeof performance!=='undefined' ? performance.now() : Date.now());
@@ -3685,7 +3716,7 @@ function animateViewTo(target, duration){
     view.k=start.k+(target.k-start.k)*e;
     applyView();
     if(p<1) _viewAnimRAF=requestAnimationFrame(step);
-    else _markStage();
+    else { _markStage(); if(onDone) onDone(); }
   };
   _viewAnimRAF=requestAnimationFrame(step);
 }
@@ -7558,6 +7589,11 @@ window.addEventListener('beforeprint', ()=>{ try{ fit(); }catch(e){} });
 $('#layout').onclick=autoLayout;            // re-tidies node positions (does NOT move the camera)
 // Collapse-all / expand-all toggle. If any collapsible node is currently
 // expanded, the first click collapses everything; otherwise it expands all.
+// Animates as an incremental cascade rather than jumping straight to the final state:
+// collapsing proceeds deepest-branch-first (so a parent doesn't visually swallow a
+// still-open child), expanding proceeds shallowest-first (children reveal only after
+// their own parent has opened) — the same ordering tree UIs like VS Code's file
+// explorer or Notion's outline use for a "collapse/expand all".
 $('#collapseAll')?.addEventListener('click', ()=>{
   if(!map) return;
   // Exclude the root: collapsing it would hide the whole map, and including it
@@ -7565,8 +7601,19 @@ $('#collapseAll')?.addEventListener('click', ()=>{
   const collapsible = Object.keys(map.nodes).filter(id => id !== map.rootId && childrenOf(id).length > 0);
   if(!collapsible.length) return;
   const anyExpanded = collapsible.some(id => !map.nodes[id].collapsed);
-  collapsible.forEach(id => { map.nodes[id].collapsed = anyExpanded; });
-  pushHistory(); autoLayout();
+  const depthOf = id => { let d=0, cur=map.nodes[id]; while(cur && cur.parent){ d++; cur=map.nodes[cur.parent]; } return d; };
+  const order = collapsible.slice().sort((a,b)=> anyExpanded ? depthOf(b)-depthOf(a) : depthOf(a)-depthOf(b));
+  const STEPS = Math.min(order.length, 18);   // cap so a huge map's cascade doesn't crawl on and on
+  const batches = Array.from({length:STEPS}, (_,i)=> order.slice(Math.floor(i*order.length/STEPS), Math.floor((i+1)*order.length/STEPS)));
+  let step=0;
+  const runStep=()=>{
+    batches[step].forEach(id => { map.nodes[id].collapsed = anyExpanded; });
+    autoLayout();
+    step++;
+    if(step<batches.length) setTimeout(runStep, 55);
+    else pushHistory();   // one undo entry for the whole bulk action, not one per animation step
+  };
+  runStep();
   toast(anyExpanded ? 'Collapsed all branches' : 'Expanded all branches');
 });
 $('#undo').onclick=undo; $('#redo').onclick=redo;
