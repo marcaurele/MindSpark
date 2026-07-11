@@ -582,11 +582,12 @@ function render(){
 
     // Collapse / expand toggle — only on nodes with children
     if(hasKids){
+      const canExpand = _collapseState(id)?.dir === 'expand';
       el.appendChild(mkHandle(
         'h-collapse'+(n.collapsed?' collapsed':''),
-        n.collapsed?'+':'−',
-        n.collapsed?`Expand (${roll.desc[id]} hidden)`:'Collapse',
-        ()=>{ n.collapsed=!n.collapsed; pushHistory(); autoLayout(); }
+        canExpand?'+':'−',
+        canExpand?`Expand next level (${roll.desc[id]} hidden)`:'Collapse deepest level',
+        ()=>{ stepCollapseToggle(id); pushHistory(); autoLayout(); }
       ));
     }
     // Add child — every node
@@ -1219,6 +1220,56 @@ const childrenOf=id => _ci
   ? (_ci[id] ? _ci[id].slice() : EMPTY_KIDS)
   : Object.values(map.nodes).filter(n=>n.parent===id).map(n=>n.id);
 function countDesc(id){let c=0;const walk=i=>childrenOf(i).forEach(k=>{c++;walk(k)});walk(id);return c;}
+// Resolves what a click on rootId's collapse/expand toggle will do next: {dir:'expand'}
+// (something in the visible subtree is still hidden) or {dir:'collapse'} (subtree is
+// fully visible, so the next click starts closing it) — or null if rootId has no
+// children. Remembers the last direction per node (in-session UI hint only, not
+// persisted) so repeated clicks keep moving the same way — expand, expand, ... fully
+// open -> collapse, collapse, ... fully closed -> expand again — instead of a single
+// snapshot check bouncing back and forth on a branch whose children are all leaves.
+let _collapseDir={};
+function _collapseState(rootId){
+  const n=map.nodes[rootId];
+  if(!childrenOf(rootId).length) return null;
+  const branches=[{id:rootId, depth:0}];
+  const walk=(id, depth)=>{
+    childrenOf(id).forEach(c=>{
+      if(childrenOf(c).length){
+        branches.push({id:c, depth});
+        if(!map.nodes[c].collapsed) walk(c, depth+1);
+      }
+    });
+  };
+  if(!n.collapsed) walk(rootId, 1);
+  const hidden=branches.filter(b=>map.nodes[b.id].collapsed);
+  const fullyExpanded=hidden.length===0;
+  let dir=_collapseDir[rootId];
+  if(!dir) dir = fullyExpanded ? 'collapse' : 'expand';   // no memory yet -> infer from current state
+  if(dir==='collapse' && n.collapsed) dir='expand';        // exhausted (fully closed) -> flip
+  if(dir==='expand' && fullyExpanded) dir='collapse';      // exhausted (fully open) -> flip
+  return {dir, branches, hidden};
+}
+// Collapse/expand ONE depth level per call instead of jumping straight to fully
+// expanded or fully collapsed. Collapsing closes the deepest still-open branch level
+// first (so a shallower node never visually swallows a still-open child); expanding
+// opens the shallowest still-closed branch level first (children only reveal once
+// their own parent has opened) — same ordering as the #collapseAll cascade, just one
+// step per click instead of an animated all-at-once sweep.
+function stepCollapseToggle(rootId){
+  const st=_collapseState(rootId);
+  if(!st) return;
+  _collapseDir[rootId]=st.dir;
+  if(st.dir==='expand'){
+    const minDepth=Math.min(...st.hidden.map(b=>b.depth));
+    st.hidden.filter(b=>b.depth===minDepth).forEach(b=>{ map.nodes[b.id].collapsed=false; });
+  } else {
+    const openBranches=st.branches.filter(b=>!map.nodes[b.id].collapsed);
+    if(openBranches.length){
+      const maxDepth=Math.max(...openBranches.map(b=>b.depth));
+      openBranches.filter(b=>b.depth===maxDepth).forEach(b=>{ map.nodes[b.id].collapsed=true; });
+    }
+  }
+}
 // One O(n) post-order pass computing, for every node: descendant count (desc),
 // and task done/total among descendants (tdone/ttot). render() uses these instead
 // of calling countDesc()/taskProgress() per node, which were each O(subtree) and
@@ -1577,7 +1628,7 @@ function relayoutDuringEdit(id){
    NODE OPERATIONS
    ============================================================ */
 /* ---- Markdown mode: edit the map as text with a live two-way preview (v1) ---- */
-let mdMode=false, _mdSyncing=false, _mdTimer=0, _mdLines=[], _mdSelSync=false, _mdActiveLine=0, mdPreview=false, _mdLH=20, _mdPT=12;
+let mdMode=false, _mdSyncing=false, _mdTimer=0, _mdLines=[], _mdSelSync=false, _mdActiveLine=0, mdPreview=false, mdWrap=false, _mdLH=20, _mdPT=12;
 // ---- Fold-aware text model ----
 // `_mdFullText` is the ALWAYS-COMPLETE markdown (source of truth for parsing back into
 // the map). `ed.value` only ever holds the *visible* subset of its lines — whatever's
@@ -1589,7 +1640,7 @@ function ensureMdPane(){
   if(document.getElementById('mdPane')) return;
   const app=document.querySelector('.app'), stage=document.querySelector('.stage'); if(!app||!stage) return;
   const pane=document.createElement('div'); pane.id='mdPane';
-  pane.innerHTML='<div class="md-head"><span class="md-ttl">Markdown</span><span class="md-pos"></span><button class="md-pdf-btn" title="Download the rendered preview as a PDF">Download PDF</button><button class="md-prev-btn" title="Toggle rendered preview">Preview</button><button class="md-close" title="Exit Markdown mode (Esc)">\u2715</button></div>'
+  pane.innerHTML='<div class="md-head"><span class="md-ttl">Markdown</span><span class="md-pos"></span><button class="md-pdf-btn" title="Download the rendered preview as a PDF">Download PDF</button><button class="md-wrap-btn" title="Toggle word wrap">Wrap</button><button class="md-prev-btn" title="Toggle rendered preview">Preview</button><button class="md-close" title="Exit Markdown mode (Esc)">\u2715</button></div>'
     +'<div class="md-toolbar"><button data-fmt="bold" title="Bold"><b>B</b></button><button data-fmt="italic" title="Italic"><i>I</i></button><button data-fmt="strike" title="Strikethrough"><s>S</s></button><button data-fmt="code" title="Inline code">&lt;/&gt;</button><span class="md-sep"></span><button data-fmt="h1" title="Heading 1">H1</button><button data-fmt="h2" title="Heading 2">H2</button><button data-fmt="h3" title="Heading 3">H3</button><span class="md-sep"></span><button data-fmt="quote" title="Blockquote">\u275D</button><button data-fmt="ul" title="Bullet list">\u2022</button><button data-fmt="ol" title="Numbered list">1.</button><button data-fmt="hr" title="Divider">\u2014</button><span class="md-sep"></span><button data-fmt="link" title="Link">\uD83D\uDD17</button><button data-fmt="image" title="Image">\uD83D\uDDBC</button><button data-fmt="codeblock" title="Code block">\u2317</button><button data-fmt="table" title="Table">\u25A6</button></div><div class="md-body"><div class="md-gutter" aria-hidden="true"><div class="md-gutter-inner"></div></div><div class="md-code"><pre class="md-hl" aria-hidden="true"><div class="md-hl-inner"></div></pre>'
     +'<textarea id="mdEditor" spellcheck="false" wrap="off" placeholder="# Central idea&#10;- a branch&#10;  - a leaf"></textarea><div class="md-prev" aria-hidden="true"></div></div></div>'
     +'<div class="md-resize" title="Drag to resize"></div>';
@@ -1598,6 +1649,7 @@ function ensureMdPane(){
   window.addEventListener('resize', ()=>{ if(mdMode) mdCalibrate(); });
   pane.querySelector('.md-close').addEventListener('click',()=>toggleMdMode(false));
   pane.querySelector('.md-prev-btn').addEventListener('click', mdTogglePreview);
+  pane.querySelector('.md-wrap-btn').addEventListener('click', mdToggleWrap);
   pane.querySelector('.md-pdf-btn').addEventListener('click', mdDownloadPdf);
   pane.querySelector('.md-toolbar').addEventListener('mousedown', e=>{ const b=e.target.closest('button[data-fmt]'); if(b){ e.preventDefault(); mdFormat(b.dataset.fmt); } });
   const ed=pane.querySelector('#mdEditor');
@@ -1880,6 +1932,19 @@ function mdTogglePreview(){
   pane.classList.toggle('md-preview', mdPreview);
   const btn=pane.querySelector('.md-prev-btn'); if(btn){ btn.classList.toggle('on', mdPreview); btn.textContent=mdPreview?'Edit':'Preview'; }
   mdRenderPreviewIfActive();
+}
+// Word wrap: the textarea and the (invisible-text-bearing) highlight overlay share one
+// CSS rule for white-space (see styles.css), so switching both to pre-wrap at once keeps
+// them pixel-aligned — same font/width/padding, same text, so the browser wraps both
+// identically. The fold-toggle gutter can't follow along though: its rows are one fixed
+// height per logical line, and a wrapped line now spans a variable number of visual rows,
+// so it's hidden while wrapped rather than left silently misaligned.
+function mdToggleWrap(){
+  mdWrap=!mdWrap;
+  const pane=document.getElementById('mdPane'); if(!pane) return;
+  pane.classList.toggle('md-wrap', mdWrap);
+  const btn=pane.querySelector('.md-wrap-btn'); if(btn) btn.classList.toggle('on', mdWrap);
+  mdRefreshDecorations();
 }
 // "Download PDF": renders the full markdown into a dedicated print-only container and
 // hands off to the browser's native print dialog (Save as PDF works everywhere without
@@ -2761,6 +2826,7 @@ function tryMarkdownShortcut(){
     [/\*\*([^*]+?)\*\*$/, 'b'],
     [/\*([^*]+?)\*$/,     'i'],
     [/~~([^~]+?)~~$/,     's'],
+    [/`([^`]+?)`$/,       'code'],
   ];
   for(const [re, tag] of patterns){
     const m = upto.match(re);
@@ -3131,7 +3197,7 @@ function positionNodeBar(){
     <div class="nb-group">
       <button data-a="child" title="Add child (Tab)">＋</button>
       ${!isRoot?'<button data-a="sibling" title="Add sibling (Enter)">⤵</button>':''}
-      ${hasKids?`<button data-a="collapse" title="Collapse/expand (Space)">${n.collapsed?'⊕':'⊖'}</button>`:''}
+      ${hasKids?`<button data-a="collapse" title="Collapse/expand one level (Space)">${_collapseState(sel)?.dir==='expand'?'⊕':'⊖'}</button>`:''}
       <button data-a="edit" title="Edit (F2)">✎</button>
       <button data-a="notes" class="${(n.notes||'').trim()?'on':''}" title="${(n.notes||'').trim()?'Edit notes':'Add notes'}">📝</button>
       <button data-a="task" class="${n.task?'on':''}" title="Task state (todo / doing / done)">☑</button>
@@ -3208,7 +3274,7 @@ function positionNodeBar(){
       else if(a==='sibling') addNode(sel,true);
       else if(a==='edit') startEdit(sel);
       else if(a==='del') deleteNode(sel);
-      else if(a==='collapse'){ map.nodes[sel].collapsed=!map.nodes[sel].collapsed; pushHistory(); autoLayout(); }
+      else if(a==='collapse'){ stepCollapseToggle(sel); pushHistory(); autoLayout(); }
       else if(a==='bold')      inlineOrToggle('bold',      'bold');
       else if(a==='italic')    inlineOrToggle('italic',    'italic');
       else if(a==='strike')    inlineOrToggle('strike',    'strikeThrough');
@@ -3272,6 +3338,7 @@ function applySubtreeDelta(start, dx, dy){
 // Used by render() to attach mousedown to the resize grip
 function startResize(id, ev){
   const n=map.nodes[id];
+  _rzCache=null;   // re-measure fresh — a stale factor here would throw off every dx/dy for the whole gesture
   resizing={id, sx:ev.clientX, sy:ev.clientY, sw:n.width||n.w||120, sh:n.height||n.h||40};
 }
 // Walks up parents; true if `id` is a descendant of `ancestorId` (or equal)
@@ -3799,7 +3866,7 @@ window.addEventListener('keydown',e=>{
   else if(e.key==='Enter'){e.preventDefault();addNode(sel,true);}
   else if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();deleteNode(sel);}
   else if(e.key==='F2'){e.preventDefault();startEdit(sel);}
-  else if(e.key===' '){e.preventDefault();const n=map.nodes[sel];if(childrenOf(sel).length){n.collapsed=!n.collapsed;pushHistory();autoLayout();}}
+  else if(e.key===' '){e.preventDefault();if(childrenOf(sel).length){stepCollapseToggle(sel);pushHistory();autoLayout();}}
   else if(e.key==='ArrowLeft'||e.key==='ArrowRight'||e.key==='ArrowUp'||e.key==='ArrowDown'){
     e.preventDefault();
     const next=navTarget(sel, e.key);
@@ -6033,12 +6100,20 @@ function mdInlineToHtml(t){
   if(!hasHtml && !hasMd) return t;            // plain text stays plain
   // keep any raw formatting HTML (sanitized) rather than escaping it to literal text
   let s = hasHtml ? sanitizeInlineHTML(t) : escapeHtml(t);
+  // Code spans are masked out before the other inline rules run, and restored verbatim
+  // afterward, so their content is never itself reinterpreted as further formatting —
+  // matches standard Markdown precedence (`**not bold**` stays literal text inside a code
+  // span, not a bold run). A later regex pass over the same string can't tell "this asterisk
+  // is inside a <code> tag" apart from any other, so wrapping alone isn't enough — the
+  // content has to be out of the string entirely while those passes run.
+  const codeSlots=[];
+  s = s.replace(/`([^`]+)`/g, (m, code) => { codeSlots.push(code); return '\uE010'+(codeSlots.length-1)+'\uE011'; });
   s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
   s = s.replace(/(^|[^*])\*([^*]+)\*/g, '$1<i>$2</i>');
   s = s.replace(/~~([^~]+)~~/g, '<s>$1</s>');
-  s = s.replace(/`([^`]+)`/g, '$1');
   s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)[^)]*\)/g, (m,alt,src)=>'<img alt="'+alt.replace(/"/g,'&quot;')+'" src="'+src.replace(/"/g,'&quot;')+'" loading="lazy">');   // inline image
   s = s.replace(/(^|[^!])\[([^\]]+)\]\(([^)]+)\)/g, '$1<a href="$3" target="_blank" rel="noopener noreferrer">$2</a>');
+  s = s.replace(/\uE010(\d+)\uE011/g, (m,idx)=>'<code>'+codeSlots[+idx]+'</code>');
   return s;
 }
 // Inverse of mdInlineToHtml: node HTML -> inline Markdown. Leaves $...$ math source
@@ -7646,6 +7721,7 @@ $('#addChild').onclick=()=>{ if(!map)return; addNode(sel||map.rootId,false); };
 // Before printing, fit the whole map into view so nothing is clipped on paper.
 let _rzReframeT=null;
 window.addEventListener('resize', ()=>{
+  _rzCache=null;   // browser zoom / OS display scaling may have changed — re-measure on next _uiZ() call
   clearTimeout(_rzReframeT);
   _rzReframeT=setTimeout(()=>{
     if(!map){ _markStage(); return; }
