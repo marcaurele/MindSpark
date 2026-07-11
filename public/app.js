@@ -1657,7 +1657,13 @@ function syncTextFromMap(){
     const nextFolds=new Set();
     for(const oldLine of oldFolds){
       const id=oldLines[oldLine];
-      if(id==null) continue;
+      if(id==null){
+        // Not a node line — the mindspark meta comment (anchor line 0) is the one
+        // expected case: it's always the very first line whenever present, so its own
+        // fold carries straight across without a node-identity lookup.
+        if(oldLine===0 && /^\uFEFF?\s*<!--\s*mindspark\b/i.test((_mdFullText.split('\n')[0])||'')) nextFolds.add(0);
+        continue;
+      }
       const newLine=nodeIdToNewLine.get(id);
       if(newLine!=null) nextFolds.add(newLine);
     }
@@ -1971,6 +1977,20 @@ function mdBuildView(){
   const depths=mdLineDepths(_mdFullText);
   const allRanges=new Map();
   for(let i=0;i<depths.length;i++){ if(depths[i]!=null){ const r=mdFoldRange(depths,i); if(r) allRanges.set(i,r); } }
+  // The mindspark meta comment, when present, is always the very first line(s) — it sits
+  // outside the document's outline entirely, so its body (the JSON line + closing "-->")
+  // can't be found via the depth-based sibling/ancestor search above. Detect its span
+  // directly instead, so its opening line gets a fold toggle like any other line would.
+  if(/^\uFEFF?\s*<!--\s*mindspark\b/i.test(fullLines[0]||'')){
+    for(let j=1;j<fullLines.length;j++){
+      if(/-->/.test(fullLines[j])){
+        let end=j+1;
+        if(fullLines[end]!=null && fullLines[end].trim()==='') end++;   // fold the blank spacer line after --> too, if present
+        if(end>1) allRanges.set(0, [1, end]);
+        break;
+      }
+    }
+  }
   const hidden=new Set(), foldInfo=new Map();
   for(const a of _mdFolds){
     const r=allRanges.get(a); if(!r) continue;
@@ -2029,7 +2049,20 @@ function mdHighlight(text, view){
     if(view){
       const fi=view.visLineToFull[i];
       const info=fi!=null ? view.foldInfo.get(fi) : null;
-      if(info) chip=' <span class="md-fold-chip">\u22EF '+info.count+' line'+(info.count===1?'':'s')+' folded</span>';
+      if(info){
+        chip=' <span class="md-fold-chip">\u22EF '+info.count+' line'+(info.count===1?'':'s')+' folded</span>';
+        // The lines this fold hides might contain whatever would have closed an
+        // in-progress comment/fence (opened on this line, or already open before it) —
+        // scan them via the full text (without rendering them) so that state resolves
+        // correctly instead of leaking into the still-visible lines after the fold.
+        if(inComment || inFence){
+          for(let k=info.start; k<info.end && (inComment||inFence); k++){
+            const hraw=view.fullLines[k];
+            if(inComment){ if(/-->/.test(hraw)) inComment=false; }
+            else if(/^\s*(```+|~~~+)\s*$/.test(hraw)) inFence=false;
+          }
+        }
+      }
     }
     // Real block-level rows (not just newline-joined spans) so the active-line highlight
     // is a plain CSS class on the actual row — always pixel-perfect, in or out of view,
@@ -7723,6 +7756,20 @@ $('#layout').onclick=autoLayout;            // re-tidies node positions (does NO
 let _collapseAllDir=null;
 function stepCollapseAll(){
   if(!map) return null;
+  // Unconditional walk: how many depth levels the WHOLE tree has, regardless of the
+  // current fold state — this is only for reporting progress ("expanded 2/4"), not for
+  // deciding what to fold/unfold below (that still only ever looks at what's currently
+  // reachable, via the visibility-respecting walk further down).
+  let totalDepth=-1;
+  const walkAll=(id, depth)=>{
+    childrenOf(id).forEach(c=>{
+      if(childrenOf(c).length){ if(depth>totalDepth) totalDepth=depth; walkAll(c, depth+1); }
+    });
+  };
+  walkAll(map.rootId, 0);
+  const totalLevels=totalDepth+1;
+  if(totalLevels<=0) return null;
+
   const branches=[];
   const walk=(id, depth)=>{
     childrenOf(id).forEach(c=>{
@@ -7733,7 +7780,6 @@ function stepCollapseAll(){
     });
   };
   walk(map.rootId, 0);
-  if(!branches.length) return null;
   const hidden=branches.filter(b=>map.nodes[b.id].collapsed);
   const fullyExpanded=hidden.length===0;
   const openBranches=branches.filter(b=>!map.nodes[b.id].collapsed);
@@ -7748,19 +7794,21 @@ function stepCollapseAll(){
   if(dir==='expand'){
     const minDepth=Math.min(...hidden.map(b=>b.depth));
     hidden.filter(b=>b.depth===minDepth).forEach(b=>{ map.nodes[b.id].collapsed=false; });
+    return {dir, step:minDepth+1, total:totalLevels};        // levels 0..minDepth are now open
   } else {
     const maxDepth=Math.max(...openBranches.map(b=>b.depth));
     openBranches.filter(b=>b.depth===maxDepth).forEach(b=>{ map.nodes[b.id].collapsed=true; });
+    return {dir, step:totalLevels-maxDepth, total:totalLevels};   // levels maxDepth..totalLevels-1 are now closed
   }
-  return dir;
 }
 $('#collapseAll')?.addEventListener('click', ()=>{
   if(!map) return;
-  const dir=stepCollapseAll();
-  if(!dir) return;
+  const st=stepCollapseAll();
+  if(!st) return;
   pushHistory();
   autoLayout();
-  toast(dir==='collapse' ? 'Collapsed one level' : 'Expanded one level');
+  const verb=st.dir==='collapse' ? 'Collapsed' : 'Expanded';
+  toast(st.step>=st.total ? `${verb} all` : `${verb} ${st.step}/${st.total}`);
 });
 $('#undo').onclick=undo; $('#redo').onclick=redo;
 document.getElementById('mdToggle')?.addEventListener('click',()=>toggleMdMode());
