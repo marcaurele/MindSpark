@@ -23,18 +23,41 @@ Everything below the "Collaboration" heading needs the optional cloud worker; ev
 - **Live auto-layout** — the tree tidies itself as you type, so a growing node never overlaps its neighbours
 - **Drag-and-drop reordering** — drop a topic on another's centre to nest it, or on its top/bottom edge to insert it between siblings and reorder
 - **Layout options** — Balanced (split left/right), Right, Left, or Down (org-chart)
+- **Incremental collapse / expand** — one branch depth per click, either per-node or across the whole map at once (cycles fully-open ↔ fully-closed, reporting progress as it goes)
 - **Touch support** — pan, pinch-zoom, drag and select on phones and tablets
 - **Math** — write `$...$` (inline) or `$$...$$` (display) LaTeX and it renders as native **MathML**; equations also render in PNG exports. Zero dependencies — covers the common inline subset (sub/superscripts, Greek, operators, `\frac`, `\sqrt`, accents, fonts, function names)
-- **Prompt building** — *Compile subtree → prompt*: assemble any branch into a prompt, substitute `{{variables}}`, see the token estimate, then copy or run it
+- **Node formulas** — a small Excel-like formula engine lives inside nodes: `SUM(children)`, `AVERAGE`, `MIN`/`MAX`, `IF`, `ROUND`, `SQRT`, and more, with autocomplete as you type. Turns a branch of numbers into a live-computed rollup instead of static text
 - **Version history** — browse, **diff** (added / removed / edited nodes), preview, and restore past versions
-- **Rich text & nodes** — bold/italic/underline, lists, links, notes, images, citations, task progress
-- **Color themes** per node + per map, incl. **GitHub Light** and other light/dark themes
+- **Rich text & nodes** — bold/italic/underline/strikethrough, highlight & text colour, font size, alignment, bulleted/numbered lists (including multi-line lists inside a single node), links, notes, images, citations, task progress
+- **Color themes** — 10 built in (Light, Dark, Dracula, Catppuccin Light/Dark, Rosé Pine Moon/Dawn, Nord, GitHub Light/Dark), set per node or per map
 - **Undo / redo** (full history) · **search & highlight** · **presentation mode**
 - **Multiple maps** with a clickable sidebar; create, rename, duplicate, delete
 - **Import** JSON, OPML, Markdown, GitMind (`.gmind`) and MindMeister (`.mind`) files
-- **Export** to PNG, JSON, Markdown/text, Word (`.doc`), Mermaid, a references list, or a prompt
+- **Export** to PNG, PDF, JSON, Markdown/text, Word (`.doc`), Mermaid, a references list, or a prompt
 - **Read-only share links** — *Copy share link* gzip-encodes the **entire map into a `#view=` URL**; anyone can open it without an account or server, then save an editable copy into their own MindSpark
 - **Persistence** — SQLite when self-hosted, or your own private GitHub repo in cloud mode
+
+**Markdown ⇄ Mind map** (always local)
+
+Every map *is* a Markdown outline — not a one-way export bolted on afterward. Toggle **Markdown mode** (`</>`) and edit either side; they stay in sync live, in both directions.
+
+- **Split-pane text editor** with a line-numbered gutter, real syntax highlighting, and autocomplete for Markdown/formula syntax as you type
+- **Fold / unfold** any branch independently — including the map's own metadata comment at the top of the file — so you can work on one section of a long outline at a time
+- **Word wrap** toggle for long lines, with the gutter staying correctly aligned either way
+- **Click to jump** — click a line in the text and its node is selected on the canvas, or select a node and its line is revealed and scrolled into view (unfolding ancestors as needed)
+- **Live rendered preview** toggle, and **download that preview as a PDF** directly from the editor
+- **Formatting round-trips as real Markdown/HTML**, not flattened to plain text — bold, italic, underline, strikethrough, highlight, text colour, font size, alignment, bulleted/numbered lists, and inline code all survive a round trip through the text and back
+- Paste or type a Markdown outline straight into a node or the editor and it becomes real structure — headings become branches, `` `inline code` `` renders as code, fenced blocks and tables carry through
+
+**Built for researchers & engineers** (always local)
+
+- **Citations with DOI autofill** — open the citation form on any node, paste a DOI, and MindSpark fetches authors/title/year/venue from **Crossref** automatically. Cited nodes get a reference marker and roll up into **Export → References list**
+- **Compile subtree → prompt** — assemble any branch into a structured prompt, substitute `{{variables}}`, see a live token estimate, then copy it or **run it directly against Anthropic or OpenAI** with your own API key, right from the map
+- **Prompt-engineering templates** — Role/Task/Context/Constraints/Examples, Chain-of-Thought, Function-calling schema, Few-shot examples
+- **Research templates** — IMRaD research paper, literature review synthesis, research proposal, experiment design, systematic review (PRISMA), research question (FINER), thesis / multi-paper arc, conference talk outline, reviewer response / rebuttal
+- **AI & agent templates** — AI Agent Architecture, Agentic Workflow Patterns, and a Claude **Agent Skill** scaffold (a ready-made `SKILL.md` with frontmatter)
+- **Software-engineering templates** — system architecture, design doc / RFC, Domain-Driven Design, sprint / feature plan, incident post-mortem
+- **50+ built-in templates** in total, spanning research, prompt engineering, AI/agents, software, product, design, study, writing, career, and project management — browse them from **+ Topic ▾**
 
 **Collaboration** ☁ *(needs the cloud worker — see [below](#cloud--collaboration-deployment))*
 
@@ -45,14 +68,25 @@ Everything below the "Collaboration" heading needs the optional cloud worker; ev
 - **Shared-maps sidebar** — one place for maps *shared by you* and *shared with you*, with relationship badges
 - **Recently opened by** — see which signed-in collaborators have opened a shared map
 
+## What makes MindSpark different
+
+- **A Markdown file, not a proprietary format.** Most mind-mapping tools treat Markdown as a one-way export. Here it's the *native* format in both directions — the canvas and the text editor are two views of the same document, live-synced, so you can drop into a text editor for fast bulk edits and still get a proper diagram back.
+- **You own the data.** No required account. Self-host with one command (`node server.js`, SQLite, zero setup) or run the static build for **$0 forever**, with every map saved as a plain JSON file in *your own* private GitHub repo — never on a vendor's server you don't control.
+- **No feature gates, ever.** Real-time collaboration, unlimited maps and nodes, full version history with diffs, every export format — none of it is paywalled or capped, self-hosted or cloud.
+- **Zero runtime dependencies.** The canvas, the LaTeX math rendering, the formula engine, the Markdown parser — all hand-written vanilla JavaScript. Nothing to `npm install`, a minimal supply-chain surface, and the whole editor is one file you can actually read.
+- **Computation inside a mind map.** A built-in formula engine (`SUM(children)`, `AVERAGE`, `IF`, …) with autocomplete — most mind-mapping tools treat every node as inert text; here a branch of numbers can compute a live rollup.
+- **A bridge to LLM workflows, not just a diagram.** Compile any branch into a prompt with a token estimate, substitute `{{variables}}`, and run it against Anthropic or OpenAI directly from the map — plus dedicated templates for prompt engineering (Chain-of-Thought, few-shot, function-calling schemas) and agent design (including a Claude Agent Skill scaffold).
+- **Purpose-built for research writing**, not just business templates — IMRaD papers, PRISMA systematic reviews, FINER research questions, literature reviews — with citation management (DOI → Crossref autofill, a formatted references export) built directly into node editing.
+
 ## What works offline vs. what needs the cloud
 
 MindSpark's editor is 100% client-side. The only things that require the optional Cloudflare Worker are the ones that inherently need a shared server between people.
 
 | Capability | Local (self-host or static + GitHub) | Cloud (worker) |
 |---|:---:|:---:|
-| Create / edit maps, all layouts, math, prompt building | ✅ | ✅ |
-| Import / export (JSON, OPML, Markdown, PNG, `.doc`, Mermaid, …) | ✅ | ✅ |
+| Create / edit maps, all layouts, math, formulas, prompt building | ✅ | ✅ |
+| **Markdown mode** (two-way sync, preview, PDF export), citations | ✅ | ✅ |
+| Import / export (JSON, OPML, Markdown, PNG, PDF, `.doc`, Mermaid, …) | ✅ | ✅ |
 | Version history, undo/redo, search, presentation mode | ✅ | ✅ |
 | **Read-only share links** (`#view=`, whole map encoded in the URL) | ✅ | ✅ |
 | Save maps to **your own private GitHub repo** | ✅ *(sign in with a token)* | ✅ |
