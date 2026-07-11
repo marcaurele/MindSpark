@@ -843,10 +843,10 @@ function sanitizeInlineHTML(html, extraTags){
             if(!/^https?:\/\//i.test(attr.value)) child.removeAttribute(attr.name);
           }
           else if(n==='style'){
-            // Allow only color / background-color / font-weight / font-style / text-decoration
+            // Allow only color / background-color / font-weight / font-style / text-decoration / font-size / text-align
             const safe = attr.value
               .split(';').map(s=>s.trim()).filter(Boolean)
-              .filter(s=>/^(color|background-color|font-weight|font-style|text-decoration)\s*:/i.test(s))
+              .filter(s=>/^(color|background-color|font-weight|font-style|text-decoration|font-size|text-align)\s*:/i.test(s))
               .join('; ');
             if(safe) child.setAttribute('style', safe); else child.removeAttribute('style');
           }
@@ -6060,6 +6060,7 @@ function htmlToInlineMd(html){
       else if(tag==='br')                                out+='\n';
       else if(tag==='a'){ const h=ch.getAttribute('href')||''; out += h ? '['+(inner||h)+']('+h+')' : inner; }
       else if(/^(sub|sup|kbd|mark|ins|u|abbr|small)$/.test(tag)){ const at=ch.getAttribute('title'); out += '<'+tag+(at?' title="'+at.replace(/"/g,'&quot;')+'"':'')+'>'+inner+'</'+tag+'>'; }  // no md equivalent -> keep as HTML
+      else if(tag==='ul'||tag==='ol'||tag==='li'){ out += '<'+tag+'>'+inner.replace(/\n/g,'<br>')+'</'+tag+'>'; }  // no md list syntax fits inside a single node's text -> keep as HTML (see applyListToSelection); guard against a bare newline (e.g. from an empty <li><br></li>) breaking the single-line Markdown round-trip
       else                                               out+=inner;   // span, div, … -> text only
     });
     return out;
@@ -6174,6 +6175,7 @@ function parseMarkdownOutline(text, filename){
   }
   const stack = [{ id:rootId, depth:0 }];
   let sideCounter = 0, lastHeadingDepth = 0, subDepth = null;
+  const LIST_WRAP_RE = /^<(ul|ol)>([\s\S]*)<\/\1>$/i;
   const add = (txt, depth, task, extra) => {
     while(stack.length>1 && stack[stack.length-1].depth >= depth) stack.pop();
     const parentId = stack[stack.length-1].id;
@@ -6185,7 +6187,53 @@ function parseMarkdownOutline(text, filename){
     // it through inline-markdown scanning, which would happily mangle e.g. the asterisks in
     // "=2*3*4" into a spurious *italic* span.
     const isFormula = txt.trim().startsWith('=');
-    nodes[id] = { id, text: isFormula ? txt.trim() : mdInlineToHtml(txt), parent:parentId, side, x:0, y:0 };
+    let text = isFormula ? txt.trim() : mdInlineToHtml(txt), listType = null;
+    const styleProps = {};
+    // Peel whole-node style wrapper tags (from buildMarkdown's wrapStyle — <div style=
+    // text-align>, <span style=font-size>, <span style=color>, <mark style=background-
+    // color>, <u>) from the outside in, extracting each into a discrete node property.
+    // Unlike bold/italic/strike (which are fine left as plain embedded <b>/<i>/<s> — purely
+    // a rendering concern), fontSize/textColor/highlight/align also feed layout and PDF/
+    // canvas export elsewhere, so they need to land back on the node object itself.
+    const peelStyle = s => {
+      let m, changed = true;
+      while(changed){
+        changed = false;
+        if((m = s.match(/^<div style="text-align:(left|right)">([\s\S]*)<\/div>$/i))){ styleProps.align = m[1].toLowerCase(); s = m[2]; changed = true; }
+        else if((m = s.match(/^<span style="font-size:(\d+)px">([\s\S]*)<\/span>$/i))){ styleProps.fontSize = +m[1]; s = m[2]; changed = true; }
+        else if((m = s.match(/^<span style="color:(#[0-9a-fA-F]{3,8})">([\s\S]*)<\/span>$/i))){ styleProps.textColor = m[1]; s = m[2]; changed = true; }
+        else if((m = s.match(/^<mark style="background-color:(#[0-9a-fA-F]{3,8})">([\s\S]*)<\/mark>$/i))){ styleProps.highlight = m[1]; s = m[2]; changed = true; }
+        else if((m = s.match(/^<u>([\s\S]*)<\/u>$/i))){ styleProps.underline = true; s = m[1]; changed = true; }
+      }
+      return s;
+    };
+    // A whole-node bulleted/numbered list (multiple lines inside ONE node) has no plain-
+    // Markdown equivalent, so buildMarkdown emits it as literal <ul>/<ol><li> HTML instead
+    // (already part of the sanitizer's inline-HTML whitelist). Recognize that shape here and
+    // unwrap it back into the canvas-native form: listType + <br>-joined line text — a single
+    // node/line either way, no separate bookkeeping required.
+    if(!isFormula){
+      const lm = text.match(LIST_WRAP_RE);
+      if(lm){
+        const tpl = document.createElement('template'); tpl.innerHTML = lm[2];
+        const kids = [...tpl.content.childNodes].filter(c => c.nodeType===1 || (c.nodeType===3 && c.nodeValue.trim()));
+        if(kids.length && kids.every(c => c.nodeType===1 && c.tagName.toLowerCase()==='li')){
+          text = kids.map(li=>{
+            const inner = li.innerHTML;
+            // A lone <br> is applyListToSelection's placeholder for an otherwise-empty
+            // line (kept so the <li> still has visible height) — treat it as empty here,
+            // not as literal content, or joining with <br> below would double it up.
+            return /^\s*<br\s*\/?>\s*$/i.test(inner) ? '' : peelStyle(inner);
+          }).join('<br>');
+          listType = lm[1].toLowerCase()==='ol' ? 'ol' : 'ul';
+        }
+      } else {
+        text = peelStyle(text);
+      }
+    }
+    nodes[id] = { id, text, parent:parentId, side, x:0, y:0 };
+    if(listType) nodes[id].listType = listType;
+    Object.assign(nodes[id], styleProps);
     if(task) nodes[id].task = task;
     if(extra) Object.assign(nodes[id], extra);
     stack.push({ id, depth });
@@ -6745,17 +6793,18 @@ function notesToMdBlocks(notesHtml){
 }
 function _nodeMeta(n){   // per-node info that JSON has but Markdown can't express
   const m={};
+  // n.color is the node's BOX background (a shape property, not text styling) — no clean
+  // inline-HTML equivalent, and reusing background-color here would collide with n.highlight
+  // (a genuine text highlight) on reimport. Kept in meta.
   if(n.color) m.color=n.color;
-  if(n.textColor) m.textColor=n.textColor;
   if(n.width) m.w=n.width;
   if(n.height) m.h=n.height;
   if(n.collapsed) m.collapsed=1;
-  if(n.underline) m.underline=1;   // bold/italic/strike round-trip via visible **/*/~~ syntax instead (see buildMarkdown)
-  if(n.fontSize) m.fontSize=n.fontSize;
-  if(n.listType) m.listType=n.listType;
-  if(n.highlight) m.highlight=n.highlight;
-  if(n.align) m.align=n.align;
-  if(n.image) m.image=n.image;
+  // textColor / underline / fontSize / highlight / align / image are intentionally NOT
+  // stored here — they round-trip via visible HTML (<span style>, <u>, <mark>, <div
+  // style>, <img>) in the text itself instead (see buildMarkdown / parseMarkdownOutline's
+  // `add`), the same way bold/italic/strike already use visible **/*/~~ syntax.
+  // (applyMeta below still reads these legacy meta fields for files exported before this.)
   if(n.ref) m.ref=1;
   if(n.citation) m.citation=n.citation;
   if(n.created) m.created=n.created;
@@ -6798,19 +6847,48 @@ function buildMarkdown(startId, opts){
       return;
     }
     let body = (rich ? htmlToInlineMd(n.text) : nodeTextPlain(n.text)) || 'Untitled';
-    if(rich){   // whole-node style toggles (nodebar B/I/S buttons) get real markdown syntax, not just metadata
-      if(n.strike) body='~~'+body+'~~';
-      if(n.italic) body='*'+body+'*';
-      if(n.bold) body='**'+body+'**';
+    const wrapStyle = s => {   // whole-node style toggles (nodebar buttons) get real Markdown/HTML syntax, not just metadata
+      if(!rich) return s;
+      if(n.strike) s='~~'+s+'~~';
+      if(n.italic) s='*'+s+'*';
+      if(n.bold) s='**'+s+'**';
+      if(n.underline) s='<u>'+s+'</u>';
+      if(n.highlight) s=`<mark style="background-color:${n.highlight}">${s}</mark>`;
+      if(n.textColor) s=`<span style="color:${n.textColor}">${s}</span>`;
+      if(n.fontSize) s=`<span style="font-size:${n.fontSize}px">${s}</span>`;
+      if(n.align && n.align!=='center') s=`<div style="text-align:${n.align}">${s}</div>`;   // 'center' is the render-time default (see renderNodeText) — skip for brevity
+      return s;
+    };
+    // A non-http(s) image (pasted/uploaded — stored as a data: URI) has no Markdown image
+    // syntax that can hold it, so it round-trips as a literal <img> tag instead of silently
+    // living only in the meta comment; a plain http(s) image keeps using ![image](url).
+    const imageLine = () => {
+      if(!(rich && n.image)) return null;
+      if(/^https?:\/\//i.test(n.image)) return `![${n.imageAlt||'image'}](${n.image})`;
+      return `<img src="${n.image}"${n.imageAlt ? ' alt="'+escapeHtml(n.imageAlt)+'"' : ''}>`;
+    };
+    let first;
+    if(rich && n.listType){
+      // A bulleted/numbered node (multiple lines living inside ONE node) has no plain-
+      // Markdown equivalent — a bare "- line" is indistinguishable from a new sibling
+      // node. <ul>/<ol>/<li> are already in the sanitizer's inline-HTML whitelist (see
+      // SAFE_TAGS/INLINE_HTML_RE), so use them directly: visible/readable as real HTML in
+      // the Markdown text, and it round-trips as a single line/node — parseMarkdownOutline
+      // unwraps this same shape straight back into listType + <br>-joined text. Whole-node
+      // style toggles are applied per <li> (not around the whole wrapper) so the outer tag
+      // always literally starts with <ul>/<ol> for the importer to recognize.
+      const tag = n.listType==='ol' ? 'ol' : 'ul';
+      first = `<${tag}>` + body.split('\n').map(l=>`<li>${wrapStyle(l||'<br>')}</li>`).join('') + `</${tag}>`;
+    } else {
+      first = wrapStyle(body.replace(/\n+/g, rich ? '<br>' : ' '));   // keep multi-line text in ONE node
     }
-    const first = body.replace(/\n+/g, rich ? '<br>' : ' ');   // keep multi-line text in ONE node
     const hlevel = (id===root) ? 1 : ((rich && n.hlevel) ? n.hlevel : 0);   // imported headings re-emit as #/##/###
     if(hlevel){
       if(lines.length && lines[lines.length-1]!=='') lines.push('');
       if(lineMap) lm[lines.length]=id;   // record AFTER the spacer line, so it points at the heading text itself
       lines.push('#'.repeat(hlevel)+' '+first);
       if(rich){ emitNotes(n, ''); } else { const nt=notesText(n); if(nt) lines.push('', nt); }
-      if(rich && n.image && /^https?:\/\//i.test(n.image)) lines.push(`![image](${n.image})`);
+      const il = imageLine(); if(il) lines.push(il);
       lines.push('');
       childrenOf(id).forEach((c,i)=>walk(c, 0, path+'.'+i));       // heading's children start a fresh bullet indent
     } else {
@@ -6820,7 +6898,7 @@ function buildMarkdown(startId, opts){
       lines.push(isPara ? `${pad}${first}` : `${pad}- ${box}${first}`);
       const notePad = isPara ? pad : `${pad}  `;
       if(rich){ emitNotes(n, notePad); } else { const nt=notesText(n); if(nt) nt.split('\n').forEach(l=>lines.push(`${notePad}> ${l}`)); }
-      if(rich && n.image && /^https?:\/\//i.test(n.image)) lines.push(`${notePad}![image](${n.image})`);
+      const il = imageLine(); if(il) lines.push(`${notePad}${il}`);
       childrenOf(id).forEach((c,i)=>walk(c, bd+1, path+'.'+i));
     }
   };
