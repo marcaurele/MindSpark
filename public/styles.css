@@ -45,6 +45,19 @@
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
+  :root[data-theme="nord"]{
+    --toolbar-bg:#eceff4; --toolbar-text:#2e3440;
+    --paper:#2e3440; --paper-2:#3b4252; --ink:#eceff4; --ink-soft:#a9b1bf;
+    --line:#434c5e; --line-2:#4c566a;
+    --accent:#88c0d0; --accent-deep:#5e81ac; --teal:#a3be8c;
+    --chrome:#3b4252; --chrome-edge:#434c5e;
+    --node-bg:#434c5e; --node-ink:#eceff4;
+    --canvas-dot:#434c5e;
+    --stage-glow:rgba(143,188,187,.05);
+    --link:#88c0d0;
+    --shadow:0 2px 4px rgba(0,0,0,.25),0 8px 24px rgba(0,0,0,.40);
+    --shadow-lg:0 12px 40px rgba(0,0,0,.55);
+  }
   :root[data-theme="catppuccin-dark"]{   /* Catppuccin Mocha — https://github.com/catppuccin/catppuccin */
     --toolbar-bg:#f5e0dc; --toolbar-text:#1e1e2e;
     --paper:#1e1e2e; --paper-2:#181825; --ink:#cdd6f4; --ink-soft:#a6adc8;
@@ -71,29 +84,31 @@
     --shadow:0 1px 3px rgba(76,79,105,.12),0 8px 24px rgba(76,79,105,.12);
     --shadow-lg:0 12px 40px rgba(76,79,105,.18);
   }
-  :root[data-theme="nord"]{
-    --toolbar-bg:#eceff4; --toolbar-text:#2e3440;
-    --paper:#2e3440; --paper-2:#3b4252; --ink:#eceff4; --ink-soft:#a9b1bf;
-    --line:#434c5e; --line-2:#4c566a;
-    --accent:#88c0d0; --accent-deep:#5e81ac; --teal:#a3be8c;
-    --chrome:#3b4252; --chrome-edge:#434c5e;
-    --node-bg:#434c5e; --node-ink:#eceff4;
-    --canvas-dot:#434c5e;
-    --stage-glow:rgba(143,188,187,.05);
-    --link:#88c0d0;
-    --shadow:0 2px 4px rgba(0,0,0,.25),0 8px 24px rgba(0,0,0,.40);
+  :root[data-theme="rose-pine-moon"]{   /* Rosé Pine Moon — https://rosepinetheme.com */
+    --toolbar-bg:#e0def4; --toolbar-text:#232136;
+    --paper:#232136; --paper-2:#2a273f; --ink:#e0def4; --ink-soft:#908caa;
+    --line:#393552; --line-2:#44415a;
+    --accent:#c4a7e7; --accent-deep:#a57dd5; --teal:#9ccfd8;
+    --chrome:#2a273f; --chrome-edge:#393552;
+    --node-bg:#393552; --node-ink:#e0def4;
+    --canvas-dot:#2a283e;
+    --stage-glow:rgba(196,167,231,.05);
+    --link:#c4a7e7;
+    --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
-  :root[data-theme="solarized-light"]{
-    --toolbar-bg:#586e75; --toolbar-text:#fdf6e3;
-    --paper:#fdf6e3; --paper-2:#eee8d5; --ink:#586e75; --ink-soft:#93a1a1;
-    --line:#eee8d5; --line-2:#d3cdb8;
-    --accent:#268bd2; --accent-deep:#1a6fab; --teal:#2aa198;
-    --chrome:#fdf6e3; --chrome-edge:#eee8d5;
-    --node-bg:#ffffff; --node-ink:#586e75;
-    --canvas-dot:#d3cdb8;
-    --stage-glow:rgba(255,255,255,.5);
-    --link:#268bd2;
+  :root[data-theme="rose-pine-dawn"]{   /* Rosé Pine Dawn — https://rosepinetheme.com */
+    --toolbar-bg:#575279; --toolbar-text:#faf4ed;
+    --paper:#faf4ed; --paper-2:#f2e9e1; --ink:#575279; --ink-soft:#797593;
+    --line:#f2e9e1; --line-2:#dfdad9;
+    --accent:#907aa9; --accent-deep:#7a6494; --teal:#56949f;
+    --chrome:#faf4ed; --chrome-edge:#f2e9e1;
+    --node-bg:#fffaf3; --node-ink:#575279;
+    --canvas-dot:#dfdad9;
+    --stage-glow:rgba(144,122,169,.04);
+    --link:#907aa9;
+    --shadow:0 1px 3px rgba(87,82,121,.12),0 8px 24px rgba(87,82,121,.12);
+    --shadow-lg:0 12px 40px rgba(87,82,121,.18);
   }
   :root[data-theme="github-dark"]{
     --toolbar-bg:#f0f6fc; --toolbar-text:#0d1117;
@@ -174,11 +189,11 @@
   #mdPane.md-preview .md-wrap-btn{display:none}
   /* Word wrap: the textarea and highlight overlay share this rule so switching both to
      pre-wrap at once keeps them pixel-aligned (identical font/width/padding/text, so the
-     browser wraps them the same way). The fold gutter can't follow a line that now spans
-     a variable number of visual rows (its rows are one fixed height each), so it's hidden
-     instead of left silently misaligned — .md-code (flex:1) fills the space it frees up. */
+     browser wraps them the same way). The gutter's rows are normally a fixed 20px each
+     (one line = one row); once wrapped, a line can span several visual rows, so
+     mdSyncGutterRowHeights() overrides each .gl row's height in JS to match its
+     corresponding .hl-line's actual (now possibly taller) rendered height. */
   #mdPane.md-wrap .md-hl,#mdPane.md-wrap #mdEditor{white-space:pre-wrap;overflow-wrap:anywhere}
-  #mdPane.md-wrap .md-gutter{display:none}
   #mdPane .md-pdf-btn{display:none;border:1px solid var(--line);background:transparent;color:var(--ink-soft);cursor:pointer;font-size:11px;font-weight:600;padding:2px 9px;border-radius:6px}
   #mdPane .md-pdf-btn:hover{background:var(--paper-2,rgba(127,127,127,.12));color:var(--ink)}
   #mdPane.md-preview .md-pos{display:none}
@@ -458,7 +473,7 @@
   /* ===== Notes editor — styled as a sticky note ===== */
   :root{ --sticky:#fff7b0; --sticky-edge:#f2e27a; --sticky-ink:#4a431f; }
   :root[data-theme="dark"], :root[data-theme="dracula"], :root[data-theme="catppuccin-dark"],
-  :root[data-theme="nord"], :root[data-theme="github-dark"]{
+  :root[data-theme="rose-pine-moon"], :root[data-theme="nord"], :root[data-theme="github-dark"]{
     --sticky:#3a3520; --sticky-edge:#5c5430; --sticky-ink:#f3ecc4;
   }
   .notes-popup{

@@ -582,12 +582,11 @@ function render(){
 
     // Collapse / expand toggle — only on nodes with children
     if(hasKids){
-      const canExpand = _collapseState(id)?.dir === 'expand';
       el.appendChild(mkHandle(
         'h-collapse'+(n.collapsed?' collapsed':''),
-        canExpand?'+':'−',
-        canExpand?`Expand next level (${roll.desc[id]} hidden)`:'Collapse deepest level',
-        ()=>{ stepCollapseToggle(id); pushHistory(); autoLayout(); }
+        n.collapsed?'+':'−',
+        n.collapsed?`Expand (${roll.desc[id]} hidden)`:'Collapse',
+        ()=>{ n.collapsed=!n.collapsed; pushHistory(); autoLayout(); }
       ));
     }
     // Add child — every node
@@ -1220,56 +1219,6 @@ const childrenOf=id => _ci
   ? (_ci[id] ? _ci[id].slice() : EMPTY_KIDS)
   : Object.values(map.nodes).filter(n=>n.parent===id).map(n=>n.id);
 function countDesc(id){let c=0;const walk=i=>childrenOf(i).forEach(k=>{c++;walk(k)});walk(id);return c;}
-// Resolves what a click on rootId's collapse/expand toggle will do next: {dir:'expand'}
-// (something in the visible subtree is still hidden) or {dir:'collapse'} (subtree is
-// fully visible, so the next click starts closing it) — or null if rootId has no
-// children. Remembers the last direction per node (in-session UI hint only, not
-// persisted) so repeated clicks keep moving the same way — expand, expand, ... fully
-// open -> collapse, collapse, ... fully closed -> expand again — instead of a single
-// snapshot check bouncing back and forth on a branch whose children are all leaves.
-let _collapseDir={};
-function _collapseState(rootId){
-  const n=map.nodes[rootId];
-  if(!childrenOf(rootId).length) return null;
-  const branches=[{id:rootId, depth:0}];
-  const walk=(id, depth)=>{
-    childrenOf(id).forEach(c=>{
-      if(childrenOf(c).length){
-        branches.push({id:c, depth});
-        if(!map.nodes[c].collapsed) walk(c, depth+1);
-      }
-    });
-  };
-  if(!n.collapsed) walk(rootId, 1);
-  const hidden=branches.filter(b=>map.nodes[b.id].collapsed);
-  const fullyExpanded=hidden.length===0;
-  let dir=_collapseDir[rootId];
-  if(!dir) dir = fullyExpanded ? 'collapse' : 'expand';   // no memory yet -> infer from current state
-  if(dir==='collapse' && n.collapsed) dir='expand';        // exhausted (fully closed) -> flip
-  if(dir==='expand' && fullyExpanded) dir='collapse';      // exhausted (fully open) -> flip
-  return {dir, branches, hidden};
-}
-// Collapse/expand ONE depth level per call instead of jumping straight to fully
-// expanded or fully collapsed. Collapsing closes the deepest still-open branch level
-// first (so a shallower node never visually swallows a still-open child); expanding
-// opens the shallowest still-closed branch level first (children only reveal once
-// their own parent has opened) — same ordering as the #collapseAll cascade, just one
-// step per click instead of an animated all-at-once sweep.
-function stepCollapseToggle(rootId){
-  const st=_collapseState(rootId);
-  if(!st) return;
-  _collapseDir[rootId]=st.dir;
-  if(st.dir==='expand'){
-    const minDepth=Math.min(...st.hidden.map(b=>b.depth));
-    st.hidden.filter(b=>b.depth===minDepth).forEach(b=>{ map.nodes[b.id].collapsed=false; });
-  } else {
-    const openBranches=st.branches.filter(b=>!map.nodes[b.id].collapsed);
-    if(openBranches.length){
-      const maxDepth=Math.max(...openBranches.map(b=>b.depth));
-      openBranches.filter(b=>b.depth===maxDepth).forEach(b=>{ map.nodes[b.id].collapsed=true; });
-    }
-  }
-}
 // One O(n) post-order pass computing, for every node: descendant count (desc),
 // and task done/total among descendants (tdone/ttot). render() uses these instead
 // of calling countDesc()/taskProgress() per node, which were each O(subtree) and
@@ -1646,7 +1595,7 @@ function ensureMdPane(){
     +'<div class="md-resize" title="Drag to resize"></div>';
   app.insertBefore(pane, stage);
   document.body.classList.add('md-ready');
-  window.addEventListener('resize', ()=>{ if(mdMode) mdCalibrate(); });
+  window.addEventListener('resize', ()=>{ if(mdMode){ mdCalibrate(); mdSyncGutterRowHeights(); } });
   pane.querySelector('.md-close').addEventListener('click',()=>toggleMdMode(false));
   pane.querySelector('.md-prev-btn').addEventListener('click', mdTogglePreview);
   pane.querySelector('.md-wrap-btn').addEventListener('click', mdToggleWrap);
@@ -1687,7 +1636,7 @@ function ensureMdPane(){
   rz.addEventListener('mousedown',e=>{ document.body.classList.add('md-resizing');
     e.preventDefault(); const x0=e.clientX, w0=pane.getBoundingClientRect().width;
     const mv=ev=>{ const w=Math.max(240, Math.min(window.innerWidth*0.72, w0+(ev.clientX-x0))); app.style.setProperty('--md-w', w+'px'); };
-    const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); document.body.classList.remove('md-resizing'); try{ animateViewTo(computeFitView(), 220); }catch(_){} };
+    const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); document.body.classList.remove('md-resizing'); try{ animateViewTo(computeFitView(), 220); }catch(_){} mdSyncGutterRowHeights(); };
     window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
   });
 }
@@ -1936,9 +1885,8 @@ function mdTogglePreview(){
 // Word wrap: the textarea and the (invisible-text-bearing) highlight overlay share one
 // CSS rule for white-space (see styles.css), so switching both to pre-wrap at once keeps
 // them pixel-aligned — same font/width/padding, same text, so the browser wraps both
-// identically. The fold-toggle gutter can't follow along though: its rows are one fixed
-// height per logical line, and a wrapped line now spans a variable number of visual rows,
-// so it's hidden while wrapped rather than left silently misaligned.
+// identically. The fold-toggle gutter stays visible too — mdRefreshDecorations() (called
+// below) re-syncs each of its row heights to match the now-possibly-wrapped line it labels.
 function mdToggleWrap(){
   mdWrap=!mdWrap;
   const pane=document.getElementById('mdPane'); if(!pane) return;
@@ -2126,8 +2074,24 @@ function mdRefreshDecorations(){
   const view=mdBuildView(); _mdView=view;
   hl.innerHTML=mdHighlight(ed.value, view);
   gut.innerHTML=mdRenderGutter(view);
+  mdSyncGutterRowHeights(hl, gut);
   mdCalibrate();
   mdUpdateActive(); mdSyncScroll();
+}
+// Each .gl gutter row is normally a fixed 20px (one Markdown line = one visual row). Once
+// word wrap is on, a line can span several visual rows, so its .gl row needs to grow to
+// match — otherwise every row below it drifts further out of alignment with the text it
+// labels. Reads every .hl-line's rendered height first and only then writes the matching
+// .gl heights (rather than interleaving read/write per row), so this doesn't force a
+// separate synchronous layout reflow for every single line.
+function mdSyncGutterRowHeights(hl, gut){
+  if(!mdWrap) return;
+  hl = hl || document.querySelector('#mdPane .md-hl-inner');
+  gut = gut || document.querySelector('#mdPane .md-gutter-inner');
+  if(!hl || !gut) return;
+  const hlRows=hl.querySelectorAll('.hl-line'), glRows=gut.querySelectorAll('.gl');
+  const heights=[]; for(let i=0;i<hlRows.length;i++) heights.push(hlRows[i].getBoundingClientRect().height);
+  for(let i=0;i<glRows.length && i<heights.length;i++) glRows[i].style.height=heights[i]+'px';
 }
 function mdCalibrate(){   // derive the textarea's real line-height + padding (used to centre a target line when jumping to it)
   const ed=document.getElementById('mdEditor'); if(!ed) return;
@@ -3197,7 +3161,7 @@ function positionNodeBar(){
     <div class="nb-group">
       <button data-a="child" title="Add child (Tab)">＋</button>
       ${!isRoot?'<button data-a="sibling" title="Add sibling (Enter)">⤵</button>':''}
-      ${hasKids?`<button data-a="collapse" title="Collapse/expand one level (Space)">${_collapseState(sel)?.dir==='expand'?'⊕':'⊖'}</button>`:''}
+      ${hasKids?`<button data-a="collapse" title="Collapse/expand (Space)">${map.nodes[sel].collapsed?'⊕':'⊖'}</button>`:''}
       <button data-a="edit" title="Edit (F2)">✎</button>
       <button data-a="notes" class="${(n.notes||'').trim()?'on':''}" title="${(n.notes||'').trim()?'Edit notes':'Add notes'}">📝</button>
       <button data-a="task" class="${n.task?'on':''}" title="Task state (todo / doing / done)">☑</button>
@@ -3274,7 +3238,7 @@ function positionNodeBar(){
       else if(a==='sibling') addNode(sel,true);
       else if(a==='edit') startEdit(sel);
       else if(a==='del') deleteNode(sel);
-      else if(a==='collapse'){ stepCollapseToggle(sel); pushHistory(); autoLayout(); }
+      else if(a==='collapse'){ map.nodes[sel].collapsed=!map.nodes[sel].collapsed; pushHistory(); autoLayout(); }
       else if(a==='bold')      inlineOrToggle('bold',      'bold');
       else if(a==='italic')    inlineOrToggle('italic',    'italic');
       else if(a==='strike')    inlineOrToggle('strike',    'strikeThrough');
@@ -3866,7 +3830,7 @@ window.addEventListener('keydown',e=>{
   else if(e.key==='Enter'){e.preventDefault();addNode(sel,true);}
   else if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();deleteNode(sel);}
   else if(e.key==='F2'){e.preventDefault();startEdit(sel);}
-  else if(e.key===' '){e.preventDefault();if(childrenOf(sel).length){stepCollapseToggle(sel);pushHistory();autoLayout();}}
+  else if(e.key===' '){e.preventDefault();const n=map.nodes[sel];if(childrenOf(sel).length){n.collapsed=!n.collapsed;pushHistory();autoLayout();}}
   else if(e.key==='ArrowLeft'||e.key==='ArrowRight'||e.key==='ArrowUp'||e.key==='ArrowDown'){
     e.preventDefault();
     const next=navTarget(sel, e.key);
@@ -7748,27 +7712,55 @@ $('#layout').onclick=autoLayout;            // re-tidies node positions (does NO
 // still-open child), expanding proceeds shallowest-first (children reveal only after
 // their own parent has opened) — the same ordering tree UIs like VS Code's file
 // explorer or Notion's outline use for a "collapse/expand all".
+// "Collapse/expand all branches" steps the WHOLE map one depth level per click instead
+// of jumping straight to fully expanded or fully collapsed. Collapsing closes the
+// deepest still-open branch level first (so a shallow branch never visually swallows a
+// still-open child); expanding opens the shallowest still-closed branch level first
+// (children only reveal once their own parent has opened). Repeated clicks cycle:
+// expand, expand, ... fully open -> collapse, collapse, ... fully closed -> expand
+// again. The map's actual root is never itself a candidate to collapse — that would
+// hide the whole map — only its descendants are.
+let _collapseAllDir=null;
+function stepCollapseAll(){
+  if(!map) return null;
+  const branches=[];
+  const walk=(id, depth)=>{
+    childrenOf(id).forEach(c=>{
+      if(childrenOf(c).length){
+        branches.push({id:c, depth});
+        if(!map.nodes[c].collapsed) walk(c, depth+1);
+      }
+    });
+  };
+  walk(map.rootId, 0);
+  if(!branches.length) return null;
+  const hidden=branches.filter(b=>map.nodes[b.id].collapsed);
+  const fullyExpanded=hidden.length===0;
+  const openBranches=branches.filter(b=>!map.nodes[b.id].collapsed);
+  const fullyCollapsed=openBranches.length===0;
+
+  let dir=_collapseAllDir;
+  if(!dir) dir = fullyExpanded ? 'collapse' : 'expand';   // no memory yet -> infer from current state
+  if(dir==='collapse' && fullyCollapsed) dir='expand';     // exhausted (fully closed) -> flip
+  if(dir==='expand' && fullyExpanded) dir='collapse';      // exhausted (fully open) -> flip
+  _collapseAllDir=dir;
+
+  if(dir==='expand'){
+    const minDepth=Math.min(...hidden.map(b=>b.depth));
+    hidden.filter(b=>b.depth===minDepth).forEach(b=>{ map.nodes[b.id].collapsed=false; });
+  } else {
+    const maxDepth=Math.max(...openBranches.map(b=>b.depth));
+    openBranches.filter(b=>b.depth===maxDepth).forEach(b=>{ map.nodes[b.id].collapsed=true; });
+  }
+  return dir;
+}
 $('#collapseAll')?.addEventListener('click', ()=>{
   if(!map) return;
-  // Exclude the root: collapsing it would hide the whole map, and including it
-  // (always expanded) would break the expand/collapse toggle detection.
-  const collapsible = Object.keys(map.nodes).filter(id => id !== map.rootId && childrenOf(id).length > 0);
-  if(!collapsible.length) return;
-  const anyExpanded = collapsible.some(id => !map.nodes[id].collapsed);
-  const depthOf = id => { let d=0, cur=map.nodes[id]; while(cur && cur.parent){ d++; cur=map.nodes[cur.parent]; } return d; };
-  const order = collapsible.slice().sort((a,b)=> anyExpanded ? depthOf(b)-depthOf(a) : depthOf(a)-depthOf(b));
-  const STEPS = Math.min(order.length, 18);   // cap so a huge map's cascade doesn't crawl on and on
-  const batches = Array.from({length:STEPS}, (_,i)=> order.slice(Math.floor(i*order.length/STEPS), Math.floor((i+1)*order.length/STEPS)));
-  let step=0;
-  const runStep=()=>{
-    batches[step].forEach(id => { map.nodes[id].collapsed = anyExpanded; });
-    autoLayout();
-    step++;
-    if(step<batches.length) setTimeout(runStep, 55);
-    else pushHistory();   // one undo entry for the whole bulk action, not one per animation step
-  };
-  runStep();
-  toast(anyExpanded ? 'Collapsed all branches' : 'Expanded all branches');
+  const dir=stepCollapseAll();
+  if(!dir) return;
+  pushHistory();
+  autoLayout();
+  toast(dir==='collapse' ? 'Collapsed one level' : 'Expanded one level');
 });
 $('#undo').onclick=undo; $('#redo').onclick=redo;
 document.getElementById('mdToggle')?.addEventListener('click',()=>toggleMdMode());
@@ -7873,9 +7865,10 @@ const THEMES = [
   {id:'dracula',         name:'Dracula',         swatch:['#282a36','#44475a','#ff79c6']},
   {id:'catppuccin-light', name:'Catppuccin Light', swatch:['#eff1f5','#e6e9ef','#8839ef']},
   {id:'catppuccin-dark',  name:'Catppuccin Dark',  swatch:['#1e1e2e','#181825','#cba6f7']},
+  {id:'rose-pine-moon',  name:'Rosé Pine Moon',  swatch:['#232136','#393552','#c4a7e7']},
+  {id:'rose-pine-dawn',  name:'Rosé Pine Dawn',  swatch:['#faf4ed','#fffaf3','#907aa9']},
   {id:'nord',            name:'Nord',            swatch:['#2e3440','#434c5e','#88c0d0']},
   {id:'github-light',    name:'GitHub Light',    swatch:['#ffffff','#f6f8fa','#0969da']},
-  {id:'solarized-light', name:'Solarized Light', swatch:['#fdf6e3','#ffffff','#268bd2']},
   {id:'github-dark',     name:'GitHub Dark',     swatch:['#0d1117','#161b22','#58a6ff']}
 ];
 const MAP_STYLES = [
@@ -8054,7 +8047,7 @@ document.addEventListener('click',e=>{
 // (prefers-color-scheme) so dark-mode users get dark by default.
 try{
   let saved = localStorage.getItem('mindspark:theme');
-  const RETIRED_THEMES = {'solarized-dark':'github-dark', 'monokai':'catppuccin-dark', 'catppuccin':'catppuccin-dark'};   // replaced themes
+  const RETIRED_THEMES = {'solarized-dark':'github-dark', 'solarized-light':'github-light', 'monokai':'catppuccin-dark', 'catppuccin':'catppuccin-dark'};   // replaced themes
   if(saved && RETIRED_THEMES[saved]){ saved=RETIRED_THEMES[saved]; try{ localStorage.setItem('mindspark:theme', saved); }catch(e){} }
   if(saved) applyTheme(saved);
   else applyTheme(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
