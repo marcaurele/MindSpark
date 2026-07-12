@@ -12,6 +12,10 @@ MindSpark is an open-source **mind-mapping app you actually own** — no account
   <img src="docs/screenshot.png" alt="MindSpark showing the “ML - Overview (Demo)” sample map: a “Machine Learning” central node branching into Supervised, Unsupervised and Reinforcement learning, Neural networks, a typical workflow, a learning checklist and references." width="900">
 </p>
 
+<p align="center">
+  <img src="docs/markdown to mindmap.png" alt="MindSpark: “Markdown to Mindmap” a sample of Machine learning demo with its Markdown view a side by side visualization" width="900">
+</p>
+
 ## Features
 
 Everything below the "Collaboration" heading needs the optional cloud worker; everything above it works fully offline / self-hosted with no account. See **[Local vs cloud](#what-works-offline-vs-what-needs-the-cloud)** for the exact split.
