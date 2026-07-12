@@ -7976,14 +7976,16 @@ window.addEventListener('resize', ()=>{
 const THEMES = [
   {id:'light',           name:'Light',           swatch:['#f4efe6','#ffffff','#e0613a']},
   {id:'dark',            name:'Dark',            swatch:['#1e1e1e','#2d2d2d','#3794ff']},
-  {id:'dracula',         name:'Dracula',         swatch:['#282a36','#44475a','#ff79c6']},
+  {id:'light-owl',       name:'Light Owl',       swatch:['#fbfbfb','#ffffff','#2aa298']},
+  {id:'night-owl',       name:'Night Owl',       swatch:['#011627','#0b2942','#7e57c2']},
   {id:'catppuccin-light', name:'Catppuccin Light', swatch:['#eff1f5','#e6e9ef','#8839ef']},
   {id:'catppuccin-dark',  name:'Catppuccin Dark',  swatch:['#1e1e2e','#181825','#cba6f7']},
   {id:'rose-pine-moon',  name:'Rosé Pine Moon',  swatch:['#232136','#393552','#c4a7e7']},
   {id:'rose-pine-dawn',  name:'Rosé Pine Dawn',  swatch:['#faf4ed','#fffaf3','#907aa9']},
-  {id:'nord',            name:'Nord',            swatch:['#2e3440','#434c5e','#88c0d0']},
   {id:'github-light',    name:'GitHub Light',    swatch:['#ffffff','#f6f8fa','#0969da']},
-  {id:'github-dark',     name:'GitHub Dark',     swatch:['#0d1117','#161b22','#58a6ff']}
+  {id:'github-dark',     name:'GitHub Dark',     swatch:['#0d1117','#161b22','#58a6ff']},
+  {id:'dracula',         name:'Dracula',         swatch:['#282a36','#44475a','#ff79c6']},
+  {id:'nord',            name:'Nord',            swatch:['#2e3440','#434c5e','#88c0d0']}
 ];
 const MAP_STYLES = [
   {id:'modern',  name:'Modern',  desc:'Soft cards, curved branches'},

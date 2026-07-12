@@ -32,6 +32,32 @@
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
+  :root[data-theme="light-owl"]{   /* Light Owl — github.com/sdras/night-owl-vscode-theme */
+    --toolbar-bg:#403f53; --toolbar-text:#fbfbfb;
+    --paper:#fbfbfb; --paper-2:#f0f0f0; --ink:#403f53; --ink-soft:#90a7b2;
+    --line:#ececec; --line-2:#d9d9d9;
+    --accent:#2aa298; --accent-deep:#1f7d75; --teal:#0c969b;
+    --chrome:#f0f0f0; --chrome-edge:#e0e0e0;
+    --node-bg:#ffffff; --node-ink:#403f53;
+    --canvas-dot:#d9d9d9;
+    --stage-glow:rgba(255,255,255,.6);
+    --link:#288ed7;
+    --shadow:0 1px 3px rgba(64,63,83,.10),0 8px 24px rgba(64,63,83,.08);
+    --shadow-lg:0 12px 40px rgba(64,63,83,.16);
+  }
+  :root[data-theme="night-owl"]{   /* Night Owl — github.com/sdras/night-owl-vscode-theme */
+    --toolbar-bg:#d6deeb; --toolbar-text:#011627;
+    --paper:#011627; --paper-2:#0b2942; --ink:#d6deeb; --ink-soft:#5f7e97;
+    --line:#1d3b53; --line-2:#2c5574;
+    --accent:#7e57c2; --accent-deep:#6440a5; --teal:#7fdbca;
+    --chrome:#011627; --chrome-edge:#1d3b53;
+    --node-bg:#0b2942; --node-ink:#d6deeb;
+    --canvas-dot:#1d3b53;
+    --stage-glow:rgba(126,87,194,.06);
+    --link:#82aaff;
+    --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
+    --shadow-lg:0 12px 40px rgba(0,0,0,.55);
+  }
   :root[data-theme="dracula"]{
     --toolbar-bg:#f8f8f2; --toolbar-text:#282a36;
     --paper:#282a36; --paper-2:#21222c; --ink:#f8f8f2; --ink-soft:#a3a8c0;
@@ -472,7 +498,7 @@
 
   /* ===== Notes editor — styled as a sticky note ===== */
   :root{ --sticky:#fff7b0; --sticky-edge:#f2e27a; --sticky-ink:#4a431f; }
-  :root[data-theme="dark"], :root[data-theme="dracula"], :root[data-theme="catppuccin-dark"],
+  :root[data-theme="dark"], :root[data-theme="night-owl"], :root[data-theme="dracula"], :root[data-theme="catppuccin-dark"],
   :root[data-theme="rose-pine-moon"], :root[data-theme="nord"], :root[data-theme="github-dark"]{
     --sticky:#3a3520; --sticky-edge:#5c5430; --sticky-ink:#f3ecc4;
   }
