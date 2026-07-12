@@ -1711,8 +1711,13 @@ function ensureMdPane(){
   });
   const rz=pane.querySelector('.md-resize');
   rz.addEventListener('mousedown',e=>{ document.body.classList.add('md-resizing');
-    e.preventDefault(); const x0=e.clientX, w0=pane.getBoundingClientRect().width;
-    const mv=ev=>{ const w=Math.max(240, Math.min(window.innerWidth*0.72, w0+(ev.clientX-x0))); app.style.setProperty('--md-w', w+'px'); };
+    e.preventDefault(); const x0=e.clientX, w0=pane.getBoundingClientRect().width, z=_uiZ();
+    // w0 and (ev.clientX-x0) are both raw/visual px (getBoundingClientRect() and mouse
+    // coordinates agree with each other, but scale with the UI-level display size) — the
+    // CSS var they feed is read as logical px, so the whole sum needs the same /z
+    // correction _stageSize()/_stagePoint() already apply, or the pane resizes at the
+    // wrong rate relative to the mouse at any non-100% Display Size.
+    const mv=ev=>{ const w=Math.max(240, Math.min(window.innerWidth*0.72, (w0+(ev.clientX-x0))/z)); app.style.setProperty('--md-w', w+'px'); };
     const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); document.body.classList.remove('md-resizing'); try{ animateViewTo(computeFitView(), 220); }catch(_){} mdSyncGutterRowHeights(); };
     window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
   });
@@ -3047,9 +3052,7 @@ function updateFormulaAutocomplete(textEl, nodeId){
     _formulaAC.el.appendChild(row);
   });
   _renderFormulaAcActive();
-  const rect=textEl.getBoundingClientRect();
-  _formulaAC.el.style.left=Math.round(rect.left)+'px';
-  _formulaAC.el.style.top=Math.round(rect.bottom+6)+'px';
+  positionPopup(_formulaAC.el, textEl);
 }
 // Called first from the editing keydown handler; returns true if it handled the key
 // (so the caller should stop — e.g. Enter selects a suggestion instead of finishing the edit).
@@ -3230,8 +3233,9 @@ function positionAndClampNodeBar(bar, n){
   // to keep it a constant on-screen size no matter how far the map is zoomed.
   bar.style.transform=`translateX(-50%) scale(${1/view.k})`;
   if(!stage) return;
+  const z=_uiZ();   // getBoundingClientRect() below scales with the UI-level display size too, not just canvas zoom — same correction _stageSize()/_stagePoint() already apply
   const bounds=stage.getBoundingClientRect();
-  const margin=8;
+  const margin=8*z;   // keep the comparison in the same raw space as bounds/rect rather than mixing a CSS-px margin into it
   const rect=bar.getBoundingClientRect();
   const k=view.k||1;
   let dx=0, dy=0;
@@ -3242,8 +3246,8 @@ function positionAndClampNodeBar(bar, n){
   if(rect.bottom>maxTop) dy=maxTop-rect.bottom;
   if(rect.top+dy<minTop) dy=minTop-rect.top;
   if(dx||dy){
-    bar.style.left=(pos.left+dx/k)+'px';
-    bar.style.top=(pos.top+dy/k)+'px';
+    bar.style.left=(pos.left+dx/(k*z))+'px';
+    bar.style.top=(pos.top+dy/(k*z))+'px';
   }
 }
 
@@ -4216,7 +4220,13 @@ function openRowMenu(btn, m){
   row.appendChild(pop);                 // anchored to the row via CSS (position:absolute) — zoom-proof
   // flip above only if there isn't room below (ratio check; zoom cancels out)
   const rb = btn.getBoundingClientRect();
-  if(rb.bottom + pop.offsetHeight + 10 > window.innerHeight){ pop.classList.add('flip-up'); }
+  // Same raw-vs-logical mismatch class as elsewhere: rb (getBoundingClientRect) scales
+  // with UI-level zoom, offsetHeight's behaviour under it is unverified, and
+  // window.innerHeight does not scale with it — measuring the popup via the same API as
+  // rb and dividing the raw side by _uiZ() keeps this an apples-to-apples comparison
+  // regardless of Display Size.
+  const _z=_uiZ();
+  if((rb.bottom + pop.getBoundingClientRect().height)/_z + 10 > window.innerHeight){ pop.classList.add('flip-up'); }
   pop.querySelector('[data-a="pin"]').onclick=ev=>{ ev.stopPropagation(); closeRowMenu(); togglePin(m.id); };
   pop.querySelector('[data-a="dup"]').onclick=ev=>{ ev.stopPropagation(); closeRowMenu(); duplicateMap(m.id); };
   pop.querySelector('[data-a="del"]').onclick=async ev=>{ ev.stopPropagation(); closeRowMenu();
@@ -4333,9 +4343,12 @@ function showNotesEditor(nodeId){
       <button class="np-cancel">Cancel</button>
       <button class="np-save primary">Save</button>
     </div>`;
-  const r=stage.getBoundingClientRect();
-  popup.style.left = (r.left + r.width/2 - 240) + 'px';
-  popup.style.top  = (r.top  + 70) + 'px';
+  const r=stage.getBoundingClientRect(), z=_uiZ();
+  // r.left/width/top are raw px (scale with UI-level display size); style.left/top are
+  // read as logical px, so divide through by the same factor _stageSize()/_stagePoint()
+  // already use before mixing them with the (logical) -240/70 constants below.
+  popup.style.left = (r.left/z + r.width/z/2 - 240) + 'px';
+  popup.style.top  = (r.top/z  + 70) + 'px';
   document.body.appendChild(popup);
   popup.addEventListener('mousedown',e=>e.stopPropagation());
   const editor=popup.querySelector('.np-editor');
@@ -5457,10 +5470,10 @@ function createMap(){
   autoLayout();
   // Default new maps to 100% zoom, centred on the root
   view.k=1;
-  const r=stage.getBoundingClientRect();
+  const {w:sw,h:sh}=_stageSize();
   const rn=map.nodes[rid];
-  view.x = r.width/2 - (rn.x + (rn.w||120)/2);
-  view.y = r.height/2 - (rn.y + (rn.h||50)/2);
+  view.x = sw/2 - (rn.x + (rn.w||120)/2);
+  view.y = sh/2 - (rn.y + (rn.h||50)/2);
   applyView(); _markStage();
   scheduleSave();          // persist to the database in the background
   refreshList();
@@ -8927,7 +8940,11 @@ const Collab = (function(){
     if(surf._collabBound) return; surf._collabBound=true;
     surf.addEventListener('pointermove', e=>{
       if(!active) return; const now=Date.now(); if(now-curThrottle<55) return; curThrottle=now;
-      send({t:'cur', x:(e.clientX-view.x)/view.k, y:(e.clientY-view.y)/view.k });
+      // e.clientX/Y are raw viewport-relative coordinates — need the same stage-offset +
+      // UI-zoom correction _stagePoint() already applies elsewhere before they're
+      // comparable to view.x/y at all, then undo the canvas pan/zoom to get map-space.
+      const p=_stagePoint(e.clientX, e.clientY);
+      send({t:'cur', x:(p.x-view.x)/view.k, y:(p.y-view.y)/view.k });
     });
   }
   function moveCursor(id, wx, wy){
@@ -9063,7 +9080,13 @@ function openSharedByMeRowMenu(btn, sm){
   const row = btn.closest('.map-item') || btn.parentElement;
   row.appendChild(pop);
   const rb = btn.getBoundingClientRect();
-  if(rb.bottom + pop.offsetHeight + 10 > window.innerHeight){ pop.classList.add('flip-up'); }
+  // Same raw-vs-logical mismatch class as elsewhere: rb (getBoundingClientRect) scales
+  // with UI-level zoom, offsetHeight's behaviour under it is unverified, and
+  // window.innerHeight does not scale with it — measuring the popup via the same API as
+  // rb and dividing the raw side by _uiZ() keeps this an apples-to-apples comparison
+  // regardless of Display Size.
+  const _z=_uiZ();
+  if((rb.bottom + pop.getBoundingClientRect().height)/_z + 10 > window.innerHeight){ pop.classList.add('flip-up'); }
   const editLink=location.origin+location.pathname+'#shared='+sm.room+':'+sm.token;
   pop.querySelector('[data-a="open"]').onclick=ev=>{ ev.stopPropagation(); closeRowMenu(); openSharedInPlace(sm.room, sm.token); };
   pop.querySelector('[data-a="copyedit"]').onclick=async ev=>{ ev.stopPropagation(); closeRowMenu(); try{ await navigator.clipboard.writeText(editLink); toast('Edit link copied'); }catch(e){} };
@@ -9088,7 +9111,13 @@ function openSharedRowMenu(btn, sm){
   const row = btn.closest('.map-item') || btn.parentElement;
   row.appendChild(pop);
   const rb = btn.getBoundingClientRect();
-  if(rb.bottom + pop.offsetHeight + 10 > window.innerHeight){ pop.classList.add('flip-up'); }
+  // Same raw-vs-logical mismatch class as elsewhere: rb (getBoundingClientRect) scales
+  // with UI-level zoom, offsetHeight's behaviour under it is unverified, and
+  // window.innerHeight does not scale with it — measuring the popup via the same API as
+  // rb and dividing the raw side by _uiZ() keeps this an apples-to-apples comparison
+  // regardless of Display Size.
+  const _z=_uiZ();
+  if((rb.bottom + pop.getBoundingClientRect().height)/_z + 10 > window.innerHeight){ pop.classList.add('flip-up'); }
   const base=location.origin+location.pathname+'#shared='+room;
   pop.querySelector('[data-a="open"]').onclick=ev=>{ ev.stopPropagation(); closeRowMenu(); openSharedInPlace(room, sm.token); };
   const ce=pop.querySelector('[data-a="copyedit"]'); if(ce) ce.onclick=async ev=>{ ev.stopPropagation(); closeRowMenu(); try{ await navigator.clipboard.writeText(base+':'+sm.token); toast('Edit link copied'); }catch(e){} };
@@ -9350,7 +9379,7 @@ window.addEventListener('pagehide', stopCloudPoll);
 // Measure the shared banner's real height into a CSS var so the app/canvas offset
 // adapts when the text wraps (e.g. narrow screens) instead of guessing a fixed px.
 function _setBannerHeightVar(b){
-  requestAnimationFrame(()=>{ try{ const h=Math.ceil(b.getBoundingClientRect().height);
+  requestAnimationFrame(()=>{ try{ const h=Math.ceil(b.getBoundingClientRect().height/_uiZ());
     if(h>0) document.documentElement.style.setProperty('--shared-banner-h', h+'px'); }catch(e){} });
 }
 window.addEventListener('resize', ()=>{ const b=document.getElementById('cloudEditBanner')||document.getElementById('sharedBanner'); if(b) _setBannerHeightVar(b); });
