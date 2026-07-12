@@ -1963,7 +1963,8 @@ function mdTogglePreview(){
   const pane=document.getElementById('mdPane'); if(!pane) return;
   pane.classList.toggle('md-preview', mdPreview);
   const btn=pane.querySelector('.md-prev-btn'); if(btn){ btn.classList.toggle('on', mdPreview); btn.textContent=mdPreview?'Edit':'Preview'; }
-  mdRenderPreviewIfActive();
+  if(mdPreview) mdRenderPreviewIfActive();
+  else mdRefreshDecorations();   // gutter/highlight were display:none while previewing — re-sync now that they're visible again, rather than trusting whatever was last written while hidden
 }
 // Word wrap: the textarea and the (invisible-text-bearing) highlight overlay share one
 // CSS rule for white-space (see styles.css), so switching both to pre-wrap at once keeps
@@ -2199,6 +2200,13 @@ function mdSyncGutterRowHeights(hl, gut){
   hl = hl || document.querySelector('#mdPane .md-hl-inner');
   gut = gut || document.querySelector('#mdPane .md-gutter-inner');
   if(!hl || !gut) return;
+  // Both are display:none while in Preview mode (and offsetParent is null for any hidden
+  // element), so getBoundingClientRect() would measure everything as 0 here — writing that
+  // 0px straight into each row's inline height. Nothing re-measures on the way back to edit
+  // mode, so those 0px rows would stay collapsed on top of each other indefinitely. A window
+  // resize firing while Preview is open (the pane's own resize listener doesn't check which
+  // sub-mode is active) is exactly the kind of thing that triggers this call at the wrong time.
+  if(hl.offsetParent===null || gut.offsetParent===null) return;
   const hlRows=hl.querySelectorAll('.hl-line'), glRows=gut.querySelectorAll('.gl');
   const heights=[]; for(let i=0;i<hlRows.length;i++) heights.push(hlRows[i].getBoundingClientRect().height);
   for(let i=0;i<glRows.length && i<heights.length;i++) glRows[i].style.height=heights[i]+'px';
