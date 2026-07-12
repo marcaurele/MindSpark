@@ -319,6 +319,65 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const NODE_COLORS=['#ffffff','#ffe2d6','#ffedc2','#dcefce','#cfe9e6','#d8e0fb','#efd9f2','#e9e2d6'];
 const PALETTE=['#e0613a','#2f6f6a','#c98a1a','#5a7d3a','#3a6ea5','#9b4f96','#8a8175'];
 
+// Positions an already-appended `position:fixed` popup against an anchor element
+// or rect, fully clamped to the CURRENT viewport on every side — recomputed fresh
+// from live geometry each call, never a size/side baked in when the popup happened
+// to first get built. Prefers opening below (or right-aligned, if `align:'right'`),
+// but flips to whichever side actually has room, and caps its own max-height rather
+// than running off a short window instead of just clamping X like most ad-hoc call
+// sites used to. Same shape works for a toolbar dropdown, a nodebar picker, or a
+// bottom-pinned bulk-bar picker (which naturally flips upward since there's more
+// room above it than below).
+function positionPopup(pop, anchor, opts){
+  opts = opts || {};
+  const margin = opts.margin!=null ? opts.margin : 8;
+  const gap = opts.gap!=null ? opts.gap : 6;
+  const align = opts.align || 'left';   // 'left': left edge under the anchor's left edge; 'right': right edge under the anchor's right edge
+  pop.style.position='fixed';
+  const prevVis=pop.style.visibility;
+  pop.style.visibility='hidden'; pop.style.maxHeight='';
+  // Self-calibrate the CSS-px <-> getBoundingClientRect-px factor using the popup
+  // itself — set a KNOWN CSS left and measure where it actually renders — instead
+  // of trusting a separate, always-off-screen probe element (_uiZ()) to behave
+  // identically. getBoundingClientRect() can disagree with the CSS px that
+  // style.left/top use (zoom, browser/version quirks, OS display scaling).
+  const REF = 1000;
+  pop.style.left = REF+'px'; pop.style.top = '0px';
+  const probe = pop.getBoundingClientRect();
+  const z = probe.left>1 ? probe.left/REF : 1;
+  // From here on, EVERYTHING stays in raw getBoundingClientRect() space — the
+  // anchor, the popup, and the viewport bounds are all measured via the exact
+  // same API, so they're internally consistent with each other regardless of
+  // what that space actually is relative to CSS px. Converting each measurement
+  // to "logical" px individually (dividing every single one by z) risked mixing
+  // a converted value with an unconverted one in the same comparison somewhere,
+  // which is exactly as wrong as never converting, just by a different amount —
+  // only visible once two values disagree enough to flip a clamp decision. The
+  // one and only conversion happens at the very end, turning the final raw
+  // left/top back into the CSS px that style.left/top actually expects.
+  const rr = (anchor && anchor.nodeType===1) ? anchor.getBoundingClientRect() : anchor;
+  const pw = probe.width, ph = probe.height;
+  const vp = document.documentElement.getBoundingClientRect();
+  const viewW = vp.width>1 ? vp.width : window.innerWidth*z;
+  const viewH = vp.height>1 ? vp.height : window.innerHeight*z;
+  let left = align==='right' ? (rr.right-pw) : rr.left;
+  if(left+pw > viewW-margin) left = viewW-pw-margin;
+  if(left < margin) left = margin;
+  const spaceBelow = viewH-(rr.bottom+gap)-margin;
+  const spaceAbove = rr.top-gap-margin;
+  let top;
+  if(ph<=spaceBelow || spaceBelow>=spaceAbove){
+    top = rr.bottom+gap;
+    pop.style.maxHeight = Math.max(120, (viewH-top-margin)/z)+'px';
+  } else {
+    pop.style.maxHeight = Math.max(120, spaceAbove/z)+'px';
+    top = Math.max(margin, rr.top-gap-Math.min(ph,spaceAbove));
+  }
+  pop.style.left=(left/z)+'px'; pop.style.top=(top/z)+'px';
+  pop.style.visibility=prevVis;
+  return {left:left/z, top:top/z};
+}
+
 /* ---------- app state ---------- */
 let map=null;                 // current map {id,title,color,rootId,nodes:{}}
 let view={x:80,y:0,k:1};      // pan/zoom
@@ -374,6 +433,24 @@ function loadMapView(id){
 // same map-point centred instead of letting the map drift sideways.
 let _prevStage=null;
 function _markStage(){ const z=_stageSize(); if(z.w>1&&z.h>1) _prevStage=z; }
+// Keeps whatever map point is currently centred still centred after the stage's
+// effective CSS-pixel size changes for any reason — a window resize, a UI-scale
+// change, a sidebar toggle, ... Relies on _prevStage already holding the size from
+// just before the change (kept fresh by _markStage(), called after every camera
+// move) to know what point to preserve; updates it to the new size afterward so
+// the next call has a correct baseline too.
+function _recenterForStageChange(){
+  if(!map) return;
+  const {w:SW,h:SH}=_stageSize();
+  if(!(SW>1&&SH>1)) return;
+  if(_prevStage && _prevStage.w>1 && _prevStage.h>1){
+    const cx=(_prevStage.w/2 - view.x)/view.k, cy=(_prevStage.h/2 - view.y)/view.k;
+    view.x = SW/2 - cx*view.k;
+    view.y = SH/2 - cy*view.k;
+    applyView(); saveMapView();
+  }
+  _prevStage={w:SW,h:SH};
+}
 // Apply a saved camera viewport-INDEPENDENTLY: recompute the pan from the CURRENT
 // stage size so the stored centre point + zoom reproduce at any viewsize. Legacy
 // {x,y} entries are honoured once, then migrated to {cx,cy} on the next save.
@@ -2444,10 +2521,7 @@ function showBulkSizePicker(anchorBtn){
   pk.className = 'picker size';
   pk.innerHTML = FONT_SIZES.map(s=>`<button data-s="${s}">${s}px</button>`).join('');
   document.body.appendChild(pk);
-  const r = anchorBtn.getBoundingClientRect();
-  pk.style.position='fixed';
-  pk.style.left = Math.max(8, r.left)+'px';
-  pk.style.top = Math.max(8, r.top - pk.offsetHeight - 8)+'px';
+  positionPopup(pk, anchorBtn);
   pk.addEventListener('mousedown', e=>e.stopPropagation());
   pk.querySelectorAll('button').forEach(b=> b.onclick=()=>{ bulkSetProp('fontSize', +b.dataset.s); pk.remove(); });
   setTimeout(()=>document.addEventListener('click', function cl(e){
@@ -2466,10 +2540,7 @@ function showBulkColorPicker(anchorBtn, kind){
     (allowNone ? `<button class="p-sw" style="background:transparent;position:relative" data-c="" title="None">∅</button>` : '') +
     colors.map(c=>`<button class="p-sw" style="background:${c}" data-c="${c}"></button>`).join('');
   document.body.appendChild(pk);
-  const r = anchorBtn.getBoundingClientRect();
-  pk.style.position='fixed';
-  pk.style.left = Math.max(8, r.left)+'px';
-  pk.style.top = Math.max(8, r.top - pk.offsetHeight - 8)+'px';
+  positionPopup(pk, anchorBtn);
   pk.addEventListener('mousedown', e=>e.stopPropagation());
   pk.querySelectorAll('button').forEach(b=> b.onclick=()=>{
     const v = b.dataset.c;
@@ -2773,10 +2844,8 @@ function ensureGlobalResults(){
     document.body.appendChild(panel);
   }
   // Anchor under the search strip
-  const sw=$('#searchWrap').getBoundingClientRect();
-  panel.style.top=(sw.bottom+6)+'px';
-  panel.style.right=(window.innerWidth - sw.right)+'px';
   panel.style.display='block';
+  positionPopup(panel, $('#searchWrap'), {align:'right'});
   return panel;
 }
 function hideGlobalResults(){ const p=$('#globalResults'); if(p) p.style.display='none'; }
@@ -3106,11 +3175,8 @@ function showPicker(anchor, kind, current, onPick){
       `<button class="p-default" data-v="">${label}</button>`+
       list.map(c=>`<button class="p-sw ${c==current?'on':''}" data-v="${c}" style="background:${c}" title="${c}"></button>`).join('');
   }
-  const r=anchor.getBoundingClientRect();
-  p.style.position='fixed';
-  p.style.left=r.left+'px';
-  p.style.top=(r.bottom+6)+'px';
   document.body.appendChild(p);
+  positionPopup(p, anchor);
   activePicker=p;
   p.addEventListener('mousedown',e=>e.stopPropagation());
   p.querySelectorAll('button').forEach(b=>{
@@ -5310,30 +5376,7 @@ function showTemplatesMenu(){
   const place = () => {
     // Anchor under the "New mind map" row, constrained to the viewport.
     const row = document.querySelector('.new-map-row') || $('#newMapMenu');
-    const r = row.getBoundingClientRect();
-    pop.style.position = 'fixed';
-    pop.style.maxHeight = '';   // measure natural height first
-    pop.style.visibility = 'hidden';
-    pop.style.left = '0px'; pop.style.top = '0px';
-    const pw = pop.offsetWidth, ph = pop.offsetHeight, margin = 8;
-    let left = r.left;
-    if(left + pw > window.innerWidth - margin) left = window.innerWidth - pw - margin;
-    if(left < margin) left = margin;
-    // Prefer below the row; if it won't fit, use whichever side has more room.
-    const spaceBelow = window.innerHeight - (r.bottom + 6) - margin;
-    const spaceAbove = r.top - 6 - margin;
-    let top;
-    if(ph <= spaceBelow || spaceBelow >= spaceAbove){
-      top = r.bottom + 6;
-      pop.style.maxHeight = Math.max(120, window.innerHeight - top - margin) + 'px';
-    } else {
-      // place above, growing upward
-      pop.style.maxHeight = Math.max(120, spaceAbove) + 'px';
-      const cappedH = Math.min(ph, spaceAbove);
-      top = Math.max(margin, r.top - 6 - cappedH);
-    }
-    pop.style.left = left + 'px'; pop.style.top = top + 'px';
-    pop.style.visibility = '';
+    positionPopup(pop, row);
   };
   const close = () => pop.remove();
 
@@ -5530,11 +5573,8 @@ function exportMenu(){
     <button data-a="json"  ><span class="ex-ic">{}</span><span><b>JSON file</b><i>Full backup, re-importable</i></span></button>
     <div class="ex-grp">Import</div>
     <button data-a="import"><span class="ex-ic">↑</span><span><b>Import file</b><i>JSON, OPML, or Markdown outline</i></span></button>`;
-  const r=$('#menuExport').getBoundingClientRect();
-  pop.style.position='fixed';
-  pop.style.top=(r.bottom+6)+'px';
-  pop.style.right=(window.innerWidth - r.right)+'px';
   document.body.appendChild(pop);
+  positionPopup(pop, $('#menuExport'), {align:'right'});
   pop.addEventListener('mousedown',e=>e.stopPropagation());
   const close=()=>pop.remove();
   setTimeout(()=>document.addEventListener('click', function cl(e){
@@ -7722,16 +7762,7 @@ window.addEventListener('resize', ()=>{
   clearTimeout(_rzReframeT);
   _rzReframeT=setTimeout(()=>{
     if(!map){ _markStage(); return; }
-    const {w:SW,h:SH}=_stageSize();
-    if(!(SW>1&&SH>1)) return;
-    // Keep whatever map-point was centred still centred at the new size.
-    if(_prevStage && _prevStage.w>1 && _prevStage.h>1){
-      const cx=(_prevStage.w/2 - view.x)/view.k, cy=(_prevStage.h/2 - view.y)/view.k;
-      view.x = SW/2 - cx*view.k;
-      view.y = SH/2 - cy*view.k;
-      applyView(); saveMapView();
-    }
-    _prevStage={w:SW,h:SH};
+    _recenterForStageChange();
     updateMinimap();
   }, 160);
 });
@@ -7877,17 +7908,28 @@ if(window.matchMedia('(max-width: 720px)').matches){
 $('#hintClose').onclick=()=>$('#hint').style.display='none';
 
 /* ---------- UI scale (whole-interface zoom, persisted) ---------- */
-// Default scale by viewport size when the user hasn't chosen one (first load):
-//   ≤ 1265×570  → 80%      ·   ≥ 2545×1305 → 100%   ·   in between → 90%
+// Auto scale by viewport size, continuous rather than stepped: interpolates
+// linearly between MIN_S at a small/cramped viewport and MAX_S at a spacious one,
+// using whichever of width/height is more constrained (so a wide-but-short window
+// and a narrow-but-tall window both scale down correctly, not just one axis).
+// This is the DEFAULT and stays live — see maybeReapplyAutoScale() below — unless
+// the person picks a fixed percentage from the theme panel, which pins it.
+const UI_SCALE_RANGE = { minW:1265, maxW:2545, minH:570, maxH:1305, minS:0.8, maxS:1.0 };
 function autoScaleForViewport(w,h){
-  if(w<=1265 || h<=570) return 0.8;
-  if(w>=2545 && h>=1305) return 1.0;
-  return 0.9;
+  const {minW,maxW,minH,maxH,minS,maxS}=UI_SCALE_RANGE;
+  const clamp01=x=>Math.max(0,Math.min(1,x));
+  const tw=clamp01((w-minW)/(maxW-minW)), th=clamp01((h-minH)/(maxH-minH));
+  const t=Math.min(tw,th);   // the more cramped dimension decides
+  return minS + t*(maxS-minS);
+}
+function isUiScaleAuto(){
+  const v=parseFloat(localStorage.getItem('mindspark:uiScale'));
+  return !(v && v>=0.5 && v<=2);
 }
 function getUiScale(){
   const v=parseFloat(localStorage.getItem('mindspark:uiScale'));
-  if(v && v>=0.5 && v<=2) return v;                                   // explicit choice
-  return autoScaleForViewport(window.innerWidth, window.innerHeight);  // first-load default
+  if(v && v>=0.5 && v<=2) return v;                                   // explicit choice, pinned
+  return autoScaleForViewport(window.innerWidth, window.innerHeight);  // auto: tracks the current viewport
 }
 function applyUiScale(v){
   // CSS `zoom` on the root scales the entire UI uniformly — chrome and canvas —
@@ -7898,6 +7940,12 @@ function applyUiScale(v){
   const z = (v && v>=0.5 && v<=2) ? v : 1;
   document.documentElement.style.zoom = z!==1 ? String(z) : '';
   document.documentElement.style.setProperty('--ui-zoom', String(z));
+  _rzCache=null;   // the browser-zoom probe measurement is now stale — a changed scale invalidates it, same as a window resize would
+  // The stage's effective CSS-pixel size just changed with the zoom (more/fewer
+  // layout pixels now fit in the same physical viewport) — keep whatever map
+  // point was centred still centred, exactly like a window resize does.
+  if(typeof stage!=='undefined' && stage) _recenterForStageChange();
+  if(typeof updateMinimap==='function' && map) updateMinimap();
 }
 function setUiScale(v){
   v = Math.min(2, Math.max(0.5, v||1));
@@ -7905,6 +7953,24 @@ function setUiScale(v){
   applyUiScale(v);
   toast('Interface scale: '+Math.round(v*100)+'%');
 }
+function setUiScaleAuto(){
+  try{ localStorage.removeItem('mindspark:uiScale'); }catch(e){}
+  applyUiScale(getUiScale());
+  toast('Interface scale: Auto ('+Math.round(getUiScale()*100)+'%)');
+}
+// Keeps auto-scale genuinely responsive to the browser window instead of a
+// snapshot frozen at whichever size the page happened to load at. Only acts
+// while no explicit percentage is pinned, and only re-applies when the computed
+// value actually moved (so it doesn't fight a mid-drag node resize/pan with
+// zoom recalculation on every pixel of a window drag).
+let _uiScaleResizeT=0;
+window.addEventListener('resize', ()=>{
+  clearTimeout(_uiScaleResizeT);
+  _uiScaleResizeT=setTimeout(()=>{
+    if(!isUiScaleAuto()) return;
+    applyUiScale(getUiScale());
+  }, 150);
+});
 
 /* ---------- Themes ---------- */
 const THEMES = [
@@ -8056,15 +8122,13 @@ $('#themeBtn').onclick=(e)=>{
     <div class="tp-section">
       <div class="tp-label">Display size <span class="tp-hint">scales the whole interface</span></div>
       <div class="tp-scale">
+        <button class="scale-opt${isUiScaleAuto()?' active':''}" data-scale="auto">Auto</button>
         ${[80,90,100,110,125].map(p=>`
-          <button class="scale-opt${p===Math.round(getUiScale()*100)?' active':''}" data-scale="${p}">${p}%</button>`).join('')}
+          <button class="scale-opt${(!isUiScaleAuto() && p===Math.round(getUiScale()*100))?' active':''}" data-scale="${p}">${p}%</button>`).join('')}
       </div>
     </div>`;
-  const r=$('#themeBtn').getBoundingClientRect();
-  themePanel.style.position='fixed';
-  themePanel.style.top=(r.bottom+6)+'px';
-  themePanel.style.right=(window.innerWidth - r.right)+'px';
   document.body.appendChild(themePanel);
+  positionPopup(themePanel, $('#themeBtn'), {align:'right'});
   themePanel.addEventListener('mousedown',ev=>ev.stopPropagation());
   themePanel.querySelectorAll('.theme-opt').forEach(opt=>{
     opt.onclick=ev=>{
@@ -8082,9 +8146,25 @@ $('#themeBtn').onclick=(e)=>{
   themePanel.querySelectorAll('.scale-opt').forEach(opt=>{
     opt.onclick=ev=>{
       ev.stopPropagation();
-      setUiScale(parseInt(opt.dataset.scale,10)/100);
+      if(opt.dataset.scale==='auto') setUiScaleAuto();
+      else setUiScale(parseInt(opt.dataset.scale,10)/100);
       themePanel.querySelectorAll('.scale-opt').forEach(o=>o.classList.remove('active'));
       opt.classList.add('active');
+      // The zoom just changed, so the panel's already-computed fixed position (from
+      // before the change) no longer lines up with the theme button — reposition
+      // against its current (post-zoom) geometry rather than leaving it stranded.
+      // Also re-run it a couple of frames later, invalidating the zoom-probe cache
+      // again first: a getBoundingClientRect() read right after the style change is
+      // *supposed* to force a synchronous, up-to-date reflow, but some zoom values
+      // have shown a stale first read in practice, so this is a deliberate belt-and-
+      // suspenders re-measurement rather than trusting that alone.
+      const reposition=()=>{
+        if(!document.body.contains(themePanel)) return;
+        _rzCache=null;
+        positionPopup(themePanel, $('#themeBtn'), {align:'right'});
+      };
+      reposition();
+      requestAnimationFrame(()=>requestAnimationFrame(reposition));
     };
   });
 };
