@@ -81,7 +81,7 @@ export function authorizeRequest({ acl, editToken, identity, tokenHeader, need, 
   if(need === 'write'){
     if(acl){
       if(rank(role) >= 2) return { ok:true, role };
-      if(linkAccess === 'edit' && (identity || tokenOk)) return { ok:true, role:'link-editor' };  // anonymous-allowed (legacy)
+      if(linkAccess === 'edit') return { ok:true, role:'link-editor' };                              // anonymous-allowed, no identity or token required — mirrors the read branch's linkAccess==='view'||'edit' case below
       if(linkAccess === 'edit-auth' && identity) return { ok:true, role:'link-editor' };          // sign-in required
       return { ok:false, status: unauthStatus };
     }

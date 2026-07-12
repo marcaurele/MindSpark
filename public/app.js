@@ -2682,9 +2682,13 @@ function formatCitation(c){
   if(c.authors) parts.push(c.authors);
   if(c.year) parts.push('('+c.year+')');
   let s=parts.join(' ');
-  if(c.title) s+=(s?'. ':'')+c.title;
-  if(c.source) s+=(s?'. ':'')+c.source;
-  if(c.doi) s+=(s?'. ':'')+(/^https?:/.test(c.doi)?c.doi:'doi:'+c.doi);
+  // Appends a segment with the right separator — avoids a double period when the
+  // preceding segment already ends in sentence punctuation (very common for
+  // authors with abbreviated initials, e.g. "Smith, J.").
+  const append = seg => { if(!s){ s=seg; return; } s += (/[.!?]$/.test(s) ? ' ' : '. ') + seg; };
+  if(c.title) append(c.title);
+  if(c.source) append(c.source);
+  if(c.doi) append(/^https?:/.test(c.doi)?c.doi:'doi:'+c.doi);
   return s.trim();
 }
 function showCitationForm(id){
@@ -6625,22 +6629,25 @@ function _formulaParse(toks){
     return node;
   }
   function parseTerm(){
-    let node=parsePower();
+    let node=parseUnary();
     while(peek().t==='op' && (peek().v==='*'||peek().v==='/'||peek().v==='%')){
-      const op=next().v; node={type:'bin', op, left:node, right:parsePower()};
+      const op=next().v; node={type:'bin', op, left:node, right:parseUnary()};
     }
     return node;
   }
+  // Unary binds looser than ^ on the left (-2^2 is -(2^2) = -4, the standard math/Python
+  // convention — not (-2)^2 = 4), but parsePower's own right-hand (exponent) side still
+  // goes through parseUnary so 2^-2 = 0.25 works without needing parens around the -2.
   function parsePower(){
-    const base=parseUnary();
-    if(peek().t==='op' && peek().v==='^'){ next(); return {type:'bin', op:'^', left:base, right:parsePower()}; }
+    const base=parsePrimary();
+    if(peek().t==='op' && peek().v==='^'){ next(); return {type:'bin', op:'^', left:base, right:parseUnary()}; }
     return base;
   }
   function parseUnary(){
     if(peek().t==='op' && (peek().v==='-'||peek().v==='+')){
       const op=next().v; return {type:'unary', op, arg:parseUnary()};
     }
-    return parsePrimary();
+    return parsePower();
   }
   function parseArg(){
     if(peek().t==='ident' && peek().v.toLowerCase()==='children' && toks[p+1] && toks[p+1].t!=='('){
@@ -8877,29 +8884,31 @@ const Collab = (function(){
 
   function applySnapshot(s){
     applying=true;
-    map.nodes=clone(s.nodes||{}); if(s.rootId) map.rootId=s.rootId;
-    if(s.title!=null){ map.title=s.title; const t=$('#mapTitle'); if(t) t.value=s.title; }
-    if(s.color) map.color=s.color;
-    if(s.links) map.links=clone(s.links);
-    if(s.layout) map.layout=s.layout;
-    if(s.vars)  map.vars=clone(s.vars);
-    if('style' in s) map.style=s.style;
-    shadow=snap();
-    if(typeof autoLayout==='function') autoLayout();
-    render();
-    if(firstSnap && typeof fit==='function'){ fit(); firstSnap=false; }
-    pushHistory();                 // baseline snapshot so a guest can undo their first edit
-    applying=false;
+    try{
+      map.nodes=clone(s.nodes||{}); if(s.rootId) map.rootId=s.rootId;
+      if(s.title!=null){ map.title=s.title; const t=$('#mapTitle'); if(t) t.value=s.title; }
+      if(s.color) map.color=s.color;
+      if(s.links) map.links=clone(s.links);
+      if(s.layout) map.layout=s.layout;
+      if(s.vars)  map.vars=clone(s.vars);
+      if('style' in s) map.style=s.style;
+      shadow=snap();
+      if(typeof autoLayout==='function') autoLayout();
+      render();
+      if(firstSnap && typeof fit==='function'){ fit(); firstSnap=false; }
+      pushHistory();                 // baseline snapshot so a guest can undo their first edit
+    } finally { applying=false; }    // always release the lock, even if malformed snapshot data throws partway through — otherwise every local edit silently stops syncing for the rest of the session
   }
   function applyOps(ops){
     applying=true;
-    for(const op of ops){
-      if(op.t==='node') map.nodes[op.id]=op.n;
-      else if(op.t==='del'){ delete map.nodes[op.id]; if(sel===op.id) sel=null; }
-      else if(op.t==='meta'){ if(op.k==='title'){ map.title=op.v; const t=$('#mapTitle'); if(t) t.value=op.v; } else map[op.k]=op.v; }
-    }
-    shadow=snap(); render();
-    applying=false;
+    try{
+      for(const op of ops){
+        if(op.t==='node') map.nodes[op.id]=op.n;
+        else if(op.t==='del'){ delete map.nodes[op.id]; if(sel===op.id) sel=null; }
+        else if(op.t==='meta'){ if(op.k==='title'){ map.title=op.v; const t=$('#mapTitle'); if(t) t.value=op.v; } else map[op.k]=op.v; }
+      }
+      shadow=snap(); render();
+    } finally { applying=false; }    // same guarantee — a malformed op or a render() edge case must not permanently wedge sync
     if(map && !map._ephemeral && !READONLY) scheduleSave();   // host persists collaborators' edits
   }
 
