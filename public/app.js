@@ -2205,6 +2205,12 @@ function mdRefreshDecorations(){
   mdSyncGutterRowHeights(hl, gut);
   mdCalibrate();
   mdUpdateActive(); mdSyncScroll();
+  // A layout shift that settles just after this synchronous pass (a scrollbar
+  // appearing now that the content is taller, the pane's own width still
+  // transitioning, ...) would leave the row heights just measured baked in as
+  // stale — nothing else would re-check them until an unrelated click happened to
+  // trigger another full refresh. Re-measure once more next frame to catch that.
+  requestAnimationFrame(()=>{ if(document.getElementById('mdEditor')) mdSyncGutterRowHeights(hl, gut); });
 }
 // Each .gl gutter row is normally a fixed 20px (one Markdown line = one visual row). Once
 // word wrap is on, a line can span several visual rows, so its .gl row needs to grow to
