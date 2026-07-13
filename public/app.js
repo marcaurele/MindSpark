@@ -431,8 +431,20 @@ function loadMapView(id){
 }
 // Stage size when the camera was last framed — lets a live window resize keep the
 // same map-point centred instead of letting the map drift sideways.
-let _prevStage=null;
-function _markStage(){ const z=_stageSize(); if(z.w>1&&z.h>1) _prevStage=z; }
+let _prevStage=null, _prevStageRect=null;
+function _markStage(){
+  const z=_stageSize(); if(z.w>1&&z.h>1) _prevStage=z;
+  try{
+    const r=stage.getBoundingClientRect();
+    if(r.width>1 && r.height>1) _prevStageRect={left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:r.width, height:r.height};
+  }catch(e){}
+  // The cache just changed — anything that read it earlier in this same gesture (e.g.
+  // applyView()'s last frame, which runs BEFORE this) may have drawn against the old
+  // value. Re-apply the two things that depend on it, once, now that it's fresh —
+  // cheap since this only fires at gesture-settle, not per frame.
+  if(typeof updateMinimapViewport==='function') updateMinimapViewport();
+  if(typeof repositionNodeBar==='function' && typeof sel!=='undefined' && sel) repositionNodeBar();
+}
 // Keeps whatever map point is currently centred still centred after the stage's
 // effective CSS-pixel size changes for any reason — a window resize, a UI-scale
 // change, a sidebar toggle, ... Relies on _prevStage already holding the size from
@@ -449,7 +461,7 @@ function _recenterForStageChange(){
     view.y = SH/2 - cy*view.k;
     applyView(); saveMapView();
   }
-  _prevStage={w:SW,h:SH};
+  _markStage();   // refreshes _prevStage AND _prevStageRect together — setting _prevStage alone here would leave _prevStageRect stale after every resize/UI-scale-change that goes through this path
 }
 // Apply a saved camera viewport-INDEPENDENTLY: recompute the pan from the CURRENT
 // stage size so the stored centre point + zoom reproduce at any viewsize. Legacy
@@ -502,14 +514,14 @@ let sel=null;                 // selected node id
 let history=[],hpos=-1;       // undo stack
 let saveTimer=null, _pendingSaveMap=null;
 
-const viewport=$('#viewport'), edges=$('#edges'), stage=$('#stage');
+const viewport=$('#viewport'), edges=$('#edges'), stage=$('#stage'), zoomVal=$('#zoomVal');
 
 /* ============================================================
    RENDER
    ============================================================ */
 function applyView(){
   viewport.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.k})`;
-  $('#zoomVal').textContent=Math.round(view.k*100)+'%';
+  if(zoomVal) zoomVal.textContent=Math.round(view.k*100)+'%';
   // Keep the (in-viewport) node toolbar at a constant on-screen size AND a
   // constant ~12px gap below the node as zoom changes (so it never overlaps).
   const bar=$('#nodebar');
@@ -1634,7 +1646,7 @@ function paintPositions(hidden){
     if(n){ el.style.left=n.x+'px'; el.style.top=n.y+'px'; }
   });
   drawEdges(hidden);
-  positionNodeBar();
+  repositionNodeBar();
 }
 // Re-measure the node being edited, recompute the tidy layout, and paint it.
 // Keeps the map neat as the node grows while typing (the way GitMind reflows).
@@ -3238,7 +3250,11 @@ function positionAndClampNodeBar(bar, n){
   bar.style.transform=`translateX(-50%) scale(${1/view.k})`;
   if(!stage) return;
   const z=_uiZ();   // getBoundingClientRect() below scales with the UI-level display size too, not just canvas zoom — same correction _stageSize()/_stagePoint() already apply
-  const bounds=stage.getBoundingClientRect();
+  // _prevStageRect is kept fresh by _markStage() at gesture-settle points, not every
+  // frame — the stage's own bounds can't change mid-gesture, so reusing it here saves
+  // one of the two forced-reflow getBoundingClientRect() calls this function used to
+  // make on every single pan/zoom/drag frame.
+  const bounds=(_prevStageRect && _prevStageRect.width>1) ? _prevStageRect : stage.getBoundingClientRect();
   const margin=8*z;   // keep the comparison in the same raw space as bounds/rect rather than mixing a CSS-px margin into it
   const rect=bar.getBoundingClientRect();
   const k=view.k||1;
@@ -3253,6 +3269,18 @@ function positionAndClampNodeBar(bar, n){
     bar.style.left=(pos.left+dx/(k*z))+'px';
     bar.style.top=(pos.top+dy/(k*z))+'px';
   }
+}
+
+// Cheap alternative to positionNodeBar() for continuous gestures (dragging a node,
+// relayout-while-typing) where the toolbar's CONTENT never changes mid-gesture —
+// only the node's position does. positionNodeBar() tears the bar down and rebuilds
+// ~20 buttons' worth of innerHTML plus re-attaches a listener on every one of them;
+// doing that on every drag-move frame was the single biggest cost in the whole
+// pan/zoom/drag path. This just repositions the bar that's already there.
+function repositionNodeBar(){
+  const bar=document.getElementById('nodebar');
+  if(bar){ if(sel && map && map.nodes[sel]) positionAndClampNodeBar(bar, map.nodes[sel]); }
+  else positionNodeBar();   // no bar yet (shouldn't normally happen mid-gesture) — build it properly
 }
 
 function positionNodeBar(){
@@ -3614,7 +3642,7 @@ function _applyMove(){
     const el=document.querySelector(`.node[data-id="${resizing.id}"]`);
     if(el){ el.style.width=n.width+'px'; el.style.maxWidth='none'; el.style.height=n.height+'px'; n.w=n.width; n.h=n.height; }
     drawEdges(hidden);
-    positionNodeBar();
+    repositionNodeBar();
   } else if(dragNode && moved){
     const sc=view.k*_uiZ();
     const dx=(e.clientX-dragStart.mx)/sc, dy=(e.clientY-dragStart.my)/sc;
@@ -3622,7 +3650,7 @@ function _applyMove(){
     if(!dragStart.subtree) dragStart=beginSubtreeDrag(dragNode, dragStart.mx, dragStart.my);
     applySubtreeDelta(dragStart, dx, dy);
     drawEdges(hidden);
-    positionNodeBar();
+    repositionNodeBar();
     // Detect a drop target under the cursor (only after a real drag has started)
     if(dragNode!==map.rootId) setDropTarget(findDropTarget(e.clientX, e.clientY));
   }
@@ -3735,11 +3763,8 @@ window.addEventListener('touchmove', e=>{
     const sc=view.k*_uiZ();
     const dx=(t.clientX-dragStart.mx)/sc, dy=(t.clientY-dragStart.my)/sc;
     if(Math.abs(dx)+Math.abs(dy)>2) moved=true;
-    if(!dragStart.subtree) dragStart=beginSubtreeDrag(dragNode, dragStart.mx, dragStart.my);
-    applySubtreeDelta(dragStart, dx, dy);
-    drawEdges(hiddenSet());
-    positionNodeBar();
-    if(moved && dragNode!==map.rootId) setDropTarget(findDropTarget(t.clientX, t.clientY));
+    _movePt={clientX:t.clientX, clientY:t.clientY};
+    if(!_moveRAF) _moveRAF=requestAnimationFrame(_applyMove);   // coalesce to one update/frame + reuse the cached hidden-set, same as the mouse path — touch can sample well above 60Hz
     e.preventDefault();
   } else if(panning){
     const z=_uiZ();
@@ -3754,6 +3779,8 @@ window.addEventListener('touchend', e=>{
   if(pinch && remaining<2){ pinch=null; }
   if(remaining>0) return;              // still touching
   document.body.classList.remove('node-dragging');
+  if(_moveRAF){ cancelAnimationFrame(_moveRAF); _moveRAF=0; _applyMove(); }
+  _movePt=null; _dragHidden=null;
   if(dragNode){
     if(dropTarget && dragNode!==map.rootId){
       const did = (dropTarget.mode==='on') ? reparent(dragNode, dropTarget.id)
@@ -3773,6 +3800,8 @@ window.addEventListener('touchend', e=>{
 // drag — the canvas looks frozen. Reset all gesture state defensively.
 window.addEventListener('touchcancel', ()=>{
   document.body.classList.remove('node-dragging');
+  if(_moveRAF){ cancelAnimationFrame(_moveRAF); _moveRAF=0; }
+  _movePt=null; _dragHidden=null;
   if(dragNode){ setDropTarget(null); dragNode=null; }
   if(panning){ panning=false; saveMapView(); }
   pinch=null; resizing=null; moved=false;
@@ -4158,7 +4187,11 @@ function updateMinimapViewport(){
   const mm=$('#minimap'); if(!mm||!mm._t) return;
   const v=mm.querySelector('#mmView'); if(!v) return;
   const {minx,miny,scale,ox,oy}=mm._t;
-  const {w:SW,h:SH}=_stageSize();   // logical size — consistent regardless of UI display zoom
+  // _prevStage is kept fresh by _markStage() at gesture-settle points (resize, sidebar
+  // toggle, animation end, ...) rather than every frame — reusing it here avoids forcing
+  // a synchronous layout reflow (stage.getBoundingClientRect()) on every single pan/zoom/
+  // drag frame, since the stage's own size can't actually change mid-gesture.
+  const {w:SW,h:SH} = (_prevStage && _prevStage.w>1 && _prevStage.h>1) ? _prevStage : _stageSize();
   const wx=-view.x/view.k, wy=-view.y/view.k, ww=SW/view.k, wh=SH/view.k;
   v.setAttribute('x',(ox+(wx-minx)*scale).toFixed(1));
   v.setAttribute('y',(oy+(wy-miny)*scale).toFixed(1));
