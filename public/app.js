@@ -2054,6 +2054,7 @@ function mdLineDepths(text){
     const h=line.match(/^(#{1,6})\s+/);
     if(h){ lastHeadingDepth=h[1].length; subDepth=null; depth[i]=lastHeadingDepth; continue; }
     if(/^\s*>/.test(line)) continue;   // blockquote/notes line: attaches to its owner
+    if(/^\s*<img\b/i.test(line)) continue;   // embedded-image line: attaches to its owner, same as a blockquote — never its own fold level (see mdFoldRange)
     const bullet=line.match(/^(\s*)(?:[-*+]|\d+\.)\s+/);
     if(bullet){ const indent=bullet[1].replace(/\t/g,'  ').length; depth[i]=base()+1+Math.floor(indent/2); continue; }
     if(nextIsBullet(i)){ depth[i]=lastHeadingDepth+1; subDepth=lastHeadingDepth+1; continue; }   // lead-in paragraph above a list
@@ -9534,6 +9535,15 @@ async function tryEnterLiveSession(){
 }
 
 (async()=>{
+  // The inline <head> script guesses the auto scale before any page content exists,
+  // to avoid a flash of the wrong size — but that's a measurement taken in a very
+  // different layout context than this point (script tag sits at the very end of
+  // body, so the whole page has been parsed by the time this runs). Re-apply it now,
+  // in auto mode only, using this file's own calculation — the same one already used
+  // whenever the user picks "Auto" by hand — so boot converges on the identical
+  // result rather than trusting a guess taken before there was anything to measure.
+  try{ if(isUiScaleAuto()) applyUiScale(getUiScale()); }catch(e){}
+  requestAnimationFrame(()=>{ try{ if(isUiScaleAuto()) applyUiScale(getUiScale()); }catch(e){} });
   // Read-only shared link? Decode and render a view-only map — no store, no
   // login, no account needed by the recipient.
   if(await tryEnterLiveSession()) return;
