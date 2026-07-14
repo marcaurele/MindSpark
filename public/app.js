@@ -2200,6 +2200,16 @@ function mdRefreshDecorations(){
   const ed=document.getElementById('mdEditor'); if(!ed) return;
   const hl=document.querySelector('#mdPane .md-hl-inner'), gut=document.querySelector('#mdPane .md-gutter-inner'); if(!hl||!gut) return;
   const view=mdBuildView(); _mdView=view;
+  // ed.value is expected to already match this view — mdCommitVisibleEdit's job on every
+  // edit — but mdHighlight(ed.value, view) below counts rows from ed.value.split('\n')
+  // while mdRenderGutter(view) counts rows from view.visLineToFull; if the two ever drift
+  // apart (an edge case in the fold-index-shift math elsewhere), the highlight pane and
+  // gutter silently render a different number of rows, with no visible error beyond the
+  // misalignment itself. Detect and correct that here rather than trusting the invariant
+  // blindly — only touches ed.value (and the cursor) on the rare mismatch, not on every
+  // refresh, so normal typing is unaffected.
+  const expectedVis = mdVisibleText(view);
+  if(ed.value !== expectedVis){ ed.value = expectedVis; _mdPrevVisible = expectedVis; }
   hl.innerHTML=mdHighlight(ed.value, view);
   gut.innerHTML=mdRenderGutter(view);
   mdSyncGutterRowHeights(hl, gut);
