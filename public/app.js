@@ -7416,8 +7416,11 @@ function renderMathForExport(text, fontPx, color){
 function buildDoc(){
   const title = (map.title || 'Mind Map').replace(/[<>]/g,'');
   let body = `<h1>${escapeHtml(title)}</h1>`;
+  // Root's image, if any
+  const rootN = map.nodes[map.rootId];
+  if(rootN && rootN.image){ body += `<img src="${rootN.image}" alt="${escapeHtml(rootN.imageAlt||'attachment')}" style="max-width:320px;max-height:220px;display:block;margin-bottom:10px;border-radius:8px">`; }
   // Add root's notes under the title
-  const rn = map.nodes[map.rootId]?.notes;
+  const rn = rootN?.notes;
   if(rn){ body += `<p><em>${renderMathForExport(rn, 13, '#6a6258') ?? sanitizeInlineHTML(rn)}</em></p>`; }
   // Render children as nested <ul>
   const renderChildren = (parentId, depth)=>{
@@ -7428,7 +7431,10 @@ function buildDoc(){
       const n = map.nodes[cid];
       const txt = renderMathForExport(n.text||'', 15, '#23201b')
         ?? (INLINE_HTML_RE.test(n.text||'') ? sanitizeInlineHTML(n.text) : escapeHtml(n.text||'').replace(/\n/g,'<br>'));
-      out += `<li>${txt}`;
+      const taskMark = n.task ? (n.task==='done' ? '\u2611\uFE0F ' : n.task==='doing' ? '\u25D0 ' : '\u2610 ') : '';
+      out += `<li>`;
+      if(n.image) out += `<img src="${n.image}" alt="${escapeHtml(n.imageAlt||'attachment')}" style="max-width:280px;max-height:200px;display:block;margin-bottom:4px;border-radius:6px"><br>`;
+      out += `${taskMark}${n.task==='done'?`<span style="text-decoration:line-through;opacity:.65">${txt}</span>`:txt}`;
       if(n.notes){ out += `<br><em style="color:#666">${renderMathForExport(n.notes, 13, '#6a6258') ?? sanitizeInlineHTML(n.notes)}</em>`; }
       out += renderChildren(cid, depth+1);
       out += `</li>`;
@@ -7582,7 +7588,7 @@ function drawNodeMath(ctx, text, o){
   ctx.restore();
 }
 
-function exportPNG(){
+async function exportPNG(){
   render();
   // Read live theme colors from CSS custom properties so the export matches
   // whatever theme/map style the user has selected.
@@ -7598,6 +7604,20 @@ function exportPNG(){
   const mapLayout = map.layout || 'balanced';
 
   const hidden=hiddenSet(); const ids=Object.keys(map.nodes).filter(i=>!hidden.has(i));
+  // Pre-load every node's image — ctx.drawImage() needs an actual loaded Image
+  // object, not the data-URL string, so this has to finish before the drawing
+  // pass below runs. A per-image timeout means one slow/corrupt image can't hang
+  // the whole export; that node just falls back to no image, like before.
+  const loadImg = src => new Promise(resolve=>{
+    const img=new Image();
+    let done=false; const finish=v=>{ if(!done){ done=true; resolve(v); } };
+    img.onload=()=>finish(img);
+    img.onerror=()=>finish(null);
+    setTimeout(()=>finish(null), 4000);
+    img.src=src;
+  });
+  const imgMap={};
+  await Promise.all(ids.filter(i=>map.nodes[i].image).map(async i=>{ imgMap[i]=await loadImg(map.nodes[i].image); }));
   let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
   ids.forEach(i=>{const n=map.nodes[i];minx=Math.min(minx,n.x);miny=Math.min(miny,n.y);maxx=Math.max(maxx,n.x+(n.w||120));maxy=Math.max(maxy,n.y+(n.h||40));});
   const pad=50,scale=2;
@@ -7654,7 +7674,7 @@ function exportPNG(){
     ctx.globalAlpha = 0.85;
     map.links.forEach(lk=>{
       const a=map.nodes[lk.from], b=map.nodes[lk.to];
-      if(!a||!b) return;
+      if(!a||!b||hidden.has(lk.from)||hidden.has(lk.to)) return;   // a folded-away endpoint still has coordinates but isn't in the exported bounds — drawing to it sends the curve off-canvas
       const ax=a.x+(a.w||120)/2, ay=a.y+(a.h||40)/2;
       const bx=b.x+(b.w||120)/2, by=b.y+(b.h||40)/2;
       const mx=(ax+bx)/2, my=(ay+by)/2;
@@ -7668,6 +7688,19 @@ function exportPNG(){
 
   // Nodes — also match shape per style
   const nodeRadius = (mapStyle==='bubble') ? 999 : (mapStyle==='classic' || mapStyle==='sketch') ? 4 : 12;
+  const roll = computeRollups();
+  // Small pill badge (task-progress / token-count), matching the on-screen corner style.
+  const drawPillBadge = (text, x, yTop, bg, fg) => {
+    ctx.font = 'bold 10px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
+    const tw = ctx.measureText(text).width;
+    const padX=7, ph=15, pw=tw+padX*2;
+    roundRect(ctx, x, yTop, pw, ph, ph/2);
+    ctx.fillStyle = bg; ctx.fill();
+    ctx.lineWidth=1.5; ctx.strokeStyle=themeNodeBg; ctx.stroke();
+    ctx.fillStyle = fg; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(text, x+pw/2, yTop+ph/2+0.5);
+    ctx.textAlign='start';
+  };
   ids.forEach(i=>{
     const n=map.nodes[i]; const isRoot=(i===map.rootId);
     const w=n.w||120, h=n.h||40;
@@ -7689,26 +7722,59 @@ function exportPNG(){
     const textFill = n.textColor || (isRoot ? pickContrast(bg) : (n.color ? pickContrast(n.color) : themeInk));
     const fontPx = n.fontSize || (isRoot ? 19 : 15);
     ctx.textBaseline='middle';
+    const insetX = isRoot ? 22 : 15;
+    // Node image — drawn first, at the top, so text/checkbox center in the space below it
+    let imgDrawH = 0;
+    const img = imgMap[i];
+    if(img){
+      const contentW = w - insetX*2;
+      imgDrawH = Math.min(200, contentW * (img.naturalHeight/img.naturalWidth || 1));
+      const imgY = n.y + (isRoot?14:10);
+      ctx.save();
+      roundRect(ctx, n.x+insetX, imgY, contentW, imgDrawH, 8);
+      ctx.clip();
+      ctx.drawImage(img, n.x+insetX, imgY, contentW, imgDrawH);
+      ctx.restore();
+      imgDrawH += (isRoot?14:10)+6;   // top offset + the CSS's 6px margin-bottom, so text centers below it correctly
+    }
+    const textCenterY = n.y + imgDrawH + (h-imgDrawH)/2;
     // Highlight (background per text) — node-wide for the canvas export
     if(n.highlight){
       ctx.fillStyle = n.highlight;
-      const padX = isRoot ? 22 : 15;
-      ctx.fillRect(n.x+padX-2, n.y+4, w-padX*2+4, h-8);
+      ctx.fillRect(n.x+insetX-2, n.y+imgDrawH+4, w-insetX*2+4, h-imgDrawH-8);
+    }
+    const baseX = n.x+insetX;
+    let textX = baseX, textMaxWidth = w-insetX*2;
+    // Task checkbox — 18px box + 7px gap, matching .task-check's live CSS exactly
+    if(n.task){
+      const boxSize=18, boxY=textCenterY-boxSize/2;
+      roundRect(ctx, baseX, boxY, boxSize, boxSize, 5);
+      ctx.fillStyle = n.task==='done' ? '#4a9d5b' : themeNodeBg;
+      ctx.fill();
+      ctx.strokeStyle = n.task==='doing' ? '#c98a1a' : (n.task==='done' ? '#4a9d5b' : themeLine);
+      ctx.lineWidth=2; ctx.stroke();
+      if(n.task==='done'||n.task==='doing'){
+        ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle = n.task==='done' ? '#fff' : '#c98a1a';
+        ctx.fillText(n.task==='done'?'\u2713':'\u25D0', baseX+boxSize/2, boxY+boxSize/2+1);
+        ctx.textAlign='start';
+      }
+      textX = baseX+boxSize+7; textMaxWidth -= boxSize+7;
     }
     // Render with inline B/I/U/S support, list bullets, line wrapping.
     // Nodes with $...$ math go through the canvas math renderer so equations
     // export as laid-out math instead of raw LaTeX source.
     if(containsMath(n.text||'')){
       drawNodeMath(ctx, n.text||'', {
-        x: n.x+(isRoot?22:15), y: n.y+h/2, maxWidth: w-(isRoot?44:30),
+        x: textX, y: textCenterY, maxWidth: textMaxWidth,
         fontPx, color: textFill, family: '"Bricolage Grotesque", sans-serif',
         bold: !!n.bold || isRoot, align: n.align || 'center', listType: n.listType || null
       });
     } else {
     drawFormattedText(ctx, n.text||'', {
-      x: n.x+(isRoot?22:15),
-      y: n.y+h/2,
-      maxWidth: w-(isRoot?44:30),
+      x: textX,
+      y: textCenterY,
+      maxWidth: textMaxWidth,
       fontPx,
       color: textFill,
       family: '"Bricolage Grotesque", sans-serif',
@@ -7739,6 +7805,28 @@ function exportPNG(){
       ctx.fillText('📝', cx, cy);
       ctx.textAlign = 'start';   // restore
       ctx.textBaseline = 'middle';
+    }
+    // Task-progress roll-up badge — top-left pill, shown on nodes with task-bearing
+    // descendants (but that aren't themselves a task)
+    const prog = {done:roll.tdone[i], total:roll.ttot[i]};
+    if(prog.total>0 && !n.task){
+      const complete = prog.done===prog.total;
+      drawPillBadge(`\u2713 ${prog.done}/${prog.total}`, n.x-6, n.y-9, complete?'#4a9d5b':themeInk, '#fff');
+    }
+    // Token-count badge — bottom-left pill, same threshold as the on-screen version
+    const tokens = estimateTokens(n.text, n.notes);
+    if(tokens>=25){
+      drawPillBadge(`~${tokens}t`, n.x-6, n.y+h-6, themeInk, '#fff');
+    }
+    // Reference/citation mark — top-left circle with a 📖 glyph
+    if(n.ref){
+      const cx=n.x-9+11, cy=n.y-9+11;
+      ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI*2);
+      ctx.fillStyle=themeNodeBg; ctx.fill();
+      ctx.lineWidth=1.5; ctx.strokeStyle=accent; ctx.stroke();
+      ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle=themeInk; ctx.fillText('📖', cx, cy);
+      ctx.textAlign='start';
     }
   });
 
