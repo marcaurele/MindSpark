@@ -1875,7 +1875,6 @@ function mdToHtml(md){
   // final safety: strip event handlers / javascript: URLs
   return out.join('\n').replace(/\son\w+="[^"]*"/gi,'').replace(/javascript:/gi,'');
 }
-function mdAfterEdit(){ mdRefreshDecorations(); clearTimeout(_mdTimer); _mdTimer=setTimeout(applyMdToMap,300); }
 function mdWrapSel(before, after){ const ed=document.getElementById('mdEditor'); if(!ed) return; const s=ed.selectionStart,e=ed.selectionEnd,sel=ed.value.slice(s,e);
   ed.value=ed.value.slice(0,s)+before+sel+after+ed.value.slice(e);
   if(s===e){ ed.selectionStart=ed.selectionEnd=s+before.length; } else { ed.selectionStart=s+before.length; ed.selectionEnd=e+before.length; }
@@ -2346,7 +2345,17 @@ function toggleMdMode(on){
     }
   }
   else if(!(typeof READONLY!=='undefined' && READONLY)) pushHistory();   // one undo entry for the md session
-  setTimeout(()=>{ try{ animateViewTo(computeFitView(), 260); }catch(e){} try{ if(mdMode) mdCalibrate(); }catch(e){} }, 260);   // smoothly re-fit once the pane finished sliding, instead of snapping
+  setTimeout(()=>{
+    try{ animateViewTo(computeFitView(), 260); }catch(e){}
+    try{ if(mdMode) mdCalibrate(); }catch(e){}
+    // The pane's own width transition (220ms, pure CSS) is still running when
+    // syncTextFromMap() -> mdRefreshDecorations() measured gutter row heights just
+    // above — at/near width:0, word-wrap makes every line "wrap" into many tiny
+    // rows, baking wildly wrong heights in as permanent inline styles. Nothing else
+    // re-measures once the transition actually finishes, so re-sync once more now
+    // that the pane has reached its real width.
+    try{ if(mdMode) mdSyncGutterRowHeights(); }catch(e){}
+  }, 260);   // smoothly re-fit once the pane finished sliding, instead of snapping
 }
 function pushHistory(){
   const snapshot = JSON.stringify({nodes:map.nodes,rootId:map.rootId,title:map.title,color:map.color,links:map.links||[],layout:map.layout,vars:map.vars||{}});
@@ -5627,7 +5636,7 @@ function exportMenu(){
     <div class="ex-grp">Export</div>
     <button data-a="png"   ><span class="ex-ic">🖼</span><span><b>PNG image</b><i>Themed export, honors map style</i></span></button>
     <button data-a="prompt"><span class="ex-ic">⚡</span><span><b>Export as prompt</b><i>Fill variables, then copy clean text</i></span></button>
-    <button data-a="mdrich"><span class="ex-ic">📝</span><span><b>Markdown</b><i>Formatting, tasks, tables, code — markmap-compatible</i></span></button>
+    <button data-a="mdrich"><span class="ex-ic">📝</span><span><b>Markdown</b><i>Formatting, tasks, tables, code</i></span></button>
     <button data-a="copy"  ><span class="ex-ic">⎘</span><span><b>Copy as text (clipboard)</b><i>Plain outline, no download</i></span></button>
     <button data-a="word"  ><span class="ex-ic">📄</span><span><b>Word document (.doc)</b><i>Opens in Word, Google Docs, LibreOffice</i></span></button>
     <button data-a="mermaid"><span class="ex-ic">🧜</span><span><b>Mermaid diagram</b><i>Renders in GitHub, Notion, Obsidian</i></span></button>
@@ -7361,12 +7370,55 @@ function exportMarkdown(toClipboard, rich){
 }
 // Build a Word-compatible HTML document (saved with .doc extension —
 // Word, Google Docs, and LibreOffice all open this as a Word document).
+// Renders one LaTeX expression to a small PNG data-URL <img> tag, for exports that
+// can't render MathML/OMML natively (the HTML-based .doc export opens in Word,
+// Google Docs, and LibreOffice, none of which reliably render raw MathML pasted in
+// via a file — but all three display an embedded image just fine). Reuses the same
+// canvas math-layout engine (_layoutMath) the PNG exporter already relies on,
+// scoped to a single expression instead of a full node.
+function mathToImgTag(tex, fontPx, color){
+  fontPx = fontPx || 16; color = color || '#23201b';
+  try{
+    const t=document.createElement('span'); t.innerHTML=latexToMathML(tex,false);
+    const mathEl=t.querySelector('math'); if(!mathEl) return null;
+    const measureCv=document.createElement('canvas'); const mctx=measureCv.getContext('2d');
+    const lay=_layoutMath(mctx, mathEl, fontPx, 'serif', color);
+    const scale=3, pad=2;   // render at higher pixel density so it stays crisp at normal document zoom
+    const w=Math.max(1,Math.ceil(lay.w+pad*2)), h=Math.max(1,Math.ceil(lay.asc+lay.desc+pad*2));
+    const cv=document.createElement('canvas'); cv.width=w*scale; cv.height=h*scale;
+    const ctx=cv.getContext('2d'); ctx.scale(scale,scale);
+    lay.draw(pad, pad+lay.asc);
+    // CSS height stays at the UNSCALED size — scale only adds pixel density, not display size.
+    return `<img src="${cv.toDataURL('image/png')}" style="vertical-align:middle;height:${h}px" alt="${escapeHtml(tex)}">`;
+  }catch(e){ return null; }
+}
+// Splits `text` around $...$/$$...$$ math segments, running each surrounding plain-
+// text chunk through the normal escapeHtml/sanitizeInlineHTML path and replacing
+// each math segment with its rendered image — rather than running the whole string
+// through the escaper first, which would mangle the <img> markup this injects.
+// Returns null (falls back to the caller's normal path) if there's no math at all,
+// so the common case is untouched.
+function renderMathForExport(text, fontPx, color){
+  text = text || '';
+  if(!containsMath(text)) return null;
+  const re=new RegExp(MATH_DELIM_RE.source,'g');
+  const plain = s => INLINE_HTML_RE.test(s) ? sanitizeInlineHTML(s) : escapeHtml(s).replace(/\n/g,'<br>');
+  let out='', last=0, m;
+  while((m=re.exec(text))){
+    out += plain(text.slice(last,m.index));
+    const tex=m[1]!=null?m[1]:m[2];
+    out += mathToImgTag(tex, fontPx, color) || escapeHtml(m[0]);   // literal text if rendering ever fails
+    last=m.index+m[0].length;
+  }
+  out += plain(text.slice(last));
+  return out;
+}
 function buildDoc(){
   const title = (map.title || 'Mind Map').replace(/[<>]/g,'');
   let body = `<h1>${escapeHtml(title)}</h1>`;
   // Add root's notes under the title
   const rn = map.nodes[map.rootId]?.notes;
-  if(rn){ body += `<p><em>${sanitizeInlineHTML(rn)}</em></p>`; }
+  if(rn){ body += `<p><em>${renderMathForExport(rn, 13, '#6a6258') ?? sanitizeInlineHTML(rn)}</em></p>`; }
   // Render children as nested <ul>
   const renderChildren = (parentId, depth)=>{
     const cs = childrenOf(parentId);
@@ -7374,9 +7426,10 @@ function buildDoc(){
     let out = `<ul>`;
     cs.forEach(cid=>{
       const n = map.nodes[cid];
-      const txt = INLINE_HTML_RE.test(n.text||'') ? sanitizeInlineHTML(n.text) : escapeHtml(n.text||'').replace(/\n/g,'<br>');
+      const txt = renderMathForExport(n.text||'', 15, '#23201b')
+        ?? (INLINE_HTML_RE.test(n.text||'') ? sanitizeInlineHTML(n.text) : escapeHtml(n.text||'').replace(/\n/g,'<br>'));
       out += `<li>${txt}`;
-      if(n.notes){ out += `<br><em style="color:#666">${sanitizeInlineHTML(n.notes)}</em>`; }
+      if(n.notes){ out += `<br><em style="color:#666">${renderMathForExport(n.notes, 13, '#6a6258') ?? sanitizeInlineHTML(n.notes)}</em>`; }
       out += renderChildren(cid, depth+1);
       out += `</li>`;
     });
@@ -7487,7 +7540,14 @@ function drawNodeMath(ctx, text, o){
   const family=o.family, fontPx=o.fontPx, color=o.color;
   ctx.save();
   ctx.fillStyle=color;
-  const lines=(text||'').split('\n');
+  // listType (whole-node bullets): prefix each line the same way drawFormattedText
+  // does for its own plain-text listType case, then fall through to the normal
+  // per-line math-segment parsing below — this is already line-oriented, so a
+  // bullet prefix on each line is all that's needed to support it here too.
+  const rawLines=(text||'').split('\n');
+  const lines = o.listType
+    ? rawLines.map((line,i)=> (o.listType==='ol' ? `${i+1}. ` : '\u2022 ')+line)
+    : rawLines;
   const re=new RegExp(MATH_DELIM_RE.source,'g');
   const built=lines.map(line=>{
     const segs=[]; let last=0,m; re.lastIndex=0;
@@ -7638,11 +7698,11 @@ function exportPNG(){
     // Render with inline B/I/U/S support, list bullets, line wrapping.
     // Nodes with $...$ math go through the canvas math renderer so equations
     // export as laid-out math instead of raw LaTeX source.
-    if(containsMath(n.text||'') && !n.listType){
+    if(containsMath(n.text||'')){
       drawNodeMath(ctx, n.text||'', {
         x: n.x+(isRoot?22:15), y: n.y+h/2, maxWidth: w-(isRoot?44:30),
         fontPx, color: textFill, family: '"Bricolage Grotesque", sans-serif',
-        bold: !!n.bold || isRoot, align: n.align || 'center'
+        bold: !!n.bold || isRoot, align: n.align || 'center', listType: n.listType || null
       });
     } else {
     drawFormattedText(ctx, n.text||'', {
