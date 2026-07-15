@@ -2241,7 +2241,13 @@ function mdSyncGutterRowHeights(hl, gut){
   // sub-mode is active) is exactly the kind of thing that triggers this call at the wrong time.
   if(hl.offsetParent===null || gut.offsetParent===null) return;
   const hlRows=hl.querySelectorAll('.hl-line'), glRows=gut.querySelectorAll('.gl');
-  const heights=[]; for(let i=0;i<hlRows.length;i++) heights.push(hlRows[i].getBoundingClientRect().height);
+  // getBoundingClientRect() returns visual pixels — already scaled by the current
+  // Display Size zoom. Assigning that raw value into style.height would scale it a
+  // SECOND time when the browser renders it (the .gl row lives inside the same
+  // zoomed pane), silently shrinking every row height at any zoom below 100% and
+  // making the gutter drift further from the text with every subsequent row.
+  const z=_uiZ();
+  const heights=[]; for(let i=0;i<hlRows.length;i++) heights.push(hlRows[i].getBoundingClientRect().height/z);
   for(let i=0;i<glRows.length && i<heights.length;i++) glRows[i].style.height=heights[i]+'px';
 }
 function mdCalibrate(){   // derive the textarea's real line-height + padding (used to centre a target line when jumping to it)
