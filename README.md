@@ -8,6 +8,8 @@ MindSpark is an open-source **mind-mapping app you actually own** — no account
 
 **🧠 Make maps by chatting → [MindSpark — Mind Map for Everyone](https://chatgpt.com/g/g-6a3a81242f748191ab1b7cff99a21619-mindspark-mind-map-for-everyone)** — describe a topic and the GPT builds the map, then hands you a link to open and edit it in MindSpark. No account needed to view.
 
+**🔌 Connect from Claude or ChatGPT via MCP → [mindspark-mcp](https://github.com/prasadpatil25/mindspark-mcp)** — a Model Context Protocol server for MindSpark, with three ways to connect depending on what you need: your own token, per-user GitHub sign-in, or no login at all.
+
 <p align="center">
   <img src="docs/screenshot.png" alt="MindSpark showing the “ML - Overview (Demo)” sample map: a “Machine Learning” central node branching into Supervised, Unsupervised and Reinforcement learning, Neural networks, a typical workflow, a learning checklist and references." width="900">
 </p>
@@ -118,6 +120,20 @@ Press **`Tab`** to add a child topic and **`Enter`** to add a sibling — the tr
 The link opens the map **read-only** in MindSpark (no account needed to view). Click **"Make an editable copy"** to save it into your own workspace — your repo, your token, nothing stored on anyone else's server.
 
 **How it works:** the GPT calls a small endpoint, `POST /api/import`, which turns the map spec into the same gzip-encoded `#view=` share link the *Copy share link* feature produces. No personal access token and no repo writes are involved, so it works for every user. The endpoint lives in the optional Cloudflare Worker under [`worker/`](worker/) — see [`worker/README.md`](worker/README.md) to self-host it, along with the OpenAPI Action schema and map JSON schema for wiring up your own Custom GPT.
+
+## Or connect via MCP
+
+**[mindspark-mcp](https://github.com/prasadpatil25/mindspark-mcp)** is a separate, standalone [Model Context Protocol](https://modelcontextprotocol.io) server for MindSpark — same underlying idea as the GPT above (an AI assistant that creates and shows you maps), but usable from Claude Desktop, Claude Code, ChatGPT (via the Apps SDK), or any other MCP-compatible client, with real tools to create, read, edit, and visually render maps directly in the conversation.
+
+Three deployment modes, matching different needs:
+
+| | Auth | Best for |
+|---|---|---|
+| Single-user | One shared GitHub token | Personal use |
+| Multi-user (OAuth) | Each person signs in with their own GitHub account | Deployed once, for a team — everyone keeps their own maps |
+| No-login | None at all — maps become shareable `#view=` links | Anyone, zero setup |
+
+See the [mindspark-mcp README](https://github.com/prasadpatil25/mindspark-mcp) for setup instructions for each mode.
 
 ## Quick start (self-hosted)
 
