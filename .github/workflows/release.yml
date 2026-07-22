@@ -7,7 +7,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # IMAGE_NAME: ${{ github.repository }} until https://github.com/orgs/community/discussions/10553
+  IMAGE_NAME: prasadpatil25/mindspark
 
 jobs:
   build-and-push:
