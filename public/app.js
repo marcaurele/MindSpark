@@ -32,6 +32,29 @@ const CloudStore = {
   _encode(s){ return btoa(unescape(encodeURIComponent(s))); },
   _decode(s){ return decodeURIComponent(escape(atob(s.replace(/\n/g,'')))); },
 
+  // Writes that MUST succeed for core functionality (auth token, OAuth state
+  // nonce) go through this instead of a raw localStorage.setItem. If storage
+  // is full, the local map-backup cache (mindspark:backup:*) is the most
+  // likely cause — it's written on every save/load with no cap or expiry, and
+  // never cleared even for deleted maps. It's also just a recovery cache: the
+  // authoritative copy of every map already lives on GitHub, so clearing it
+  // to make room for something that actually blocks sign-in is always safe.
+  // Returns true/false rather than throwing, so callers can show one clear,
+  // actionable message instead of a raw QuotaExceededError.
+  _setItemSafe(key, value){
+    try{ localStorage.setItem(key, value); return true; }
+    catch(e){
+      if(!(e && (e.name==='QuotaExceededError' || e.code===22 || e.code===1014))) return false;
+      try{
+        const stale=[];
+        for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.startsWith('mindspark:backup:')) stale.push(k); }
+        stale.forEach(k=>{ try{ localStorage.removeItem(k); }catch(_){} });
+      }catch(_){}
+      try{ localStorage.setItem(key, value); return true; }
+      catch(e2){ return false; }
+    }
+  },
+
   async _verify(t){
     const r=await fetch('https://api.github.com/user',{headers:this._headers(t)});
     if(!r.ok) throw new Error('Invalid GitHub token (HTTP '+r.status+')');
@@ -56,7 +79,9 @@ const CloudStore = {
   async login(token){
     this.user=await this._verify(token);
     this.token=token;
-    localStorage.setItem('mindspark:gh:token', token);
+    if(!this._setItemSafe('mindspark:gh:token', token)){
+      throw new Error('Signed in, but could not save your session locally — your browser\'s storage is full. Try clearing site data for this page and signing in again.');
+    }
     await this._ensureRepo();
     await this._loadIndex();
     await this._loadDeleted();
@@ -264,6 +289,7 @@ const CloudStore = {
     delete this.shas[id];
     this.index=this.index.filter(m=>m.id!==id);
     if(!this.deleted.includes(id)) this.deleted.push(id);   // tombstone: never resurrect
+    try{ localStorage.removeItem('mindspark:backup:'+id); }catch(e){}
     try{ await this._saveDeleted(); }catch(e){ console.warn('tombstone save:', e.message); }
     await this._saveIndex();
   },
@@ -8792,7 +8818,11 @@ function startGithubLogin(){
   const rnd = (window.crypto && crypto.getRandomValues)
     ? Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('')
     : (Date.now().toString(36)+Math.random().toString(36).slice(2));
-  localStorage.setItem('mindspark:oauth:state', rnd);
+  const err=$('#ghError');
+  if(!CloudStore._setItemSafe('mindspark:oauth:state', rnd)){
+    if(err) err.textContent = 'Could not start sign-in — your browser\'s local storage is full. Try clearing site data for this page and trying again.';
+    return;
+  }
   const redirect = GH_OAUTH.workerUrl.replace(/\/+$/,'') + '/callback';
   const url = 'https://github.com/login/oauth/authorize'
     + '?client_id='   + encodeURIComponent(GH_OAUTH.clientId)
@@ -8801,7 +8831,6 @@ function startGithubLogin(){
     + '&state='        + encodeURIComponent(rnd);
   const w=620,h=720, left=Math.max(0,(screen.width-w)/2), top=Math.max(0,(screen.height-h)/2);
   const pop = window.open(url, 'mindspark_github_oauth', `width=${w},height=${h},left=${left},top=${top}`);
-  const err=$('#ghError');
   if(!pop && err) err.textContent = 'Popup blocked — allow popups for this site, or use a token below.';
 }
 
