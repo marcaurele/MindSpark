@@ -7667,6 +7667,22 @@ async function exportPNG(){
   const cv=document.createElement('canvas');cv.width=W*scale;cv.height=H*scale;
   const ctx=cv.getContext('2d');ctx.scale(scale,scale);
   ctx.fillStyle=themeBg; ctx.fillRect(0,0,W,H);
+  // Dot-grid texture — matches .stage's CSS exactly (26px spacing, 1px radius,
+  // var(--canvas-dot)). The solid fill above was the only background the
+  // export drew; the live canvas always has this texture, so without it the
+  // export looks visibly flatter/emptier than what's actually on screen.
+  const dotColor = css('--canvas-dot');
+  if(dotColor){
+    ctx.fillStyle = dotColor;
+    ctx.beginPath();
+    for(let dx=0; dx<=W; dx+=26){
+      for(let dy=0; dy<=H; dy+=26){
+        ctx.moveTo(dx+1, dy);
+        ctx.arc(dx, dy, 1, 0, Math.PI*2);
+      }
+    }
+    ctx.fill();
+  }
   ctx.translate(-minx+pad,-miny+pad);
 
   // Edges — match map style: bezier (modern/bubble), step (classic), straight (sketch)
@@ -7905,7 +7921,24 @@ function drawFormattedText(ctx, html, opts){
           const parts = v.split('\n');
           parts.forEach((p, i) => {
             if(i > 0) runs.push({ text:'\n', ...st });
-            if(p) runs.push({ text:p, ...st });
+            if(!p) return;
+            // Auto-detect raw URLs the same way the live DOM does
+            // (appendTextWithLinks) — the stored node content never contains
+            // an <a> tag for these (that wrapping is display-only, applied
+            // fresh on every live render, never saved) so without this the
+            // export has no way to know a plain-text segment is a link at
+            // all, and just draws the raw URL as ordinary text.
+            URL_RE.lastIndex = 0;
+            let last = 0, m;
+            let matched = false;
+            while((m = URL_RE.exec(p)) !== null){
+              matched = true;
+              if(m.index > last) runs.push({ text:p.slice(last, m.index), ...st });
+              runs.push({ text:prettyUrl(m[0]), ...st, link:true, underline:true });
+              last = m.index + m[0].length;
+            }
+            if(matched){ if(last < p.length) runs.push({ text:p.slice(last), ...st }); }
+            else runs.push({ text:p, ...st });
           });
         } else if(child.nodeType === 1){
           const tag = child.tagName.toLowerCase();
