@@ -8236,14 +8236,28 @@ const THEMES = [
   {id:'dark',            name:'Dark',            swatch:['#1e1e1e','#2d2d2d','#3794ff']},
   {id:'light-owl',       name:'Light Owl',       swatch:['#fbfbfb','#ffffff','#2aa298']},
   {id:'night-owl',       name:'Night Owl',       swatch:['#011627','#0b2942','#7e57c2']},
-  {id:'catppuccin-light', name:'Catppuccin Light', swatch:['#eff1f5','#e6e9ef','#8839ef']},
-  {id:'catppuccin-dark',  name:'Catppuccin Dark',  swatch:['#1e1e2e','#181825','#cba6f7']},
-  {id:'rose-pine-moon',  name:'Rosé Pine Moon',  swatch:['#232136','#393552','#c4a7e7']},
-  {id:'rose-pine-dawn',  name:'Rosé Pine Dawn',  swatch:['#faf4ed','#fffaf3','#907aa9']},
+  {id:'catppuccin-light', name:'Catppuccin<br>Light', swatch:['#eff1f5','#e6e9ef','#8839ef']},
+  {id:'catppuccin-dark',  name:'Catppuccin<br>Dark',  swatch:['#1e1e2e','#181825','#cba6f7']},
+  {id:'rose-pine-moon',  name:'Rosé Pine<br>Moon',  swatch:['#232136','#393552','#c4a7e7']},
+  {id:'rose-pine-dawn',  name:'Rosé Pine<br>Dawn',  swatch:['#faf4ed','#fffaf3','#907aa9']},
   {id:'github-light',    name:'GitHub Light',    swatch:['#ffffff','#f6f8fa','#0969da']},
   {id:'github-dark',     name:'GitHub Dark',     swatch:['#0d1117','#161b22','#58a6ff']},
   {id:'dracula',         name:'Dracula',         swatch:['#282a36','#44475a','#ff79c6']},
   {id:'nord',            name:'Nord',            swatch:['#2e3440','#434c5e','#88c0d0']}
+];
+// Shown in their own dedicated panel section, not mixed into the regular
+// colour-theme grid above. Deliberately a different kind of thing from
+// THEMES/MAP_STYLES — font + non-node chrome texture only, independent of
+// both color (still controlled by whichever Colour Theme is active) and
+// card/branch shape (still controlled by whichever Map Style is active).
+// 'office' is the implicit default, same pattern as 'light' for themes —
+// achieved by absence of the data-look attribute, not its own CSS block.
+// Names are written to complete "I am ___" (the section's own label) —
+// "I am in the Office" / "I am at Coffee Shop" / "I am back to School".
+const LOOKS = [
+  {id:'office',      name:'in the<br>Office',  font:'inherit'},
+  {id:'coffee-shop', name:'at Coffee<br>Shop', font:'"Patrick Hand",cursive'},
+  {id:'handwritten', name:'back to<br>School', font:'"Caveat",cursive'}
 ];
 const MAP_STYLES = [
   {id:'modern',  name:'Modern',  desc:'Soft cards, curved branches'},
@@ -8262,6 +8276,40 @@ function applyTheme(id){
   if(id && id!=='light') document.documentElement.setAttribute('data-theme', id);
   else document.documentElement.removeAttribute('data-theme');
   try{ localStorage.setItem('mindspark:theme', id||'light'); }catch(e){}
+  // Colour theme doesn't change node size today, but re-render anyway rather
+  // than assume that stays true forever — cheap, and matches applyLook below.
+  if(map) render();
+}
+// "Look and feel" (Back to School, etc.) is font + chrome texture only —
+// entirely CSS-driven (see :root[data-look=...] rules), so unlike the old
+// isHandwrittenTheme() this needs no JS-side helper at all. Independent of
+// applyTheme() (colors) and applyMapStyle() (card/branch shape) — all three
+// are separate attributes that never override each other.
+function applyLook(id){
+  if(id && id!=='office') document.documentElement.setAttribute('data-look', id);
+  else document.documentElement.removeAttribute('data-look');
+  try{ localStorage.setItem('mindspark:look', id||'office'); }catch(e){}
+  // The previous fix (calling render() here at all) only helps if the font
+  // used for the measurement pass is the REAL font. Web fonts load
+  // asynchronously — the very first time Caveat/Patrick Hand gets used in a
+  // session, the font file may still be downloading at the exact moment
+  // this render() runs synchronously below. The browser then measures
+  // nodes against a FALLBACK font's metrics, and once the real font
+  // actually finishes loading, silently swaps it in and resizes the node
+  // text — with nothing re-measuring or redrawing edges for that swap on
+  // its own, since it's a browser-internal font-load event, not something
+  // this code otherwise reacts to. Explicitly wait for the specific font
+  // this look uses, then re-render once it's genuinely ready, to catch and
+  // correct that gap rather than hoping the immediate render() below was
+  // already accurate.
+  if(map) render();
+  const look=LOOKS.find(l=>l.id===id);
+  if(look && look.font && look.font!=='inherit' && document.fonts && document.fonts.load){
+    const fontName = look.font.split(',')[0];   // '"Caveat"' from '"Caveat",cursive' — the
+                                                  // actual web font; the rest is just a
+                                                  // fallback keyword that needs no loading
+    document.fonts.load('1em '+fontName).then(()=>{ if(map) render(); }).catch(()=>{});
+  }
 }
 function applyMapStyle(id){
   if(!map) return;
@@ -8289,6 +8337,9 @@ function buildSwatchHTML(t){
             <span class="t1" style="background:${t.swatch[1]}"></span>
             <span class="t2" style="background:${t.swatch[2]}"></span>
           </span>`;
+}
+function buildLookThumb(l){
+  return `<span class="theme-thumb look-thumb" style="font-family:${l.font}">Aa</span>`;
 }
 function buildStyleThumb(id){
   // Small SVG preview showing two nodes + the branch style
@@ -8347,6 +8398,7 @@ $('#themeBtn').onclick=(e)=>{
   if(themePanel){ closeThemePanel(); return; }
   closeAllMenus();
   const curTheme  = document.documentElement.getAttribute('data-theme') || 'light';
+  const curLook   = document.documentElement.getAttribute('data-look')  || 'office';
   const curStyle  = (map && map.style)  || 'modern';
   const curLayout = (map && map.layout) || 'balanced';
   themePanel=document.createElement('div');
@@ -8358,6 +8410,15 @@ $('#themeBtn').onclick=(e)=>{
         ${THEMES.map(t=>`
           <button class="theme-opt${t.id===curTheme?' active':''}" data-cat="theme" data-id="${t.id}">
             ${buildSwatchHTML(t)}<span class="theme-name">${t.name}</span>
+          </button>`).join('')}
+      </div>
+    </div>
+    <div class="tp-section tp-section-special">
+      <div class="tp-label">I am</div>
+      <div class="tp-grid">
+        ${LOOKS.map(l=>`
+          <button class="theme-opt${l.id===curLook?' active':''}" data-cat="look" data-id="${l.id}">
+            ${buildLookThumb(l)}<span class="theme-name">${l.name}</span>
           </button>`).join('')}
       </div>
     </div>
@@ -8395,11 +8456,16 @@ $('#themeBtn').onclick=(e)=>{
       ev.stopPropagation();
       const cat=opt.dataset.cat, id=opt.dataset.id;
       if(cat==='theme') applyTheme(id);
+      else if(cat==='look') applyLook(id);
       else if(cat==='style') applyMapStyle(id);
       else if(cat==='layout') applyMapLayout(id);
-      // Update active state within the same section
-      const sec=opt.closest('.tp-section');
-      sec.querySelectorAll('.theme-opt').forEach(o=>o.classList.remove('active'));
+      // Clear active state across every section sharing this category, not
+      // just the clicked button's own section (opt.closest('.tp-section')).
+      // Each category lives in exactly one section again now that 'look' is
+      // its own category rather than sharing 'theme' — but scoping by
+      // data-cat across the whole panel is the more general, robust
+      // approach regardless of how many sections a category happens to span.
+      themePanel.querySelectorAll(`.theme-opt[data-cat="${cat}"]`).forEach(o=>o.classList.remove('active'));
       opt.classList.add('active');
     };
   });
@@ -8436,10 +8502,23 @@ document.addEventListener('click',e=>{
 try{
   let saved = localStorage.getItem('mindspark:theme');
   const RETIRED_THEMES = {'solarized-dark':'github-dark', 'solarized-light':'github-light', 'monokai':'catppuccin-dark', 'catppuccin':'catppuccin-dark'};   // replaced themes
+  if(saved==='handwritten'){
+    // Pre-refactor save: 'handwritten' used to be a data-theme value. Migrate
+    // intent rather than silently dropping it — falls back to a real color
+    // theme, and separately turns on the new Back to School look. Only sets
+    // the localStorage key here, doesn't call applyLook() directly — that
+    // happens once, below, as the single source of truth for applying the
+    // look at boot (calling it here too would double-apply it: two renders,
+    // two duplicate font-load requests, since applyLook() sets this same
+    // key as a side effect and the line below reads it right back).
+    saved=null;
+    try{ localStorage.setItem('mindspark:look', 'handwritten'); }catch(e){}
+  }
   if(saved && RETIRED_THEMES[saved]){ saved=RETIRED_THEMES[saved]; try{ localStorage.setItem('mindspark:theme', saved); }catch(e){} }
   if(saved) applyTheme(saved);
   else applyTheme(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 }catch(e){}
+try{ applyLook(localStorage.getItem('mindspark:look') || 'office'); }catch(e){}
 
 applyView();
 

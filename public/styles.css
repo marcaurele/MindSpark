@@ -464,9 +464,22 @@
   .node .resize-grip:hover{opacity:1}
   .node.editing .resize-grip{display:none}
 
-  /* Drop-target highlight while drag-and-drop reparenting */
-  .node.drop-before{ box-shadow:0 -3px 0 0 var(--accent), var(--shadow); }
-  .node.drop-after{ box-shadow:0 3px 0 0 var(--accent), var(--shadow); }
+  /* Drop-target highlight while drag-and-drop reparenting. The three modes
+     need to be clearly distinguishable at a glance during a fast drag, not
+     just technically different — before/after (sibling insertion) previously
+     had only a bare 3px line hugging the node's own edge, much weaker than
+     the child-nest treatment below it. Strengthened to a thicker line that
+     extends past the node's own width (box-shadow spread, not just blur) so
+     it reads as a real insertion marker, plus a background tint so there's
+     more than one signal to notice mid-drag. */
+  .node.drop-before{
+    box-shadow:0 -5px 0 3px var(--accent), var(--shadow);
+    background:color-mix(in srgb, var(--accent) 12%, var(--node-bg)) !important;
+  }
+  .node.drop-after{
+    box-shadow:0 5px 0 3px var(--accent), var(--shadow);
+    background:color-mix(in srgb, var(--accent) 12%, var(--node-bg)) !important;
+  }
   .node.drop-target{
     outline:3px dashed var(--accent); outline-offset:5px;
     background:linear-gradient(0deg,
@@ -581,6 +594,99 @@
   #viewport[data-style="sketch"]  .node.root{border-width:0}
   #viewport[data-style="sketch"] {--edge-color:var(--ink-soft);--edge-width:1.6}
 
+  /* Cascades the pencil font to every part of the app that already
+     references --sans/--serif (sidebar, modals, buttons, topbar, and
+     nodes/edges too, since those never had their own font override) —
+     not a per-component override, the same two variables everything
+     already uses. This is now the ONLY thing "Back to School" controls
+     via color/font variables — no palette override, see below. */
+  :root[data-look="handwritten"]{ --sans:"Caveat",cursive; --serif:"Caveat",cursive; }
+
+  /* ===== "Back to School" look and feel — font + chrome texture only =====
+     Deliberately does NOT touch .node/.nodebar border-radius or #viewport's
+     --edge-color/--edge-width: card shape and branch style are Map Style's
+     job exclusively (Modern/Classic/Bubble/Sketch), independent of which
+     Look and Feel is active — picking "Back to School" must never lock out
+     or override a Map Style choice. Canvas texture uses var(--paper)/
+     var(--line) as already defined by whichever Colour Theme is active, not
+     a hardcoded palette — Back to School no longer sets colors at all, so
+     the ruled paper automatically follows Light/Dark/Nord/etc.
+     font-size on .node: NOT a shape override (no border-radius/transform
+     here), just legibility compensation — handwriting fonts need more size
+     than a geometric sans for equivalent readability. */
+  :root[data-look="handwritten"] .node{ font-size:1.2em; }
+  :root[data-look="handwritten"] .stage{
+    background-image:repeating-linear-gradient(var(--paper) 0px, var(--paper) 27px, var(--line) 28px);
+    background-size:100% 28px; background-color:var(--paper);
+  }
+  :root[data-look="handwritten"] .nodebar{
+    font-weight:700; font-size:1.15em;
+    border-radius:16px 9px 16px 9px;
+    border:2px solid var(--ink); box-shadow:none;
+  }
+  /* Sidebar — thicker ink-colored edge instead of the default hairline */
+  :root[data-look="handwritten"] .side{border-right:2px solid var(--ink)}
+  :root[data-look="handwritten"] .new-map{border:2px dashed var(--ink-soft)}
+  /* Modal cards (citation form, due-date form, etc.) — same sketchy-border
+     language as the toolbar, for visual consistency across the app */
+  :root[data-look="handwritten"] .vf-card{
+    border-radius:20px 8px 20px 8px; border:2px solid var(--ink); box-shadow:var(--shadow-lg);
+  }
+  :root[data-look="handwritten"] .vf-card h2{font-weight:700}
+  /* Remaining containers audited and covered in this pass — context menus,
+     pickers, the donation card, export/template popups, search box, minimap.
+     Grouped since they share the same underlying structure (chrome/node-bg
+     background, chrome-edge border, rounded corners) — same sketchy-border
+     language as the rest of the app, not restyled individually from scratch. */
+  :root[data-look="handwritten"] .row-pop,
+  :root[data-look="handwritten"] .picker,
+  :root[data-look="handwritten"] .donate-card,
+  :root[data-look="handwritten"] .export-pop,
+  :root[data-look="handwritten"] .tpl-pop{
+    border-radius:16px 6px 16px 6px; border:2px solid var(--ink);
+  }
+  :root[data-look="handwritten"] .donate-card{ border-radius:20px 8px 20px 8px; }
+  :root[data-look="handwritten"] .search-wrap{ border-radius:14px 6px 14px 6px; border:2px solid var(--ink); }
+  :root[data-look="handwritten"] .minimap{ border-radius:12px 4px 12px 4px; border:2px solid var(--ink); }
+  :root[data-look="handwritten"] .toast{ border-radius:14px 5px 14px 5px; border:2px solid var(--ink); font-weight:500; }
+
+  /* ===== "At Coffee Shop" look and feel — same principles, lighter touch =====
+     Font-only color/font override, same as Back to School — no palette
+     override here either. Differentiated from Back to School through
+     restraint, not a new color: a lighter 1.5px border (vs 2px) and a
+     quieter diagonal-hatch canvas texture instead of overt ruled-paper
+     lines. Patrick Hand has only one weight (no bold), so emphasis here
+     comes from size, not font-weight:700 the way Back to School uses it —
+     forcing a fake-bold on a single-weight font looks poor. */
+  :root[data-look="coffee-shop"]{ --sans:"Patrick Hand",cursive; --serif:"Patrick Hand",cursive; }
+  :root[data-look="coffee-shop"] .node{ font-size:1.1em; }
+  :root[data-look="coffee-shop"] .stage{
+    background-image:repeating-linear-gradient(135deg, var(--paper) 0px, var(--paper) 22px, var(--line) 23px);
+    background-size:32px 32px; background-color:var(--paper);
+  }
+  :root[data-look="coffee-shop"] .nodebar{
+    font-size:1.2em;
+    border-radius:14px 8px 14px 8px;
+    border:1.5px solid var(--ink); box-shadow:none;
+  }
+  :root[data-look="coffee-shop"] .side{border-right:1.5px solid var(--ink)}
+  :root[data-look="coffee-shop"] .new-map{border:1.5px dashed var(--ink-soft)}
+  :root[data-look="coffee-shop"] .vf-card{
+    border-radius:18px 7px 18px 7px; border:1.5px solid var(--ink); box-shadow:var(--shadow-lg);
+  }
+  :root[data-look="coffee-shop"] .vf-card h2{font-size:1.3em}
+  :root[data-look="coffee-shop"] .row-pop,
+  :root[data-look="coffee-shop"] .picker,
+  :root[data-look="coffee-shop"] .donate-card,
+  :root[data-look="coffee-shop"] .export-pop,
+  :root[data-look="coffee-shop"] .tpl-pop{
+    border-radius:14px 5px 14px 5px; border:1.5px solid var(--ink);
+  }
+  :root[data-look="coffee-shop"] .donate-card{ border-radius:18px 7px 18px 7px; }
+  :root[data-look="coffee-shop"] .search-wrap{ border-radius:12px 5px 12px 5px; border:1.5px solid var(--ink); }
+  :root[data-look="coffee-shop"] .minimap{ border-radius:10px 4px 10px 4px; border:1.5px solid var(--ink); }
+  :root[data-look="coffee-shop"] .toast{ border-radius:12px 4px 12px 4px; border:1.5px solid var(--ink); }
+
   /* ===== Theme panel — multi-section layout ===== */
   /* ===== Theme picker panel ===== */
   .theme-panel{
@@ -589,18 +695,24 @@
     min-width:340px; font-family:var(--sans);
   }
   .theme-panel-large{
-    min-width:520px; max-width:560px; display:flex; flex-direction:column;
+    min-width:580px; max-width:640px; display:flex; flex-direction:column;
     gap:0; padding:0; overflow-x:hidden; overflow-y:auto;
   }
   .theme-panel-large .tp-section{padding:10px 12px; border-top:1px solid var(--chrome-edge)}
   .theme-panel-large .tp-section:first-child{border-top:none}
+  .theme-panel-large .tp-section-special{
+    background:color-mix(in srgb, var(--accent) 6%, transparent);
+    border-top:1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-bottom:1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .theme-panel-large .tp-section-special .tp-label{color:var(--accent)}
   .theme-panel-large .tp-label{
     font-size:11px; text-transform:uppercase; letter-spacing:.11em;
     color:var(--ink-soft); font-weight:700; margin-bottom:8px;
   }
   .theme-panel-large .tp-grid{
     display:grid; gap:4px;
-    grid-template-columns:repeat(4,minmax(110px,1fr));
+    grid-template-columns:repeat(4,minmax(125px,1fr));
   }
   .style-thumb{
     width:62px; height:36px; border-radius:6px; border:1px solid var(--line);
@@ -608,8 +720,8 @@
     flex-shrink:0; overflow:hidden;
   }
   .theme-opt{
-    display:flex; align-items:center; gap:10px;
-    padding:8px 10px; border:1.5px solid transparent; border-radius:9px;
+    display:flex; align-items:center; gap:8px;
+    padding:8px 8px; border:1.5px solid transparent; border-radius:9px;
     background:transparent; cursor:pointer; text-align:left;
     font-family:inherit; font-size:13px; font-weight:500; color:var(--ink);
   }
@@ -621,7 +733,11 @@
   }
   .theme-thumb .t1{position:absolute; left:5px; top:5px; width:14px; height:14px; border-radius:3px}
   .theme-thumb .t2{position:absolute; right:5px; bottom:5px; width:11px; height:11px; border-radius:50%}
-  .theme-name{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .theme-thumb.look-thumb{
+    display:flex; align-items:center; justify-content:center;
+    background:var(--paper); color:var(--ink); font-size:17px; font-weight:600;
+  }
+  .theme-name{flex:1; white-space:normal; line-height:1.25}
 
   /* ===== Context toolbar on selected node ===== */
   .nodebar{position:absolute;z-index:25;display:flex;align-items:center;gap:2px;background:var(--toolbar-bg);color:var(--toolbar-text);border-radius:10px;padding:4px;box-shadow:var(--shadow-lg)}
@@ -913,7 +1029,7 @@
       bottom:0; top:auto !important;
       border-radius:16px 16px 0 0; max-height:80vh; overflow-y:auto;
     }
-    .theme-panel-large .tp-grid{grid-template-columns:repeat(3, 1fr)}
+    .theme-panel-large .tp-grid{grid-template-columns:repeat(2, 1fr)}
   }
 
   /* Disable browser tap-highlight on interactive UI */
