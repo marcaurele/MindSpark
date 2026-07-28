@@ -606,9 +606,13 @@ function render(){
       el.style.background = '';
       el.style.color = '';
     }
-    // Manual width/height (when the user has resized the node)
+    // Manual width/height (when the user has resized the node). Height is a
+    // floor (min-height), not a hard cap — .node has no overflow:hidden, so a
+    // fixed height smaller than what the current font-size actually needs
+    // (e.g. Back to School's 1.2em) would let text visually spill past the
+    // card's own border rather than the box growing to fit it.
     if(n.width){ el.style.width=n.width+'px'; el.style.maxWidth='none'; }
-    if(n.height){ el.style.height=n.height+'px'; }
+    if(n.height){ el.style.minHeight=n.height+'px'; }
     // Reference/citation nodes get a distinct class
     if(n.ref) el.classList.add('ref-node');
     // Attached image renders as a thumbnail above the text (node goes column)
@@ -8322,26 +8326,36 @@ function applyLook(id){
   if(id && id!=='office') document.documentElement.setAttribute('data-look', id);
   else document.documentElement.removeAttribute('data-look');
   try{ localStorage.setItem('mindspark:look', id||'office'); }catch(e){}
-  // The previous fix (calling render() here at all) only helps if the font
-  // used for the measurement pass is the REAL font. Web fonts load
-  // asynchronously — the very first time Caveat/Patrick Hand gets used in a
-  // session, the font file may still be downloading at the exact moment
-  // this render() runs synchronously below. The browser then measures
-  // nodes against a FALLBACK font's metrics, and once the real font
-  // actually finishes loading, silently swaps it in and resizes the node
-  // text — with nothing re-measuring or redrawing edges for that swap on
-  // its own, since it's a browser-internal font-load event, not something
-  // this code otherwise reacts to. Explicitly wait for the specific font
-  // this look uses, then re-render once it's genuinely ready, to catch and
-  // correct that gap rather than hoping the immediate render() below was
-  // already accurate.
-  if(map) render();
+  // Two things need to happen here, not just a re-render:
+  // 1) Web fonts load asynchronously — the very first time Caveat/Patrick
+  //    Hand gets used in a session, the font file may still be downloading
+  //    at the exact moment this render() runs synchronously below. The
+  //    browser then measures nodes against a FALLBACK font's metrics, and
+  //    once the real font actually finishes loading, silently swaps it in
+  //    and resizes the node text — with nothing re-measuring on its own,
+  //    since it's a browser-internal event this code otherwise never reacts
+  //    to. Explicitly wait for the specific font this look uses, then
+  //    re-render once it's genuinely ready, to catch whatever the first
+  //    render() got wrong.
+  // 2) A look's larger font-size can make a node grow taller than it was
+  //    (nodes are width:max-content, and min-height is now a floor, not a
+  //    cap — see the node rendering code). Sibling positions were computed
+  //    for the OLD, smaller sizes, and nothing moves them just because a
+  //    node above/beside them grew in place — so a taller node can start
+  //    overlapping its neighbour. autoLayout() re-tidies based on current
+  //    sizes, the same way it already runs after a manual resize-drag. It
+  //    needs the explicit render() right before it, not just to run alone:
+  //    autoLayout() only force-remeasures nodes with NO measurement yet,
+  //    not ones with a stale measurement from before the font changed, so
+  //    without this render() first it would compute positions from
+  //    outdated sizes.
+  if(map){ render(); autoLayout(); }
   const look=LOOKS.find(l=>l.id===id);
   if(look && look.font && look.font!=='inherit' && document.fonts && document.fonts.load){
     const fontName = look.font.split(',')[0];   // '"Caveat"' from '"Caveat",cursive' — the
                                                   // actual web font; the rest is just a
                                                   // fallback keyword that needs no loading
-    document.fonts.load('1em '+fontName).then(()=>{ if(map) render(); }).catch(()=>{});
+    document.fonts.load('1em '+fontName).then(()=>{ if(map){ render(); autoLayout(); } }).catch(()=>{});
   }
 }
 function applyMapStyle(id){
