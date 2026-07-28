@@ -8293,7 +8293,7 @@ const THEMES = [
 // "I am in the Office" / "I am at Coffee Shop" / "I am back to School".
 const LOOKS = [
   {id:'office',      name:'in the<br>Office',  font:'inherit'},
-  {id:'coffee-shop', name:'at Coffee<br>Shop', font:'"Patrick Hand",cursive'},
+  {id:'coffee-shop', name:'at Coffee<br>Shop', font:'"Nunito",sans-serif'},
   {id:'handwritten', name:'back to<br>School', font:'"Caveat",cursive'}
 ];
 const MAP_STYLES = [

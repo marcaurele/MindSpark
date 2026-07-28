@@ -655,17 +655,24 @@
      override here either. Differentiated from Back to School through
      restraint, not a new color: a lighter 1.5px border (vs 2px) and a
      quieter diagonal-hatch canvas texture instead of overt ruled-paper
-     lines. Patrick Hand has only one weight (no bold), so emphasis here
-     comes from size, not font-weight:700 the way Back to School uses it —
-     forcing a fake-bold on a single-weight font looks poor. */
-  :root[data-look="coffee-shop"]{ --sans:"Patrick Hand",cursive; --serif:"Patrick Hand",cursive; }
-  :root[data-look="coffee-shop"] .node{ font-size:1.1em; }
+     lines.
+     Nunito (not a handwriting font, deliberately) needs no font-size
+     compensation on .node — unlike Caveat/Patrick Hand, it's designed to
+     read well at normal body-text size, so there's no bump here at all.
+     That also means this look carries much less risk of the
+     overflow/overlap class of bug a size bump can cause elsewhere (nodes
+     growing taller than manually-set sizes, edges drawn against stale
+     measurements) — not eliminated everywhere, but not something this
+     specific look needs to fight. Nunito genuinely has a bold weight
+     (unlike Patrick Hand's single weight), so emphasis below uses
+     font-weight:700 directly instead of a size-based workaround. */
+  :root[data-look="coffee-shop"]{ --sans:"Nunito",sans-serif; --serif:"Nunito",sans-serif; }
   :root[data-look="coffee-shop"] .stage{
     background-image:repeating-linear-gradient(135deg, var(--paper) 0px, var(--paper) 22px, var(--line) 23px);
     background-size:32px 32px; background-color:var(--paper);
   }
   :root[data-look="coffee-shop"] .nodebar{
-    font-size:1.2em;
+    font-weight:700;
     border-radius:14px 8px 14px 8px;
     border:1.5px solid var(--ink); box-shadow:none;
   }
@@ -674,7 +681,7 @@
   :root[data-look="coffee-shop"] .vf-card{
     border-radius:18px 7px 18px 7px; border:1.5px solid var(--ink); box-shadow:var(--shadow-lg);
   }
-  :root[data-look="coffee-shop"] .vf-card h2{font-size:1.3em}
+  :root[data-look="coffee-shop"] .vf-card h2{font-weight:700}
   :root[data-look="coffee-shop"] .row-pop,
   :root[data-look="coffee-shop"] .picker,
   :root[data-look="coffee-shop"] .donate-card,
