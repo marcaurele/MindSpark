@@ -3740,7 +3740,21 @@ window.addEventListener('mouseup',()=>{
   _movePt=null; _dragHidden=null;
   if(resizing){
     resizing = null;
-    // Re-tidy so the resized node's new footprint doesn't overlap its neighbours.
+    // Re-tidy so the resized node's new footprint doesn't overlap its
+    // neighbours. Needs an explicit render() first, not just autoLayout()
+    // alone: during the drag, n.w/n.h were set directly to match the
+    // dragged width/height (not measured from the DOM), and the node's
+    // height was held to that exact value while actively dragging. But
+    // min-height (not a hard cap — see the node rendering code) means the
+    // element can actually render TALLER than that dragged value once a
+    // normal render() runs, if the content needs more room than what was
+    // dragged to. autoLayout() only force-remeasures nodes with NO
+    // measurement at all, not ones with a stale one from the drag itself —
+    // so without this render() first, it would compute positions (and
+    // reserve neighbour spacing) from the stale, too-small dragged size,
+    // and the node could then visually overlap a neighbour once it renders
+    // at its true, larger size.
+    render();
     autoLayout();
     pushHistory();
   }
