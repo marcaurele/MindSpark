@@ -20,6 +20,7 @@ const SHELL = [
   './',
   './index.html',
   './app.js',
+  './templates.js',
   './styles.css',
   './manifest.webmanifest',
   './icon-192.png',

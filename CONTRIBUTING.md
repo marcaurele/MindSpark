@@ -23,7 +23,9 @@ the browser as a plain script, so what you edit is what runs — just reload.
 
 | Path | What it is |
 |---|---|
-| `public/app.js` | The whole client. One file, no modules. |
+| `public/app.js` | The client. Plain script, no modules or build step. |
+| `public/templates.js` | Prompt template data, split out of `app.js` for size. Loaded **before** it — see the note in that file. |
+| `public/sw.js` | Service worker (offline shell caching). |
 | `public/styles.css` | All styling, including themes and looks. |
 | `server.js` | Local dev server + SQLite persistence. |
 | `worker/` | Cloudflare Worker: sharing, collab, import endpoint. |
@@ -38,8 +40,9 @@ npm test
 All tests are plain `node:test` — no framework, no dependencies to install.
 
 `public/app.js` has no module exports, so it can't be imported. Tests for it
-use `test/helpers/load-app-fns.mjs`, which reads the **real source file** and
-lifts out individual function declarations. That means tests exercise the
+use `test/helpers/load-app-fns.mjs`, which reads the **real source files** and
+lifts out individual function declarations. It searches every client script,
+so it keeps working if a function moves between them. That means tests exercise the
 shipped code rather than a copy that could quietly drift — but it also means
 **renaming or deleting one of those functions will fail the tests**. If that
 happens, update the name in the relevant test; don't work around the harness.
