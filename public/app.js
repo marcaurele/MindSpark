@@ -7705,6 +7705,37 @@ async function exportPNG(){
   });
   const imgMap={};
   await Promise.all(ids.filter(i=>map.nodes[i].image).map(async i=>{ imgMap[i]=await loadImg(map.nodes[i].image); }));
+
+  // Favicons for link nodes, so the export matches what the live canvas shows.
+  // crossOrigin='anonymous' is the whole safety story here: favicons come from
+  // a third-party host, and drawing a cross-origin image WITHOUT it taints the
+  // canvas, which makes the final toBlob() throw and kills the entire export.
+  // With it, the browser either gets CORS headers and the icon is safe to
+  // draw, or the load fails outright and we simply skip that icon. A missing
+  // favicon is a cosmetic loss; a tainted canvas is a broken feature.
+  const loadFavicon = src => new Promise(resolve=>{
+    const img=new Image();
+    let done=false; const finish=v=>{ if(!done){ done=true; resolve(v); } };
+    img.crossOrigin='anonymous';
+    img.onload=()=>finish(img);
+    img.onerror=()=>finish(null);
+    setTimeout(()=>finish(null), 3000);   // never let a slow icon host stall the export
+    img.src=src;
+  });
+  const favicons={};
+  {
+    const hosts=new Set();
+    ids.forEach(i=>{
+      const t=map.nodes[i].text||'';
+      URL_RE.lastIndex=0; let m;
+      while((m=URL_RE.exec(t))!==null){
+        try{ hosts.add(new URL(m[0]).hostname.replace(/^www\./,'')); }catch(_){}
+      }
+    });
+    await Promise.all([...hosts].map(async h=>{
+      favicons[h]=await loadFavicon('https://icons.duckduckgo.com/ip3/'+h+'.ico');
+    }));
+  }
   let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
   ids.forEach(i=>{const n=map.nodes[i];minx=Math.min(minx,n.x);miny=Math.min(miny,n.y);maxx=Math.max(maxx,n.x+(n.w||120));maxy=Math.max(maxy,n.y+(n.h||40));});
   const pad=50,scale=2;
@@ -7875,6 +7906,7 @@ async function exportPNG(){
       });
     } else {
     drawFormattedText(ctx, n.text||'', {
+      favicons,
       x: textX,
       y: textCenterY,
       maxWidth: textMaxWidth,
@@ -7933,7 +7965,13 @@ async function exportPNG(){
     }
   });
 
-  cv.toBlob(b=>{download(b,(map.title||'mindmap')+'.png');toast('PNG exported');});
+  try{
+    cv.toBlob(b=>{download(b,(map.title||'mindmap')+'.png');toast('PNG exported');});
+  }catch(e){
+    // Only reachable if the canvas got tainted despite the CORS guard above.
+    console.warn('PNG export failed:', e.message);
+    toast('Could not export the PNG');
+  }
 }
 
 // Render text (possibly containing inline <b>/<i>/<u>/<s>/<a>/<br>/<ul>/<ol>/<li>)
@@ -7979,7 +8017,8 @@ function drawFormattedText(ctx, html, opts){
             while((m = URL_RE.exec(p)) !== null){
               matched = true;
               if(m.index > last) runs.push({ text:p.slice(last, m.index), ...st });
-              runs.push({ text:prettyUrl(m[0]), ...st, link:true, underline:true });
+              let _fh=''; try{ _fh=new URL(m[0]).hostname.replace(/^www\./,''); }catch(_){}
+              runs.push({ text:prettyUrl(m[0]), ...st, link:true, underline:true, favHost:_fh });
               last = m.index + m[0].length;
             }
             if(matched){ if(last < p.length) runs.push({ text:p.slice(last), ...st }); }
@@ -8019,19 +8058,31 @@ function drawFormattedText(ctx, html, opts){
   };
   const lines = [[]];
   let curW = 0;
+  // Favicons are preloaded by the caller (exportPNG) before we get here, so a
+  // missing or failed one is already known at measure time — that matters,
+  // because the icon's width has to be reserved during wrapping, not at draw
+  // time. `favicons` is keyed by hostname; a null value means "did not load",
+  // in which case nothing is reserved and nothing is drawn.
+  const favicons = opts.favicons || {};
+  const iconW = Math.round(fontPx * 1.15);   // icon box + trailing gap
   runs.forEach(run => {
     if(run.text === '\n'){ lines.push([]); curW = 0; return; }
     // Keep whitespace as separate chunks so wrapping breaks on it
     const parts = run.text.split(/(\s+)/);
+    let firstChunk = true;
     parts.forEach(part => {
       if(!part) return;
       setFont(run);
-      const w = ctx.measureText(part).width;
+      // Only the first visible chunk of a link run carries the icon — a
+      // wrapped URL must not repeat it on every line.
+      const fav = (firstChunk && run.favHost && favicons[run.favHost]) ? favicons[run.favHost] : null;
+      const w = ctx.measureText(part).width + (fav ? iconW : 0);
       if(curW + w > maxWidth && lines[lines.length-1].length > 0 && part.trim()){
         lines.push([]); curW = 0;
       }
-      lines[lines.length-1].push({ text:part, w, bold:run.bold, italic:run.italic, underline:run.underline, strike:run.strike, link:run.link });
+      lines[lines.length-1].push({ text:part, w, bold:run.bold, italic:run.italic, underline:run.underline, strike:run.strike, link:run.link, fav });
       curW += w;
+      if(part.trim()) firstChunk = false;
     });
   });
   while(lines.length > 1 && lines[lines.length-1].length === 0) lines.pop();
@@ -8054,13 +8105,21 @@ function drawFormattedText(ctx, html, opts){
       setFont(run);
       const runColor = run.link ? linkColor : color;
       ctx.fillStyle = runColor;
-      ctx.fillText(run.text, xx, yy);
+      let tx = xx;
+      if(run.fav){
+        const box = Math.round(fontPx * 0.9);
+        try{ ctx.drawImage(run.fav, xx, yy - box*0.78, box, box); }
+        catch(e){ /* never let a bad icon abort the whole export */ }
+        tx += iconW;
+      }
+      ctx.fillText(run.text, tx, yy);
       if(run.underline || run.strike){
         ctx.strokeStyle = runColor;
         ctx.lineWidth = Math.max(1, fontPx/15);
         ctx.beginPath();
         const ly = run.underline ? (yy + fontPx*0.38) : (yy - fontPx*0.18);
-        ctx.moveTo(xx, ly); ctx.lineTo(xx + run.w, ly);
+        // Underline only the text, not the icon.
+        ctx.moveTo(tx, ly); ctx.lineTo(xx + run.w, ly);
         ctx.stroke();
       }
       xx += run.w;

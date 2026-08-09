@@ -129,7 +129,8 @@ function buildMapFromSpec(spec) {
 
 // ---- tiny helpers --------------------------------------------------------
 const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css',
-  '.json':'application/json', '.svg':'image/svg+xml', '.png':'image/png', '.ico':'image/x-icon' };
+  '.json':'application/json', '.svg':'image/svg+xml', '.png':'image/png', '.ico':'image/x-icon',
+  '.webmanifest':'application/manifest+json' };
 const send = (res, code, body, type='application/json') => {
   res.writeHead(code, { 'Content-Type': type });
   res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
