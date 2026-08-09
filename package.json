@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server.js",
     "dev": "node --disable-warning=ExperimentalWarning --watch server.js",
+    "test": "node --test \"test/*.test.mjs\"",
     "deploy": "wrangler deploy",
     "preview": "wrangler dev",
     "build:exe": "pkg . --output dist/mindspark",
