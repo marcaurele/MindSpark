@@ -22,7 +22,7 @@ export async function handleImport(request, env){
   if (env.IMPORT_TOKEN && request.headers.get('Authorization') !== `Bearer ${env.IMPORT_TOKEN}`)
     return J(401, { error: 'unauthorized' });
 
-  let spec; try { spec = await request.json(); } catch (e) { return J(400, { error: 'body must be valid JSON' }); }
+  let spec; try { const _t = await request.text(); spec = JSON.parse(_t, (k, v) => (k === '__proto__' || k === 'constructor') ? undefined : v); } catch (e) { return J(400, { error: 'body must be valid JSON' }); }
   let map;  try { map = buildMapFromSpec(spec); } catch (e) { return J(400, { error: String(e && e.message || e) }); }
 
   // Same shape as the app's _shareePayload(); the shared view runs autoLayout()
