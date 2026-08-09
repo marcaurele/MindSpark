@@ -7,6 +7,33 @@
                   `mindspark-maps` repo. No backend required.
    `initStore()` probes /healthz, then picks one.
    ============================================================ */
+
+/* ------------------------------------------------------------
+   On `catch(e){}` in this file.
+
+   Empty catches here are deliberate, not oversights — but only for
+   operations where failing is genuinely a non-event:
+
+     - best-effort localStorage/sessionStorage writes (view state, UI
+       scale, theme, backup caches). Storage can be full or blocked by
+       privacy settings; every read path already copes with the value
+       being absent, so there is nothing useful to say.
+     - DOM teardown (`el.remove()`, closing popups) where the element
+       may already be gone.
+     - cosmetic niceties (caret placement, history.replaceState URL
+       tidying) that no behaviour depends on.
+
+   Anything that can lose the user's work, leave local and remote state
+   disagreeing, or make a click the user just made do nothing MUST NOT
+   be swallowed. Those log via console.warn, and additionally toast()
+   when the user initiated the action and would otherwise see no
+   response at all. A silent failure there is how a real bug once
+   presented as "the sign-in popup just never appears".
+
+   If you are adding a new catch, decide which of those two groups it
+   is in. When in doubt, warn — noise in the console is cheaper than an
+   invisible failure.
+   ------------------------------------------------------------ */
 const ServerStore = {
   async _j(url,opt){ const r=await fetch(url,opt); if(!r.ok) throw new Error(r.status); return r.status===204?null:r.json(); },
   async list(){ try{ return await this._j('/api/maps'); }catch(e){ return []; } },
@@ -16,7 +43,7 @@ const ServerStore = {
     try{ await this._j('/api/maps/'+map.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(map)}); }
     catch(e){ await this._j('/api/maps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(map)}); }
   },
-  async remove(id){ try{ await this._j('/api/maps/'+id,{method:'DELETE'}); }catch(e){} },
+  async remove(id){ try{ await this._j('/api/maps/'+id,{method:'DELETE'}); }catch(e){ console.warn('map delete failed on the server; it is gone locally but may still exist remotely:', e.message); } },
   // Version history (SQLite-backed snapshots)
   async history(id){ try{ return await this._j('/api/maps/'+id+'/versions'); }catch(e){ return []; } },
   async version(id, ref){ try{ return await this._j('/api/maps/'+id+'/versions/'+ref); }catch(e){ return null; } }
@@ -5857,7 +5884,7 @@ async function restoreVersion(mapId, ref){
   map=restored;
   history=[]; hpos=-1; pushHistory();   // restored state becomes a fresh undo baseline
   render(); fit();
-  try{ await Store.save(map); }catch(e){}
+  try{ await Store.save(map); }catch(e){ console.warn('save after history restore failed:', e.message); toast('Restored, but saving failed \u2014 changes are local only'); }
   document.querySelectorAll('.hist-banner,.hist-panel').forEach(p=>p.remove());
   refreshList();
   toast('Version restored');
@@ -8862,7 +8889,7 @@ async function seedDemoMap(){
   const savedV=loadMapView(map.id);
   if(savedV) applyMapView(savedV); else fit();
   refreshList();
-  try{ await Store.save(map); }catch(e){}
+  try{ await Store.save(map); }catch(e){ console.warn('save after map load failed:', e.message); }
   return true;
 }
 async function proceedBoot(){
@@ -8871,7 +8898,7 @@ async function proceedBoot(){
   if(await consumePendingImport()) return;
   try{ const _mid=new URLSearchParams(location.search).get('map'); if(_mid && await loadMap(_mid)) return; }catch(e){}
   let idx=[];
-  try{ idx=await Store.list(); }catch(e){}
+  try{ idx=await Store.list(); }catch(e){ console.warn('could not list maps; starting with an empty list:', e.message); }
   if(idx && idx.length){
     const ok=await loadMap(idx[0].id);
     if(!ok) createMap();
@@ -8886,7 +8913,7 @@ async function proceedBoot(){
         const n=await Store.restoreOrphans(orphans);
         if(n) toast(n+' recovered map'+(n>1?'s':'')+' restored to your list');
       }catch(e){}
-      let idx2=[]; try{ idx2=await Store.list(); }catch(e){}
+      let idx2=[]; try{ idx2=await Store.list(); }catch(e){ console.warn('could not re-list maps after orphan recovery:', e.message); }
       if(idx2.length && await loadMap(idx2[0].id)) return;
     }
     // Truly empty store: on first run, seed the demo sample instead of a blank map.
@@ -9161,7 +9188,7 @@ async function consumePendingImport(){
   sel=map.rootId; history=[]; hpos=-1; pushHistory();
   $('#mapTitle').value=map.title;
   render(); fit();
-  if(typeof Store!=='undefined' && Store){ try{ await Store.save(map); }catch(e){} }
+  if(typeof Store!=='undefined' && Store){ try{ await Store.save(map); }catch(e){ console.warn('saving the editable copy failed:', e.message); toast('Copy created, but saving failed \u2014 it is local only'); } }
   refreshList();
   toast('Editable copy created');
   return true;
@@ -9232,9 +9259,9 @@ const Collab = (function(){
     ws.onerror=()=>{ toast('Live connection error'); };
   }
   function stop(notify){ clearInterval(pingTimer); clearInterval(reapTimer); if(ws){ try{ ws.close(); }catch(e){} } ws=null; active=false; room=null; peers.clear(); clearCursors(); updatePill(); if(notify) toast('Left live session'); }
-  function send(o){ if(ws&&ws.readyState===1){ try{ ws.send(JSON.stringify(o)); }catch(e){} } }
+  function send(o){ if(ws&&ws.readyState===1){ try{ ws.send(JSON.stringify(o)); }catch(e){ console.warn('live-session send failed; this edit was not broadcast:', e.message); } } }
   function link(){ return location.origin+location.pathname+'#live='+room; }
-  function copyLink(){ try{ navigator.clipboard.writeText(link()); }catch(e){} }
+  function copyLink(){ try{ navigator.clipboard.writeText(link()); }catch(e){ console.warn('clipboard write failed:', e.message); toast('Could not copy \u2014 copy the link from the address bar'); } }
 
   function onMessage(data){
     let m; try{ m=JSON.parse(data); }catch(e){ return; }
@@ -9527,7 +9554,7 @@ async function publishSharedMap(){
     }
     if(!r.ok) throw new Error('HTTP '+r.status);
     const editLink=location.origin+location.pathname+'#shared='+room+':'+map._editToken;
-    try{ await navigator.clipboard.writeText(editLink); }catch(e){}
+    try{ await navigator.clipboard.writeText(editLink); }catch(e){ console.warn('clipboard write failed:', e.message); toast('Could not copy the edit link'); }
     map._shareRoom = room;
     // New editable shares require collaborators to sign in (legacy links stay anonymous until re-shared).
     try{ await accessApi(room, 'link', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ access:'edit-auth' }) }); }catch(e){}
@@ -9687,7 +9714,7 @@ async function _recoverCloudSave(ce){
     try{ _saveSharedStore(_sharedStore().filter(x=>x.id!==baseId)); }catch(e){}   // drop the dead base-room entry
     const link=location.origin+location.pathname+'#shared='+room+':'+token;
     try{ window.history.replaceState(null,'',link); }catch(e){}
-    try{ await navigator.clipboard.writeText(link); }catch(e){}
+    try{ await navigator.clipboard.writeText(link); }catch(e){ console.warn('clipboard write failed:', e.message); toast('Could not copy the link'); }
     _cloudPollSig=JSON.stringify(_shareePayload(map)); stopCloudPoll(); startCloudPoll(room);
     toast('Old share link was out of sync \u2014 created a fresh editable link (copied). Re-share it with collaborators.');
     return true;
