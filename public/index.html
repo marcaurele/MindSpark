@@ -190,6 +190,9 @@
   </div>
 </div>
 
+<!-- Template data, split out of app.js. Must load first: app.js
+     references TEMPLATES/TEMPLATE_CATEGORIES, which are `const`. -->
+<script src="/templates.js"></script>
 <script src="/app.js"></script>
 <script>
   // Service worker: offline access to the app shell. Deliberately skipped

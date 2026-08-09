@@ -12,11 +12,22 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const APP_JS = join(here, '..', '..', 'public', 'app.js');
+const PUBLIC = join(here, '..', '..', 'public');
+
+// The client is split across several plain <script> files that all share one
+// global scope in the browser (see index.html). Order here mirrors the load
+// order there. A tested function may live in any of them, so search all —
+// otherwise splitting a file would break tests that have nothing to do with
+// the split.
+const CLIENT_FILES = ['templates.js', 'app.js'];
 
 let _src = null;
 function source() {
-  if (_src === null) _src = readFileSync(APP_JS, 'utf8');
+  if (_src === null) {
+    _src = CLIENT_FILES
+      .map(f => readFileSync(join(PUBLIC, f), 'utf8'))
+      .join('\n');
+  }
   return _src;
 }
 
@@ -46,7 +57,7 @@ export function extractFunction(name) {
       return candidate;
     } catch { /* not the end yet — keep going */ }
   }
-  throw new Error(`load-app-fns: could not find the end of ${name}()`);
+  throw new Error(`load-app-fns: could not find the end of ${name}() (searched ${CLIENT_FILES.join(', ')})`);
 }
 
 /**
