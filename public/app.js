@@ -369,6 +369,22 @@ async function initStore(){
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,9);
+// Per-node marker badges (issue #13). A deliberately small, curated set
+// rather than a full emoji keyboard: these are meant to be scannable at a
+// glance across a whole map, which stops working once there are hundreds of
+// near-identical glyphs. Stored as the literal character in n.marker, so no
+// mapping table has to stay in sync with saved maps.
+// NOTE the \u{...} form for anything above U+FFFF: plain \uXXXX takes exactly
+// four hex digits, so '\u1F6A9' silently parses as '\u1F6A' followed by a
+// literal '9' and renders as garbage rather than a flag.
+const MARKERS=[
+  {c:'\u2B50',    label:'Star'},     {c:'\u2757',    label:'Important'},
+  {c:'\u2753',    label:'Question'}, {c:'\u{1F6A9}', label:'Flag'},
+  {c:'\u{1F525}', label:'Hot'},      {c:'\u{1F4A1}', label:'Idea'},
+  {c:'\u{1F440}', label:'Review'},   {c:'\u{1F512}', label:'Blocked'},
+  {c:'\u2705',    label:'Approved'}, {c:'\u26A0',    label:'Risk'},
+  {c:'\u{1F3AF}', label:'Goal'},     {c:'\u{1F4CC}', label:'Pinned'},
+];
 const NODE_COLORS=['#ffffff','#ffe2d6','#ffedc2','#dcefce','#cfe9e6','#d8e0fb','#efd9f2','#e9e2d6'];
 const PALETTE=['#e0613a','#2f6f6a','#c98a1a','#5a7d3a','#3a6ea5','#9b4f96','#8a8175'];
 
@@ -657,6 +673,18 @@ function render(){
         el.insertBefore(cap, el.firstChild);
       });
       el.appendChild(img);
+    }
+    // Marker badge — click to change, same interaction shape as the task
+    // checkbox below it.
+    if(n.marker){
+      const mk=document.createElement('span');
+      mk.className='node-marker';
+      mk.textContent=n.marker;
+      const mkLabel=(MARKERS.find(m=>m.c===n.marker)||{}).label;
+      mk.title=(mkLabel?mkLabel+' — ':'')+'click to change';
+      mk.addEventListener('mousedown',ev=>ev.stopPropagation());
+      mk.addEventListener('click',ev=>{ ev.stopPropagation(); showMarkerPicker(mk, id); });
+      el.appendChild(mk);
     }
     // Task checkbox — click to advance todo → doing → done
     if(n.task){
@@ -2753,6 +2781,39 @@ function pruneLinks(removedIds){
 /* ============================================================
    TASK STATE — todo → doing → done, with parent roll-up
    ============================================================ */
+// Marker palette popup. Anchored to whatever was clicked (nodebar button or
+// the badge itself) so it appears next to the thing the user acted on.
+function showMarkerPicker(anchor, id){
+  const n=map.nodes[id]; if(!n) return;
+  if(READONLY) return;
+  const cur=n.marker||'';
+  const p=document.createElement('div');
+  p.className='picker marker-picker'; p._anchor=anchor;
+  p.innerHTML = MARKERS.map(m=>
+      `<button data-v="${m.c}" title="${escapeHtml(m.label)}" class="${m.c===cur?'on':''}">${m.c}</button>`
+    ).join('') +
+    `<button data-v="" title="Remove marker" class="mk-none">\u2716</button>`;
+  document.body.appendChild(p);
+  positionPopup(p, anchor, {align:'left'});
+  p.addEventListener('mousedown',ev=>ev.stopPropagation());
+  p.querySelectorAll('button').forEach(b=> b.onclick=ev=>{
+    ev.stopPropagation();
+    setMarker(id, b.dataset.v);
+    p.remove();
+  });
+  // Close on the next outside click, matching how the other popups behave.
+  setTimeout(()=>{
+    const off=ev=>{ if(!p.contains(ev.target)){ p.remove(); document.removeEventListener('mousedown',off); } };
+    document.addEventListener('mousedown',off);
+  },0);
+}
+function setMarker(id, ch){
+  const n=map.nodes[id]; if(!n) return;
+  if(ch) n.marker=ch; else delete n.marker;
+  // autoLayout, not just render: the badge changes the node's width, and
+  // neighbours were positioned for the old size.
+  pushHistory(); render(); autoLayout();
+}
 function cycleTask(id){
   const n=map.nodes[id]; if(!n) return;
   const order=[null,'todo','doing','done'];
@@ -3507,6 +3568,7 @@ function positionNodeBar(){
       <button data-a="edit" title="Edit (F2)">✎</button>
       <button data-a="notes" class="${(n.notes||'').trim()?'on':''}" title="${(n.notes||'').trim()?'Edit notes':'Add notes'}">📝</button>
       <button data-a="task" class="${n.task?'on':''}" title="Task state (todo / doing / done)">☑</button>
+      <button data-a="marker" class="${n.marker?'on':''}" title="${n.marker?'Change marker':'Add a marker'}">${n.marker||'\u2B50'}</button>
       <button data-a="cite" class="${n.ref?'on':''}" title="Reference / citation">📖</button>
       <button data-a="image" class="${n.image?'on':''}" title="Attach image">🖼</button>
       ${!isRoot?'<button data-a="del" title="Delete (Del)">🗑</button>':''}
@@ -3589,6 +3651,7 @@ function positionNodeBar(){
       else if(a==='ol') toggleList('ol');
       else if(a==='notes') showNotesEditor(sel);
       else if(a==='task') cycleTask(sel);
+      else if(a==='marker'){ showMarkerPicker(b, sel); return; }   // return: keep the bar open behind the picker
       else if(a==='cite') showCitationForm(sel);
       else if(a==='image'){
         if(map.nodes[sel].image){
@@ -7117,10 +7180,18 @@ async function exportPNG(){
     }
     const baseX = n.x+insetX;
     let textX = baseX, textMaxWidth = w-insetX*2;
+    // Marker badge — drawn before the task box so export order matches the DOM.
+    if(n.marker){
+      ctx.font='15px sans-serif'; ctx.textAlign='start'; ctx.textBaseline='middle';
+      ctx.fillStyle=textFill;
+      ctx.fillText(n.marker, textX, textCenterY);
+      const mw=ctx.measureText(n.marker).width+6;
+      textX += mw; textMaxWidth -= mw;
+    }
     // Task checkbox — 18px box + 7px gap, matching .task-check's live CSS exactly
     if(n.task){
-      const boxSize=18, boxY=textCenterY-boxSize/2;
-      roundRect(ctx, baseX, boxY, boxSize, boxSize, 5);
+      const boxSize=18, boxY=textCenterY-boxSize/2, boxX=textX;
+      roundRect(ctx, boxX, boxY, boxSize, boxSize, 5);
       ctx.fillStyle = n.task==='done' ? '#4a9d5b' : themeNodeBg;
       ctx.fill();
       ctx.strokeStyle = n.task==='doing' ? '#c98a1a' : (n.task==='done' ? '#4a9d5b' : themeLine);
@@ -7128,10 +7199,10 @@ async function exportPNG(){
       if(n.task==='done'||n.task==='doing'){
         ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillStyle = n.task==='done' ? '#fff' : '#c98a1a';
-        ctx.fillText(n.task==='done'?'\u2713':'\u25D0', baseX+boxSize/2, boxY+boxSize/2+1);
+        ctx.fillText(n.task==='done'?'\u2713':'\u25D0', boxX+boxSize/2, boxY+boxSize/2+1);
         ctx.textAlign='start';
       }
-      textX = baseX+boxSize+7; textMaxWidth -= boxSize+7;
+      textX = boxX+boxSize+7; textMaxWidth -= boxSize+7;
     }
     // Render with inline B/I/U/S support, list bullets, line wrapping.
     // Nodes with $...$ math go through the canvas math renderer so equations

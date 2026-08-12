@@ -78,6 +78,16 @@ export function buildMapFromSpec(spec){
     if (n.align === 'left' || n.align === 'center' || n.align === 'right') node.align = n.align;
     // Checklist item: "done" or "todo".
     if (n.task === 'done' || n.task === 'todo') node.task = n.task;
+    // Marker badge. Validated as a short string rather than against a fixed
+    // list: the in-app palette can grow without this endpoint rejecting maps
+    // exported from a newer client, and the length cap keeps it a badge
+    // rather than a second text field.
+    if (typeof n.marker === 'string') {
+      // Trim BEFORE the length check — otherwise a padded but perfectly valid
+      // marker like '  \u2B50  ' is rejected for being "too long".
+      const mk = n.marker.trim();
+      if (mk && [...mk].length <= 2) node.marker = mk;
+    }
     if (n.citation && typeof n.citation === 'object') {
       const c = n.citation, cit = {};
       if (Array.isArray(c.authors) && c.authors.length) cit.authors = c.authors.join(', ');
