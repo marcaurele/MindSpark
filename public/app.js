@@ -2901,7 +2901,10 @@ function readImageFile(file,id){
       let data;
       try{ data=cv.toDataURL('image/jpeg',0.82); }catch(e){ data=reader.result; }
       map.nodes[id].image=data;
-      pushHistory(); render();
+      // autoLayout(), not just render(): the node grows to fit the image, and
+      // its neighbours' positions were computed for the old, smaller size —
+      // without a re-tidy the enlarged node overlaps them.
+      pushHistory(); render(); autoLayout();
       const kb=Math.round(data.length/1024);
       toast(`Image attached (~${kb} KB)`+(kb>500 && MODE==='cloud'?' — large images slow cloud sync':''));
     };
@@ -2985,6 +2988,12 @@ if(stage){
     const file = firstImageFile(e.dataTransfer);
     if(!file){ toast('Only image files can be attached'); return; }
     if(e.dataTransfer.files && e.dataTransfer.files.length > 1) toast('Attaching the first image only');
+    // Same commit-first reasoning as the paste handler below.
+    const editingEl = document.querySelector('.node.editing');
+    if(editingEl){
+      const te = editingEl.querySelector('.node-text') || editingEl;
+      te.blur();
+    }
     readImageFile(file, id);
   });
 }
@@ -2993,9 +3002,23 @@ window.addEventListener('paste', e => {
   if(READONLY) return;
   const file = firstImageFile(e.clipboardData);
   if(!file) return;                       // ordinary text paste — leave it alone
-  if(!sel || !map || !map.nodes[sel]){ toast('Select a topic first, then paste the image'); return; }
+
+  // If a node is mid-edit, commit that edit BEFORE attaching the image.
+  // startEdit() represents an existing image as ![alt](src) markdown inside
+  // the editable text, and finish() parses it back out on commit — including
+  // a branch that DELETES n.image when the text contains no such markdown.
+  // Setting n.image directly during an edit produces exactly that state, so
+  // the image was being wiped the moment focus left the node. Committing
+  // first means the attach lands on a settled node instead.
+  const editingEl = document.querySelector('.node.editing');
+  const targetId = (editingEl && editingEl.dataset.id) || sel;
+  if(!targetId || !map || !map.nodes[targetId]){ toast('Select a topic first, then paste the image'); return; }
   e.preventDefault();                      // only now, once we know we are handling it
-  readImageFile(file, sel);
+  if(editingEl){
+    const te = editingEl.querySelector('.node-text') || editingEl;
+    te.blur();                             // synchronous: onBlur -> finish(true)
+  }
+  readImageFile(file, targetId);
 });
 
 /* ============================================================

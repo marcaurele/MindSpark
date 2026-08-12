@@ -1393,10 +1393,22 @@
 
   /* ===== Task state ===== */
   .node.has-image{flex-direction:column; align-items:stretch; padding-top:8px}
+  /* Image nodes size themselves to the picture. Two changes from the
+     original rule, both deliberate:
+       - object-fit was `cover`, which CROPS the image to fill the box; an
+         attached picture should be shown in full, so `contain` + auto
+         dimensions let it keep its own aspect ratio.
+       - .node caps at 240px, which squeezed every picture regardless of its
+         real size. Images are down-scaled to 360px wide on attach
+         (readImageFile), so 400px here lets one display at natural size
+         including the node's 15px horizontal padding, while still bounding
+         how large a card can get. */
   .node .node-image{
-    max-width:100%; max-height:200px; border-radius:8px; object-fit:cover;
+    max-width:100%; max-height:280px; width:auto; height:auto;
+    border-radius:8px; object-fit:contain;
     margin-bottom:6px; cursor:zoom-in; display:block;
   }
+  .node.has-image{ max-width:400px; }
   .node .task-check{
     flex-shrink:0; width:18px; height:18px; margin-right:7px;
     border:2px solid var(--line-2); border-radius:5px;
