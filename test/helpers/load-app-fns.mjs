@@ -74,11 +74,28 @@ export function loadFns(names, deps = {}) {
   return factory(...depNames.map(k => deps[k]));
 }
 
-/** Extract a top-level `const NAME = ...;` single-line declaration (e.g. a regex). */
+/**
+ * Extract a top-level `const NAME = ...;` declaration and evaluate it.
+ *
+ * Handles multi-line values (arrays of objects, and so on), not just
+ * one-liners: as with extractFunction above, the end is found by asking the
+ * JS parser — try each following `;` as a candidate terminator and return the
+ * first slice that compiles. The earlier single-line-only regex silently
+ * failed to find anything spanning more than one line.
+ */
 export function extractConst(name) {
   const src = source();
-  const re = new RegExp(`^const\\s+${name}\\s*=\\s*(.+?);\\s*$`, 'm');
+  const re = new RegExp(`^const\\s+${name}\\s*=\\s*`, 'm');
   const m = re.exec(src);
-  if (!m) throw new Error(`load-app-fns: const ${name} not found in public/app.js`);
-  return new Function(`return (${m[1]});`)();
+  if (!m) {
+    throw new Error(`load-app-fns: const ${name} not found (searched ${CLIENT_FILES.join(', ')})`);
+  }
+  const valueStart = m.index + m[0].length;
+  for (let i = src.indexOf(';', valueStart); i !== -1; i = src.indexOf(';', i + 1)) {
+    const candidate = src.slice(valueStart, i);
+    try {
+      return new Function(`return (${candidate});`)();
+    } catch { /* not a complete expression yet — keep going */ }
+  }
+  throw new Error(`load-app-fns: could not evaluate const ${name}`);
 }

@@ -1409,6 +1409,25 @@
     margin-bottom:6px; cursor:zoom-in; display:block;
   }
   .node.has-image{ max-width:400px; }
+  /* Marker badge — sits beside the task checkbox and uses the same
+     flex-shrink:0 / vertical-align treatment so the two line up when a node
+     has both. font-size is nudged up because emoji render smaller than
+     surrounding text at the same size. */
+  .node .node-marker{
+    flex-shrink:0; margin-right:6px; font-size:17px; line-height:1;
+    cursor:pointer; user-select:none; vertical-align:middle;
+  }
+  .node .node-marker:hover{ transform:scale(1.15); }
+  .picker.marker-picker{
+    display:grid; grid-template-columns:repeat(4, 1fr); gap:2px; padding:6px;
+  }
+  .picker.marker-picker button{
+    font-size:19px; line-height:1; padding:6px; border-radius:8px;
+    background:none; border:1.5px solid transparent; cursor:pointer;
+  }
+  .picker.marker-picker button:hover{ background:var(--hover); }
+  .picker.marker-picker button.on{ border-color:var(--accent); background:var(--paper-2); }
+  .picker.marker-picker button.mk-none{ grid-column:1 / -1; font-size:13px; color:var(--ink-soft); }
   .node .task-check{
     flex-shrink:0; width:18px; height:18px; margin-right:7px;
     border:2px solid var(--line-2); border-radius:5px;
