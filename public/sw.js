@@ -6,15 +6,20 @@
  *
  *   - HTML is network-first, so a deploy is picked up on the next load and
  *     the cached copy is only a fallback when offline.
- *   - Static assets (js/css/png) are cache-first for speed, but the cache
- *     name is versioned — bump CACHE below on release and old caches are
- *     deleted on activate.
+ *   - App CODE (js/css) is network-first, same as HTML. This project has no
+ *     build step and no content hashing in filenames, so app.js keeps the
+ *     same URL forever. Serving it cache-first pinned every browser that had
+ *     loaded the app once to that exact build — no reload fixed it, and only
+ *     a manual CACHE bump would have released it. That is not a theoretical
+ *     risk: it silently shipped a stale app.js and made a deployed bug fix
+ *     look like it had not worked.
+ *   - Only genuinely immutable assets (icons) stay cache-first.
  *   - /api/* and cross-origin requests are never touched. Map data lives in
  *     SQLite or the user's own GitHub repo; serving a stale copy of it would
  *     be actively harmful, not merely unhelpful.
  *   - Only GET is handled. Anything else falls through to the network.
  */
-const CACHE = 'mindspark-shell-v1';
+const CACHE = 'mindspark-shell-v2';   // bumped: v1 could pin clients to a stale app.js
 
 const SHELL = [
   './',
@@ -61,8 +66,10 @@ self.addEventListener('fetch', event => {
 
   const isHTML = request.mode === 'navigate' ||
     (request.headers.get('accept') || '').includes('text/html');
+  // Treat app code like HTML: it changes on every deploy and its URL never does.
+  const isAppCode = /\.(?:js|mjs|css|webmanifest)$/.test(url.pathname);
 
-  if (isHTML) {
+  if (isHTML || isAppCode) {
     // Network-first: always prefer a fresh shell, fall back when offline.
     event.respondWith((async () => {
       try {
@@ -70,14 +77,22 @@ self.addEventListener('fetch', event => {
         if (res.ok) (await caches.open(CACHE)).put(request, res.clone());
         return res;
       } catch {
-        return (await caches.match(request)) || (await caches.match('./index.html')) ||
-          new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+        const hit = await caches.match(request);
+        if (hit) return hit;
+        // Only fall back to the shell for navigations — returning index.html
+        // in place of a missing .js would be worse than a clean failure.
+        if (isHTML) {
+          return (await caches.match('./index.html')) ||
+            new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+        }
+        return new Response('', { status: 504 });
       }
     })());
     return;
   }
 
-  // Static assets: cache-first, refreshing the entry in the background.
+  // Immutable assets only (icons): cache-first is safe because their
+  // contents never change without the filename changing.
   event.respondWith((async () => {
     const cached = await caches.match(request);
     if (cached) return cached;
