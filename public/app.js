@@ -2901,7 +2901,10 @@ function readImageFile(file,id){
       let data;
       try{ data=cv.toDataURL('image/jpeg',0.82); }catch(e){ data=reader.result; }
       map.nodes[id].image=data;
-      pushHistory(); render();
+      // autoLayout(), not just render(): the node grows to fit the image, and
+      // its neighbours' positions were computed for the old, smaller size —
+      // without a re-tidy the enlarged node overlaps them.
+      pushHistory(); render(); autoLayout();
       const kb=Math.round(data.length/1024);
       toast(`Image attached (~${kb} KB)`+(kb>500 && MODE==='cloud'?' — large images slow cloud sync':''));
     };
@@ -2910,6 +2913,113 @@ function readImageFile(file,id){
   };
   reader.readAsDataURL(file);
 }
+
+/* ------------------------------------------------------------
+   Drag-and-drop / paste an image straight onto a node.
+
+   Both paths funnel into readImageFile() above, so the down-scale,
+   size warning and cloud-sync caveat are shared rather than
+   reimplemented.
+
+   Note these use the HTML5 drag events (dragover/drop), which are a
+   completely separate channel from the mousedown/mousemove dragging
+   used to reparent nodes — so file drops and node dragging cannot
+   interfere with each other.
+   ------------------------------------------------------------ */
+
+// Which node, if any, is under these viewport coordinates?
+function nodeIdAtPoint(clientX, clientY){
+  const el = document.elementFromPoint(clientX, clientY);
+  const nodeEl = el && el.closest ? el.closest('.node') : null;
+  const id = nodeEl && nodeEl.dataset.id;
+  return (id && map && map.nodes && map.nodes[id]) ? id : null;   // must be a live node
+}
+
+// Pull the first image out of a DataTransfer, whether it arrived as a
+// dropped file or as a pasted clipboard item.
+function firstImageFile(dt){
+  if(!dt) return null;
+  const files = dt.files && dt.files.length ? [...dt.files] : [];
+  if(files.length) return files.find(f => f.type.startsWith('image/')) || null;
+  // Clipboard images arrive as items with no entry in .files
+  if(dt.items){
+    for(const it of dt.items){
+      if(it.kind === 'file'){
+        const f = it.getAsFile();
+        if(f && f.type.startsWith('image/')) return f;
+      }
+    }
+  }
+  return null;
+}
+
+let _fileDropEl = null;
+function setFileDropTarget(el){
+  if(_fileDropEl === el) return;
+  if(_fileDropEl) _fileDropEl.classList.remove('file-drop');
+  _fileDropEl = el;
+  if(_fileDropEl) _fileDropEl.classList.add('file-drop');
+}
+
+if(stage){
+  stage.addEventListener('dragover', e => {
+    // Only claim the event for actual file drags — otherwise a text
+    // selection drag would be hijacked too.
+    if(READONLY || !e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    const id = nodeIdAtPoint(e.clientX, e.clientY);
+    // A separate class from .drop-target on purpose: that one means
+    // "nest as child" during node dragging, and reusing it here would
+    // promise something this drop does not do.
+    setFileDropTarget(id ? viewport.querySelector(`.node[data-id="${id}"]`) : null);
+  });
+
+  stage.addEventListener('dragleave', e => {
+    if(e.target === stage || !stage.contains(e.relatedTarget)) setFileDropTarget(null);
+  });
+
+  stage.addEventListener('drop', e => {
+    if(READONLY || !e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
+    e.preventDefault();
+    setFileDropTarget(null);
+    const id = nodeIdAtPoint(e.clientX, e.clientY);
+    if(!id){ toast('Drop an image onto a topic card to attach it'); return; }
+    const file = firstImageFile(e.dataTransfer);
+    if(!file){ toast('Only image files can be attached'); return; }
+    if(e.dataTransfer.files && e.dataTransfer.files.length > 1) toast('Attaching the first image only');
+    // Same commit-first reasoning as the paste handler below.
+    const editingEl = document.querySelector('.node.editing');
+    if(editingEl){
+      const te = editingEl.querySelector('.node-text') || editingEl;
+      te.blur();
+    }
+    readImageFile(file, id);
+  });
+}
+
+window.addEventListener('paste', e => {
+  if(READONLY) return;
+  const file = firstImageFile(e.clipboardData);
+  if(!file) return;                       // ordinary text paste — leave it alone
+
+  // If a node is mid-edit, commit that edit BEFORE attaching the image.
+  // startEdit() represents an existing image as ![alt](src) markdown inside
+  // the editable text, and finish() parses it back out on commit — including
+  // a branch that DELETES n.image when the text contains no such markdown.
+  // Setting n.image directly during an edit produces exactly that state, so
+  // the image was being wiped the moment focus left the node. Committing
+  // first means the attach lands on a settled node instead.
+  const editingEl = document.querySelector('.node.editing');
+  const targetId = (editingEl && editingEl.dataset.id) || sel;
+  if(!targetId || !map || !map.nodes[targetId]){ toast('Select a topic first, then paste the image'); return; }
+  e.preventDefault();                      // only now, once we know we are handling it
+  if(editingEl){
+    const te = editingEl.querySelector('.node-text') || editingEl;
+    te.blur();                             // synchronous: onBlur -> finish(true)
+  }
+  readImageFile(file, targetId);
+});
 
 /* ============================================================
    SEARCH ACROSS ALL MAPS
