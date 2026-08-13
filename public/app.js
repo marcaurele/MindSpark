@@ -1305,6 +1305,16 @@ function drawEdges(hidden){
     const p=map.nodes[n.parent]; if(!p) continue;
     // Choose attach points based on layout orientation
     let x1,y1,x2,y2,horizontal=true,leftSide=(n.side==='left');
+    if(layout==='timeline' && n.parent!==map.rootId){
+      // Sub-topic stem: straight up (or down) out of the main topic, then
+      // across to the child. Direction is derived from the placed geometry
+      // rather than a stored side, so it stays correct if a node is dragged.
+      const pcx=p.x+(p.w||0)/2, pcy=p.y+(p.h||0)/2;
+      const ncy=n.y+(n.h||0)/2;
+      const sx=pcx, sy = ncy<pcy ? p.y : p.y+(p.h||0);
+      path += `M${sx},${sy} L${sx},${ncy} L${n.x},${ncy} `;
+      continue;
+    }
     if(layout==='down'){
       horizontal=false;
       x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
@@ -1614,6 +1624,72 @@ function flipAnimateNodes(before){
     setTimeout(()=>{ toAnimate.forEach(el=>{ el.style.transition=''; }); }, 260);   // hand back to the normal CSS transition afterward
   });
 }
+/* ------------------------------------------------------------
+   Timeline placement (horizontal, off-axis).
+
+   Root sits at the left; its children are the "main topics", chained
+   left-to-right along a single horizontal axis (y = 0) and all centred on
+   it. Each main topic's own subtree hangs above or below, alternating by
+   position so a dense sequence does not pile up on one side. Deeper levels
+   grow rightward exactly as in the 'right' layout, so only the first two
+   levels are special-cased.
+
+   Kept as a top-level function taking its dependencies explicitly, rather
+   than inline in autoLayout(), so the geometry can be exercised directly:
+   overlap bugs here are pure arithmetic and do not need a browser to catch.
+   Mutates x/y/side on the given nodes, like the other layout paths.
+   ------------------------------------------------------------ */
+function layoutTimeline(nodes, rootId, kidsOf, opts){
+  const HGAP = opts.HGAP, VGAP = opts.VGAP;
+  const TL_HGAP   = opts.TL_HGAP   != null ? opts.TL_HGAP   : 70;  // gap between main topics
+  const TL_STEM   = opts.TL_STEM   != null ? opts.TL_STEM   : 30;  // axis -> sub-topic block
+  const TL_INDENT = opts.TL_INDENT != null ? opts.TL_INDENT : 26;  // sub-topic inset
+
+  const heightOfT = id => {
+    const n = nodes[id], cs = kidsOf(id);
+    if(!cs.length || n.collapsed) return n.h || 40;
+    let s = 0; cs.forEach((c, i) => { s += heightOfT(c) + (i ? VGAP : 0); });
+    return Math.max(n.h || 40, s);
+  };
+  const placeT = (id, x, topY) => {
+    const n = nodes[id], th = heightOfT(id);
+    n.x = x; n.y = topY + (th - (n.h || 40)) / 2;
+    const cs = kidsOf(id); if(!cs.length || n.collapsed) return;
+    let cy = topY;
+    cs.forEach(c => { const ch = heightOfT(c); placeT(c, n.x + (n.w || 120) + HGAP, cy); cy += ch + VGAP; });
+  };
+  // Rightmost pixel of a placed subtree — decides where the next main topic
+  // can start without a wide sub-topic overlapping it.
+  const extentOf = id => {
+    const n = nodes[id];
+    let r = (n.x || 0) + (n.w || 120);
+    if(!n.collapsed) kidsOf(id).forEach(c => { r = Math.max(r, extentOf(c)); });
+    return r;
+  };
+  const assignT = id => { nodes[id].side = 'right'; kidsOf(id).forEach(assignT); };
+
+  const root = nodes[rootId];
+  root.side = 'root';
+  root.x = 0; root.y = -(root.h || 40) / 2;          // axis is y = 0
+  let cx = (root.w || 120) + TL_HGAP;
+
+  kidsOf(rootId).forEach((mid, i) => {
+    const mt = nodes[mid];
+    assignT(mid);
+    mt.x = cx; mt.y = -(mt.h || 40) / 2;             // centred on the axis
+    let right = mt.x + (mt.w || 120);
+    const kids2 = mt.collapsed ? [] : kidsOf(mid);
+    if(kids2.length){
+      const up = (i % 2 === 0);                      // alternate above / below
+      let blockH = 0; kids2.forEach((c, j) => { blockH += heightOfT(c) + (j ? VGAP : 0); });
+      let cy = up ? (mt.y - TL_STEM - blockH) : (mt.y + (mt.h || 40) + TL_STEM);
+      kids2.forEach(c => { const ch = heightOfT(c); placeT(c, mt.x + TL_INDENT, cy); cy += ch + VGAP; });
+      kids2.forEach(c => { right = Math.max(right, extentOf(c)); });
+    }
+    cx = right + TL_HGAP;
+  });
+}
+
 function autoLayout(noRender){
   if(!map) return;
   const _prevCI=_ci; _ci=buildChildIndex();   // O(1) childrenOf for the whole layout
@@ -1655,6 +1731,12 @@ function autoLayout(noRender){
     const assign = id => { map.nodes[id].side='down'; childrenOf(id).forEach(assign); };
     childrenOf(map.rootId).forEach(assign);
     place(map.rootId, 0, 0);
+    if(!noRender){ render(); scheduleSave(); flipAnimateNodes(_beforePos); } return;
+  }
+
+  // ----- TIMELINE (horizontal, off-axis) -----
+  if(layout==='timeline'){
+    layoutTimeline(map.nodes, map.rootId, childrenOf, {HGAP, VGAP});
     if(!noRender){ render(); scheduleSave(); flipAnimateNodes(_beforePos); } return;
   }
 
@@ -7715,7 +7797,8 @@ const MAP_LAYOUTS = [
   {id:'balanced', name:'Balanced', desc:'Branches split left & right'},
   {id:'right',    name:'Right',    desc:'All branches grow right'},
   {id:'left',     name:'Left',     desc:'All branches grow left'},
-  {id:'down',     name:'Down',     desc:'Org-chart, top to bottom'}
+  {id:'down',     name:'Down',     desc:'Org-chart, top to bottom'},
+  {id:'timeline', name:'Timeline', desc:'Sequence along an axis, sub-topics alternating'}
 ];
 
 function applyTheme(id){
@@ -7816,6 +7899,15 @@ function buildStyleThumb(id){
 }
 function buildLayoutThumb(id){
   let svg;
+  if(id==='timeline') return `<span class="style-thumb"><svg viewBox="0 0 70 60" width="70" height="40">
+    <path d="M10,30 L62,30" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
+    <path d="M26,30 L26,16 L34,16 M46,30 L46,44 L54,44" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
+    <rect x="4"  y="24" width="10" height="12" rx="2" fill="var(--accent)"/>
+    <rect x="20" y="25" width="12" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="40" y="25" width="12" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="34" y="12" width="12" height="8" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="54" y="40" width="12" height="8" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+  </svg></span>`;
   if(id==='down') svg=`<svg viewBox="0 0 70 60" width="70" height="40">
     <rect x="28" y="6"  width="14" height="10" rx="2" fill="var(--accent)"/>
     <rect x="8"  y="36" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
@@ -7889,7 +7981,7 @@ $('#themeBtn').onclick=(e)=>{
     </div>
     <div class="tp-section">
       <div class="tp-label">Layout</div>
-      <div class="tp-grid">
+      <div class="tp-grid tp-scroll-row">
         ${MAP_LAYOUTS.map(l=>`
           <button class="theme-opt${l.id===curLayout?' active':''}" data-cat="layout" data-id="${l.id}" title="${l.desc}">
             ${buildLayoutThumb(l.id)}<span class="theme-name">${l.name}</span>
@@ -7907,6 +7999,38 @@ $('#themeBtn').onclick=(e)=>{
   document.body.appendChild(themePanel);
   positionPopup(themePanel, $('#themeBtn'), {align:'right'});
   themePanel.addEventListener('mousedown',ev=>ev.stopPropagation());
+
+  // A horizontally scrolling row keeps the panel from growing a whole extra
+  // line for one more layout, but scrolling sideways is easy to miss: most
+  // mice have no horizontal wheel, so without help an option parked off-screen
+  // is effectively invisible. Three affordances make it discoverable:
+  //   - edge fades, shown only on the side that actually has more to reveal
+  //   - a normal (vertical) wheel scrolls the row while the pointer is over it
+  //   - the active option is scrolled into view when the panel opens
+  themePanel.querySelectorAll('.tp-scroll-row').forEach(row=>{
+    const sync=()=>{
+      const max = row.scrollWidth - row.clientWidth;
+      row.classList.toggle('has-more-right', max > 1 && row.scrollLeft < max - 1);
+      row.classList.toggle('has-more-left',  max > 1 && row.scrollLeft > 1);
+    };
+    row.addEventListener('scroll', sync, {passive:true});
+    row.addEventListener('wheel', ev=>{
+      // Only hijack a purely vertical wheel; a trackpad's horizontal gesture
+      // already works and must not be doubled.
+      if(Math.abs(ev.deltaY) <= Math.abs(ev.deltaX)) return;
+      const max = row.scrollWidth - row.clientWidth;
+      if(max <= 1) return;
+      // Hand the wheel back to the panel once this row can go no further,
+      // otherwise the pointer resting here would trap vertical scrolling.
+      if((ev.deltaY < 0 && row.scrollLeft <= 0) || (ev.deltaY > 0 && row.scrollLeft >= max - 1)) return;
+      ev.preventDefault();
+      row.scrollLeft += ev.deltaY;
+    }, {passive:false});
+    // Reveal the current selection rather than always starting at the left.
+    const act = row.querySelector('.theme-opt.active');
+    if(act) act.scrollIntoView({block:'nearest', inline:'nearest'});
+    requestAnimationFrame(sync);
+  });
   themePanel.querySelectorAll('.theme-opt').forEach(opt=>{
     opt.onclick=ev=>{
       ev.stopPropagation();
