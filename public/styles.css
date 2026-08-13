@@ -729,6 +729,36 @@
     display:grid; gap:4px;
     grid-template-columns:repeat(4,minmax(125px,1fr));
   }
+  /* One-line scrolling row (Layout). Keeps the panel from gaining a whole
+     extra line for a fifth option. Overrides the grid above rather than
+     replacing it, so every other section is untouched. */
+  .theme-panel-large .tp-grid.tp-scroll-row{
+    display:flex; overflow-x:auto; overflow-y:hidden;
+    scroll-behavior:smooth; scrollbar-width:none;   /* Firefox */
+    position:relative;
+  }
+  .theme-panel-large .tp-grid.tp-scroll-row::-webkit-scrollbar{ display:none; }
+  .theme-panel-large .tp-grid.tp-scroll-row > .theme-opt{
+    flex:0 0 auto; min-width:125px;
+  }
+  /* Edge fades: the only cue that more options exist off-screen. Applied with
+     a mask so they tint whatever is behind them, and only on the side that
+     actually has more to show — a permanent fade would imply content that
+     is not there. */
+  .theme-panel-large .tp-grid.tp-scroll-row.has-more-right{
+    -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 34px), transparent 100%);
+    mask-image:linear-gradient(to right, #000 calc(100% - 34px), transparent 100%);
+  }
+  .theme-panel-large .tp-grid.tp-scroll-row.has-more-left{
+    -webkit-mask-image:linear-gradient(to left, #000 calc(100% - 34px), transparent 100%);
+    mask-image:linear-gradient(to left, #000 calc(100% - 34px), transparent 100%);
+  }
+  .theme-panel-large .tp-grid.tp-scroll-row.has-more-left.has-more-right{
+    -webkit-mask-image:linear-gradient(to right, transparent 0, #000 34px, #000 calc(100% - 34px), transparent 100%);
+    mask-image:linear-gradient(to right, transparent 0, #000 34px, #000 calc(100% - 34px), transparent 100%);
+  }
+  /* A focused option must never be hidden behind a fade. */
+  .theme-panel-large .tp-grid.tp-scroll-row > .theme-opt:focus-visible{ outline-offset:-2px; }
   .style-thumb{
     width:62px; height:36px; border-radius:6px; border:1px solid var(--line);
     background:var(--paper); display:inline-flex; align-items:center; justify-content:center;
