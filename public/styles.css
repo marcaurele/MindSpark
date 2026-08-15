@@ -725,6 +725,47 @@
     font-size:11px; text-transform:uppercase; letter-spacing:.11em;
     color:var(--ink-soft); font-weight:700; margin-bottom:8px;
   }
+  /* Cog beside a section label — opens that section's JSON settings. */
+  .theme-panel-large .tp-label{ display:flex; align-items:center; gap:6px; }
+  .theme-panel-large .tp-cog{
+    background:none; border:none; cursor:pointer; padding:0 2px; line-height:1;
+    font-size:12px; color:var(--ink-soft); opacity:.7;
+  }
+  .theme-panel-large .tp-cog:hover{ opacity:1; color:var(--accent); }
+  /* Explanatory line and inline error inside a .var-form card. */
+  .var-form .vf-hint{
+    font-size:12px; line-height:1.5; color:var(--ink-soft); margin:-2px 0 12px;
+  }
+  .var-form .vf-err{
+    font-size:12.5px; color:#c0392b; margin:8px 0 0;
+    background:color-mix(in srgb, #c0392b 10%, transparent);
+    border:1px solid color-mix(in srgb, #c0392b 35%, transparent);
+    border-radius:8px; padding:7px 10px;
+  }
+  .var-form .vf-json{
+    font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12.5px;
+    line-height:1.5; white-space:pre; overflow:auto;
+  }
+  /* Import tile in the Layout row — a dashed square marking it as an action
+     rather than one more layout to choose. */
+  .theme-panel-large .theme-opt.layout-import .li-tile{
+    width:70px; height:40px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    border:1.5px dashed var(--line-2); border-radius:10px;
+    font-size:18px; line-height:1; color:var(--ink-soft);
+  }
+  .theme-panel-large .theme-opt.layout-import:hover .li-tile{
+    border-color:var(--accent); color:var(--accent);
+  }
+  /* Saved-layout chips inside the import dialog. */
+  .var-form .li-list{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .var-form .li-chip{
+    display:inline-flex; align-items:center; gap:6px; font-size:12.5px;
+    background:var(--paper-2); border:1px solid var(--line); border-radius:999px; padding:4px 6px 4px 11px;
+  }
+  .var-form .li-chip button{
+    background:none; border:none; cursor:pointer; color:var(--ink-soft); font-size:14px; line-height:1; padding:0 2px;
+  }
+  .var-form .li-chip button:hover{ color:#c0392b; }
   .theme-panel-large .tp-grid{
     display:grid; gap:4px;
     grid-template-columns:repeat(4,minmax(125px,1fr));
