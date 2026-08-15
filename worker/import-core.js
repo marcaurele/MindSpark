@@ -111,6 +111,23 @@ export function buildMapFromSpec(spec){
     ? spec.links.filter(l => l && byId.has(l.from) && byId.has(l.to))
                 .map(l => { const o = { from: l.from, to: l.to }; if (l.label != null && l.label !== '') o.label = String(l.label); return o; })
     : [];
-  return { id: uid(), title, color: (typeof spec.color === 'string' && spec.color) ? spec.color : '#e0613a',
-           style: undefined, layout: 'balanced', rootId, nodes, links };
+  const out = { id: uid(), title, color: (typeof spec.color === 'string' && spec.color) ? spec.color : '#e0613a',
+                style: undefined, layout: 'balanced', rootId, nodes, links };
+  // Layout knobs, if supplied. Bounded here rather than trusted: this endpoint
+  // is public and unauthenticated, and the result ends up in share links.
+  if (spec.layoutConfig && typeof spec.layoutConfig === 'object' && !Array.isArray(spec.layoutConfig)) {
+    const t = spec.layoutConfig.timeline;
+    if (t && typeof t === 'object' && !Array.isArray(t)) {
+      const tl = {}, bounds = { gap: [8, 400], stem: [0, 300], indent: [0, 300] };
+      for (const k of ['gap', 'stem', 'indent']) {
+        if (typeof t[k] === 'number' && isFinite(t[k])) {
+          tl[k] = Math.min(bounds[k][1], Math.max(bounds[k][0], Math.round(t[k])));
+        }
+      }
+      if (typeof t.alternate === 'boolean') tl.alternate = t.alternate;
+      if (t.start === 'above' || t.start === 'below') tl.start = t.start;
+      if (Object.keys(tl).length) out.layoutConfig = { timeline: tl };
+    }
+  }
+  return out;
 }

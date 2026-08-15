@@ -1315,6 +1315,36 @@ function drawEdges(hidden){
       path += `M${sx},${sy} L${sx},${ncy} L${n.x},${ncy} `;
       continue;
     }
+    if(layout==='radial'){
+      // Spokes. The default bezier attaches to a card's left or right edge,
+      // which on a radial map sends a connector for a node directly ABOVE the
+      // centre looping out sideways and back — the single thing that stopped
+      // it reading as radial. Centre-to-centre is the honest line here: the
+      // edge SVG sits beneath the cards, so the overlap is hidden and what
+      // remains is a clean spoke.
+      const pcx=p.x+(p.w||0)/2, pcy=p.y+(p.h||0)/2;
+      const ncx=n.x+(n.w||0)/2, ncy=n.y+(n.h||0)/2;
+      path += `M${pcx},${pcy} L${ncx},${ncy} `;
+      continue;
+    }
+    if(layout==='grid'){
+      if(n.parent===map.rootId){
+        // Root to card: drop, across, drop. Long curves between grid cards
+        // read as accidental rather than structural.
+        const sx=p.x+(p.w||0)/2, sy=p.y+(p.h||0);
+        const tx=n.x+(n.w||0)/2, ty=n.y;
+        const mid=(sy+ty)/2;
+        path += `M${sx},${sy} L${sx},${mid} L${tx},${mid} L${tx},${ty} `;
+      } else {
+        // Within a card's outline: the classic indented-list elbow — straight
+        // down the parent's left edge, then across to the child. Indentation
+        // already carries the hierarchy, so this only needs to confirm it.
+        const sx=p.x+12, sy=p.y+(p.h||0);
+        const ty=n.y+(n.h||0)/2;
+        path += `M${sx},${sy} L${sx},${ty} L${n.x},${ty} `;
+      }
+      continue;
+    }
     if(layout==='down'){
       horizontal=false;
       x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
@@ -1625,69 +1655,511 @@ function flipAnimateNodes(before){
   });
 }
 /* ------------------------------------------------------------
-   Timeline placement (horizontal, off-axis).
+   Layout configuration.
 
-   Root sits at the left; its children are the "main topics", chained
-   left-to-right along a single horizontal axis (y = 0) and all centred on
-   it. Each main topic's own subtree hangs above or below, alternating by
-   position so a dense sequence does not pile up on one side. Deeper levels
-   grow rightward exactly as in the 'right' layout, so only the first two
-   levels are special-cased.
+   The knobs a layout exposes, as plain validated JSON stored on the map
+   (map.layoutConfig) so it travels with share links and exports.
 
-   Kept as a top-level function taking its dependencies explicitly, rather
-   than inline in autoLayout(), so the geometry can be exercised directly:
-   overlap bugs here are pure arithmetic and do not need a browser to catch.
-   Mutates x/y/side on the given nodes, like the other layout paths.
+   Deliberately DATA, never code. A layout config arrives on a stranger's
+   machine whenever they open a #view= link, so anything executable here
+   would be a code-execution channel into shared maps — the opposite of the
+   care taken in sanitizeInlineHTML(). Numbers get clamped, unknown keys are
+   dropped, and a malformed config falls back to defaults rather than
+   throwing: a bad config should never make a map unopenable.
    ------------------------------------------------------------ */
-function layoutTimeline(nodes, rootId, kidsOf, opts){
-  const HGAP = opts.HGAP, VGAP = opts.VGAP;
-  const TL_HGAP   = opts.TL_HGAP   != null ? opts.TL_HGAP   : 70;  // gap between main topics
-  const TL_STEM   = opts.TL_STEM   != null ? opts.TL_STEM   : 30;  // axis -> sub-topic block
-  const TL_INDENT = opts.TL_INDENT != null ? opts.TL_INDENT : 26;  // sub-topic inset
+const LAYOUT_CONFIG_DEFAULTS = {
+  // The four tree layouts share a shape (gap between depth levels, gap between
+  // siblings) but not values: 'down' stacks generations vertically, so its
+  // larger gap is the vertical one.
+  balanced: { hGap:70, vGap:22 },
+  right:    { hGap:70, vGap:22 },
+  left:     { hGap:70, vGap:22 },
+  down:     { hGap:38, vGap:70 },
+  radial: { ring:180, startAngle:-90, sweep:360 },
+  grid:   { columns:3, gapX:60, gapY:60, rowGap:14, indent:24 },
+  timeline: {
+    gap: 70,            // horizontal gap between consecutive main topics
+    stem: 30,           // clearance between the axis and a sub-topic block
+    indent: 26,         // sub-topic inset from its main topic's left edge
+    alternate: true,    // alternate sub-topics above/below, or keep one side
+    start: 'above',     // which side the first main topic's sub-topics take
+  },
+};
+// Bounds chosen so any accepted value still produces a readable map: a gap of
+// 0 overlaps cards, and very large values scatter them past a usable canvas.
+const LAYOUT_CONFIG_BOUNDS = {
+  balanced: { hGap:[8,400], vGap:[4,300] },
+  right:    { hGap:[8,400], vGap:[4,300] },
+  left:     { hGap:[8,400], vGap:[4,300] },
+  down:     { hGap:[8,400], vGap:[4,300] },
+  radial:   { ring:[60,600], startAngle:[-360,360], sweep:[30,360] },
+  grid:     { columns:[1,8], gapX:[8,300], gapY:[8,300], rowGap:[0,120], indent:[0,120] },
+  timeline: { gap:[8,400], stem:[0,300], indent:[0,300] },
+};
 
-  const heightOfT = id => {
+function validateLayoutConfig(raw){
+  const out = {};
+  for(const engine of Object.keys(LAYOUT_CONFIG_DEFAULTS)){
+    out[engine] = { ...LAYOUT_CONFIG_DEFAULTS[engine] };
+  }
+  if(!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+
+  for(const engine of Object.keys(out)){
+    const sec = raw[engine];
+    if(!sec || typeof sec !== 'object' || Array.isArray(sec)) continue;
+    const bounds = LAYOUT_CONFIG_BOUNDS[engine] || {};
+    for(const key of Object.keys(bounds)){
+      const v = sec[key];
+      if(typeof v !== 'number' || !isFinite(v)) continue;  // strings/NaN ignored, not coerced
+      const [lo,hi] = bounds[key];
+      out[engine][key] = Math.min(hi, Math.max(lo, Math.round(v)));
+    }
+    if(engine === 'timeline'){
+      if(typeof sec.alternate === 'boolean') out.timeline.alternate = sec.alternate;
+      if(sec.start === 'above' || sec.start === 'below') out.timeline.start = sec.start;
+    }
+  }
+  return out;
+}
+// The knobs that actually apply to one engine — what the settings dialog shows.
+function layoutConfigFor(engine, raw){
+  const all = validateLayoutConfig(raw);
+  return all[engine] ? { [engine]: all[engine] } : {};
+}
+
+/* ------------------------------------------------------------
+   Chain placement — root children strung along an axis, subtrees hanging off.
+
+   The timeline is one instance of this: root at the left, main topics chained
+   rightward on a centre line, sub-trees alternating above and below. The same
+   procedure with a different axis gives a vertical timeline; with alternation
+   off it gives a single-sided sequence.
+
+   Like layoutTree, the two axes are transposes, so this works in "main" and
+   "cross" terms:
+     axis 'x'  main = x (the chain runs sideways), cross = y (branches hang up/down)
+     axis 'y'  main = y (the chain runs downward),  cross = x (branches hang left/right)
+
+   Mutates x/y/side on the given nodes.
+   ------------------------------------------------------------ */
+function layoutChain(nodes, rootId, kidsOf, opts){
+  const horiz = opts.axis !== 'y';
+  const dir = opts.dir < 0 ? -1 : 1;
+  const { gap, stem, indent, gapMain, gapCross, alternate, start } = opts;
+  // Fishbone is this engine with ribs leaving the spine at an angle instead of
+  // square to it. 90 means perpendicular, which is the plain timeline, so the
+  // default changes nothing for existing layouts.
+  const angle = opts.angle != null ? opts.angle : 90;
+  const slant = Math.abs(angle - 90) < 0.01 ? 0 : 1 / Math.tan(angle * Math.PI / 180);
+
+  const mainSize  = n => horiz ? (n.w || 120) : (n.h || 40);
+  const crossSize = n => horiz ? (n.h || 40)  : (n.w || 120);
+  const setPos = (n, main, cross) => { if(horiz){ n.x = main; n.y = cross; } else { n.y = main; n.x = cross; } };
+  const getMain  = n => horiz ? n.x : n.y;
+  const getCross = n => horiz ? n.y : n.x;
+
+  // Sub-tree extent along the cross axis (siblings stack there).
+  const extent = id => {
     const n = nodes[id], cs = kidsOf(id);
-    if(!cs.length || n.collapsed) return n.h || 40;
-    let s = 0; cs.forEach((c, i) => { s += heightOfT(c) + (i ? VGAP : 0); });
-    return Math.max(n.h || 40, s);
+    if(!cs.length || n.collapsed) return crossSize(n);
+    let s = 0; cs.forEach((c,i)=>{ s += extent(c) + (i ? gapCross : 0); });
+    return Math.max(crossSize(n), s);
   };
-  const placeT = (id, x, topY) => {
-    const n = nodes[id], th = heightOfT(id);
-    n.x = x; n.y = topY + (th - (n.h || 40)) / 2;
-    const cs = kidsOf(id); if(!cs.length || n.collapsed) return;
-    let cy = topY;
-    cs.forEach(c => { const ch = heightOfT(c); placeT(c, n.x + (n.w || 120) + HGAP, cy); cy += ch + VGAP; });
-  };
-  // Rightmost pixel of a placed subtree — decides where the next main topic
-  // can start without a wide sub-topic overlapping it.
-  const extentOf = id => {
+  // Ordinary tree placement, used for everything below a chain item.
+  const place = (id, main, crossTop) => {
     const n = nodes[id];
-    let r = (n.x || 0) + (n.w || 120);
-    if(!n.collapsed) kidsOf(id).forEach(c => { r = Math.max(r, extentOf(c)); });
+    setPos(n, main, crossTop + (extent(id) - crossSize(n)) / 2);
+    const cs = kidsOf(id);
+    if(!cs.length || n.collapsed) return;
+    let cross = crossTop;
+    cs.forEach(c => {
+      const cm = dir > 0 ? getMain(n) + mainSize(n) + gapMain
+                         : getMain(n) - mainSize(nodes[c]) - gapMain;
+      place(c, cm, cross);
+      cross += extent(c) + gapCross;
+    });
+  };
+  // Furthest point a placed sub-tree reaches along the chain direction, so the
+  // next chain item can clear it.
+  const reach = id => {
+    const n = nodes[id];
+    let r = dir > 0 ? getMain(n) + mainSize(n) : getMain(n);
+    if(!n.collapsed) kidsOf(id).forEach(c => {
+      const cr = reach(c);
+      r = dir > 0 ? Math.max(r, cr) : Math.min(r, cr);
+    });
     return r;
   };
-  const assignT = id => { nodes[id].side = 'right'; kidsOf(id).forEach(assignT); };
+  const assign = id => { nodes[id].side = opts.sideName || 'right'; kidsOf(id).forEach(assign); };
 
   const root = nodes[rootId];
   root.side = 'root';
-  root.x = 0; root.y = -(root.h || 40) / 2;          // axis is y = 0
-  let cx = (root.w || 120) + TL_HGAP;
+  setPos(root, 0, -crossSize(root) / 2);          // the chain's centre line is cross = 0
+  let cursor = dir > 0 ? mainSize(root) + gap : -gap;
 
-  kidsOf(rootId).forEach((mid, i) => {
-    const mt = nodes[mid];
-    assignT(mid);
-    mt.x = cx; mt.y = -(mt.h || 40) / 2;             // centred on the axis
-    let right = mt.x + (mt.w || 120);
-    const kids2 = mt.collapsed ? [] : kidsOf(mid);
-    if(kids2.length){
-      const up = (i % 2 === 0);                      // alternate above / below
-      let blockH = 0; kids2.forEach((c, j) => { blockH += heightOfT(c) + (j ? VGAP : 0); });
-      let cy = up ? (mt.y - TL_STEM - blockH) : (mt.y + (mt.h || 40) + TL_STEM);
-      kids2.forEach(c => { const ch = heightOfT(c); placeT(c, mt.x + TL_INDENT, cy); cy += ch + VGAP; });
-      kids2.forEach(c => { right = Math.max(right, extentOf(c)); });
+  kidsOf(rootId).forEach((id, i) => {
+    const item = nodes[id];
+    assign(id);
+    const itemMain = dir > 0 ? cursor : cursor - mainSize(item);
+    setPos(item, itemMain, -crossSize(item) / 2);  // centred on the line
+    let far = dir > 0 ? itemMain + mainSize(item) : itemMain;
+
+    const kids = item.collapsed ? [] : kidsOf(id);
+    if(kids.length){
+      const first = (start === 'below') ? false : true;
+      const up = alternate ? ((i % 2 === 0) === first) : first;
+      let blockH = 0; kids.forEach((c,j)=>{ blockH += extent(c) + (j ? gapCross : 0); });
+      let cross = up ? (getCross(item) - stem - blockH)
+                     : (getCross(item) + crossSize(item) + stem);
+      kids.forEach(c => {
+        // How far this rib sits from the spine, and therefore how far it slides
+        // back along it — which is what turns a square branch into a diagonal.
+        const off = Math.abs(cross - getCross(item));
+        const slide = slant ? off * slant * dir : 0;
+        const base = dir > 0 ? getMain(item) + indent
+                             : getMain(item) + mainSize(item) - indent - mainSize(nodes[c]);
+        place(c, base + slide, cross);
+        cross += extent(c) + gapCross;
+      });
+      kids.forEach(c => { const r = reach(c); far = dir > 0 ? Math.max(far, r) : Math.min(far, r); });
     }
-    cx = right + TL_HGAP;
+    cursor = dir > 0 ? far + gap : far - gap;
   });
+}
+
+/* ------------------------------------------------------------
+   Radial placement — root at the centre, descendants on rings.
+
+   Each subtree owns an angular wedge sized by how many leaves it contains, so
+   a bushy branch gets more of the circle than a sparse one and siblings never
+   compete for the same arc. Depth becomes distance from the centre.
+
+   Mutates x/y/side on the given nodes.
+   ------------------------------------------------------------ */
+function layoutRadial(nodes, rootId, kidsOf, opts){
+  const ring   = opts.ring   != null ? opts.ring   : 180;   // radius added per level
+  const start  = (opts.startAngle != null ? opts.startAngle : -90) * Math.PI / 180;
+  const sweep  = (opts.sweep      != null ? opts.sweep      : 360) * Math.PI / 180;
+
+  // Leaf count drives the wedge share. Counting leaves rather than nodes keeps
+  // a long thin branch from crowding out a wide shallow one.
+  const leaves = id => {
+    const n = nodes[id];
+    const cs = n.collapsed ? [] : kidsOf(id);
+    if(!cs.length) return 1;
+    let s = 0; cs.forEach(c => { s += leaves(c); });
+    return s;
+  };
+
+  const place = (id, a0, a1, depth) => {
+    const n = nodes[id];
+    const mid = (a0 + a1) / 2;
+    const r = depth * ring;
+    // Position by centre, then convert to the top-left the renderer expects.
+    n.x = Math.cos(mid) * r - (n.w || 120) / 2;
+    n.y = Math.sin(mid) * r - (n.h || 40) / 2;
+    // side drives which edge of the card connectors attach to.
+    n.side = depth === 0 ? 'root' : (Math.cos(mid) < 0 ? 'left' : 'right');
+
+    const cs = n.collapsed ? [] : kidsOf(id);
+    if(!cs.length) return;
+    const total = leaves(id);
+    let a = a0;
+    cs.forEach(c => {
+      const share = (a1 - a0) * (leaves(c) / total);
+      place(c, a, a + share, depth + 1);
+      a += share;
+    });
+  };
+
+  place(rootId, start, start + sweep, 0);
+  nodes[rootId].side = 'root';
+}
+
+/* ------------------------------------------------------------
+   Matrix placement — root children as columns, their children as aligned rows.
+
+   Looks like the grid at a glance, but the defining property is different:
+   row N means the same thing in every column, so rows share a height and line
+   up horizontally. That alignment is what makes a matrix readable as a table,
+   and it is why this cannot be the grid with different numbers — the grid
+   sizes each column independently.
+
+   Anything below the second level is stacked inside its cell.
+   ------------------------------------------------------------ */
+function layoutMatrix(nodes, rootId, kidsOf, opts){
+  const colGap = opts.colGap != null ? opts.colGap : 40;
+  const rowGap = opts.rowGap != null ? opts.rowGap : 24;
+  const cellGap = opts.cellGap != null ? opts.cellGap : 10;   // between stacked descendants
+  const headGap = opts.headGap != null ? opts.headGap : 60;   // root to the header row
+
+  const cols = kidsOf(rootId);
+  // Everything under a cell, flattened — the matrix aligns rows, so a deep
+  // branch stacks within its cell rather than spawning new columns.
+  const stackOf = (id, out) => {
+    out.push(id);
+    if(!nodes[id].collapsed) kidsOf(id).forEach(c => stackOf(c, out));
+    return out;
+  };
+  const cellsFor = colId => (nodes[colId].collapsed ? [] : kidsOf(colId))
+    .map(rowId => stackOf(rowId, []));
+
+  const grid = cols.map(cellsFor);
+  const rowCount = grid.reduce((m, cells) => Math.max(m, cells.length), 0);
+
+  // Uniform column widths and — the point of a matrix — uniform row heights.
+  const colW = cols.map((colId, c) => {
+    let w = nodes[colId].w || 120;
+    grid[c].forEach(stack => stack.forEach(id => { w = Math.max(w, nodes[id].w || 120); }));
+    return w;
+  });
+  const rowH = [];
+  for(let r = 0; r < rowCount; r++){
+    let h = 0;
+    grid.forEach(cells => {
+      const stack = cells[r];
+      if(!stack) return;
+      let sh = 0;
+      stack.forEach((id, i) => { sh += (nodes[id].h || 40) + (i ? cellGap : 0); });
+      h = Math.max(h, sh);
+    });
+    rowH[r] = h;
+  }
+
+  const colX = []; let x = 0;
+  colW.forEach((w, i) => { colX[i] = x; x += w + colGap; });
+  const totalW = x > 0 ? x - colGap : 0;
+
+  const root = nodes[rootId];
+  root.side = 'root';
+  root.x = totalW / 2 - (root.w || 120) / 2;
+  root.y = 0;
+
+  const headY = (root.h || 40) + headGap;
+  const rowY = []; let y = headY + (cols.length ? Math.max(...cols.map(id => nodes[id].h || 40)) + rowGap : 0);
+  rowH.forEach((h, i) => { rowY[i] = y; y += h + rowGap; });
+
+  cols.forEach((colId, c) => {
+    const head = nodes[colId];
+    head.side = 'down';
+    head.x = colX[c]; head.y = headY;
+    grid[c].forEach((stack, r) => {
+      let cy = rowY[r];
+      stack.forEach(id => {
+        const n = nodes[id];
+        n.side = 'down';
+        n.x = colX[c]; n.y = cy;
+        cy += (n.h || 40) + cellGap;
+      });
+    });
+  });
+}
+
+/* ------------------------------------------------------------
+   Grid placement — root children as cards in a grid, each with its
+   sub-tree as an indented outline beneath it.
+
+   Useful when the root's children are peers to be compared rather than a
+   hierarchy to be traced: a board of topics rather than a branching map.
+   ------------------------------------------------------------ */
+function layoutGrid(nodes, rootId, kidsOf, opts){
+  const cols   = Math.max(1, opts.columns != null ? opts.columns : 3);
+  const gapX   = opts.gapX   != null ? opts.gapX   : 60;   // between columns
+  const gapY   = opts.gapY   != null ? opts.gapY   : 60;   // between rows
+  const rowGap = opts.rowGap != null ? opts.rowGap : 14;   // between outline rows
+  const indent = opts.indent != null ? opts.indent : 24;   // per outline level
+
+  // Flatten a sub-tree into indented rows, and measure the block it needs.
+  const rowsOf = (id, depth, out) => {
+    const n = nodes[id];
+    out.push({ id, depth });
+    if(n.collapsed) return out;
+    kidsOf(id).forEach(c => rowsOf(c, depth + 1, out));
+    return out;
+  };
+  const blockSize = rows => {
+    let w = 0, h = 0;
+    rows.forEach((r, i) => {
+      const n = nodes[r.id];
+      w = Math.max(w, r.depth * indent + (n.w || 120));
+      h += (n.h || 40) + (i ? rowGap : 0);
+    });
+    return { w, h };
+  };
+
+  const kids = kidsOf(rootId);
+  const cells = kids.map(id => {
+    const rows = rowsOf(id, 0, []);
+    return { id, rows, size: blockSize(rows) };
+  });
+
+  // Uniform column widths and per-row heights keep the grid readable.
+  const colW = [];
+  cells.forEach((c, i) => {
+    const col = i % cols;
+    colW[col] = Math.max(colW[col] || 0, c.size.w);
+  });
+  const rowH = [];
+  cells.forEach((c, i) => {
+    const row = Math.floor(i / cols);
+    rowH[row] = Math.max(rowH[row] || 0, c.size.h);
+  });
+  const colX = [];
+  let x = 0;
+  for(let i = 0; i < colW.length; i++){ colX[i] = x; x += colW[i] + gapX; }
+  const gridW = x > 0 ? x - gapX : 0;
+
+  const root = nodes[rootId];
+  root.side = 'root';
+  root.x = gridW / 2 - (root.w || 120) / 2;      // centred above the grid
+  root.y = 0;
+  const top = (root.h || 40) + gapY;
+
+  const rowY = [];
+  let y = top;
+  for(let i = 0; i < rowH.length; i++){ rowY[i] = y; y += rowH[i] + gapY; }
+
+  cells.forEach((cell, i) => {
+    const cx = colX[i % cols];
+    let cy = rowY[Math.floor(i / cols)];
+    cell.rows.forEach(r => {
+      const n = nodes[r.id];
+      n.x = cx + r.depth * indent;
+      n.y = cy;
+      n.side = 'down';
+      cy += (n.h || 40) + rowGap;
+    });
+  });
+}
+
+// Named chain layouts, in the same spirit as TREE_LAYOUTS: the timeline is one
+// set of parameters, not a special case. Verified against positions captured
+// from the previous hand-written layoutTimeline — identical output for every
+// shape and config in test/fixtures/chain-layout-golden.json.
+const CHAIN_LAYOUTS = {
+  timeline: { axis:'x', dir: 1 },
+};
+function chainLayoutOpts(name, cfg, hGap, vGap){
+  const base = CHAIN_LAYOUTS[name];
+  if(!base) return null;
+  const t = validateLayoutConfig(cfg).timeline;
+  return { ...base, gap:t.gap, stem:t.stem, indent:t.indent,
+           alternate:t.alternate, start:t.start,
+           gapMain:hGap, gapCross:vGap };
+}
+
+/* ------------------------------------------------------------
+   Tree placement — one engine behind balanced / right / left / down.
+
+   Those four are not four algorithms. They are the same recursive procedure
+   with three parameters: which axis subtrees grow along, which direction, and
+   whether the root splits its children between both directions. Writing them
+   separately hid that, and meant a new variant (org-chart upward, logic chart
+   with the root centred) needed new code rather than new numbers.
+
+   The two axes are transposes of each other, so the code works in "main" and
+   "cross" terms:
+     axis 'x'  main = x (subtrees grow sideways), cross = y (siblings stack)
+     axis 'y'  main = y (subtrees grow downward),  cross = x (siblings stack)
+
+   Mutates x/y/side on the given nodes, like the other layout paths.
+   ------------------------------------------------------------ */
+function layoutTree(nodes, rootId, kidsOf, opts){
+  const horiz = opts.axis !== 'y';
+  const gapMain  = opts.gapMain,  gapCross = opts.gapCross;
+  const mainSize  = n => horiz ? (n.w || 120) : (n.h || 40);
+  const crossSize = n => horiz ? (n.h || 40)  : (n.w || 120);
+  const setPos = (n, main, cross) => { if(horiz){ n.x = main; n.y = cross; } else { n.y = main; n.x = cross; } };
+  const getMain = n => horiz ? n.x : n.y;
+
+  // Cross-axis extent of a subtree: siblings stack along this axis, so it is
+  // the sum of their extents, floored at the node's own size.
+  const extent = id => {
+    const n = nodes[id], cs = kidsOf(id);
+    if(!cs.length || n.collapsed) return crossSize(n);
+    let s = 0; cs.forEach((c,i)=>{ s += extent(c) + (i ? gapCross : 0); });
+    return Math.max(crossSize(n), s);
+  };
+  // Place a node centred within its own subtree extent, then lay out children.
+  const place = (id, main, crossTop, dir) => {
+    const n = nodes[id];
+    setPos(n, main, crossTop + (extent(id) - crossSize(n)) / 2);
+    const cs = kidsOf(id);
+    if(!cs.length || n.collapsed) return;
+    let cross = crossTop;
+    cs.forEach(c => {
+      // Growing backwards positions by the CHILD's size, since coordinates are
+      // top-left based; growing forwards positions past the parent's.
+      const cm = dir > 0 ? getMain(n) + mainSize(n) + gapMain
+                         : getMain(n) - mainSize(nodes[c]) - gapMain;
+      place(c, cm, cross, dir);
+      cross += extent(c) + gapCross;
+    });
+  };
+  const assign = (id, side) => { nodes[id].side = side; kidsOf(id).forEach(c => assign(c, side)); };
+
+  const root = nodes[rootId];
+  root.side = 'root';
+  const kids = kidsOf(rootId);
+
+  // 'centered' runs the root through the placer, so it sits centred over its
+  // children (org-chart). 'origin' pins it at 0,0 and balances each side's
+  // block around its middle (mind-map).
+  if(opts.rootAnchor === 'centered'){
+    kids.forEach(k => assign(k, opts.sideName));
+    place(rootId, 0, 0, opts.dir);
+    return;
+  }
+
+  let backSet = [], fwdSet = [];
+  if(opts.split === 'balanced'){
+    // STABLE: keep whatever side each child already has so the map never
+    // reshuffles on an unrelated edit; only new children (no side) are
+    // assigned, to whichever side is lighter.
+    kids.forEach(k => {
+      const s = nodes[k].side;
+      if(s === 'left') backSet.push(k); else if(s === 'right') fwdSet.push(k);
+    });
+    kids.forEach(k => {
+      const s = nodes[k].side;
+      if(s !== 'left' && s !== 'right'){
+        if(fwdSet.length <= backSet.length){ fwdSet.push(k); nodes[k].side = 'right'; }
+        else { backSet.push(k); nodes[k].side = 'left'; }
+      }
+    });
+  } else if(opts.dir > 0){ fwdSet = kids.slice(); } else { backSet = kids.slice(); }
+
+  fwdSet.forEach(k => assign(k, 'right'));
+  backSet.forEach(k => assign(k, 'left'));
+
+  root.x = 0; root.y = 0;
+  const rootMid = (root.h || 50) / 2;   // 50, matching the original default here
+  let fTop = -(fwdSet.reduce((s,k,i)=> s + extent(k) + (i ? gapCross : 0), 0)) / 2 + rootMid;
+  fwdSet.forEach(k => { const e = extent(k); place(k, root.x + (root.w || 120) + gapMain, fTop, 1); fTop += e + gapCross; });
+  let bTop = -(backSet.reduce((s,k,i)=> s + extent(k) + (i ? gapCross : 0), 0)) / 2 + rootMid;
+  backSet.forEach(k => { const e = extent(k); place(k, root.x - (nodes[k].w || 120) - gapMain, bTop, -1); bTop += e + gapCross; });
+}
+
+// The parameters that reproduce each named layout. Verified against positions
+// captured from the previous hand-written implementations: identical output for
+// every shape/layout combination in test/fixtures/tree-layout-golden.json.
+//
+// Note the gap swap on the vertical axis: with subtrees growing downward, hGap
+// separates SIBLINGS (cross axis) and vGap separates GENERATIONS (main axis) —
+// the reverse of the horizontal layouts. Getting this backwards is the one
+// mistake this table exists to prevent.
+const TREE_LAYOUTS = {
+  balanced: { axis:'x', dir: 1, split:'balanced', rootAnchor:'origin' },
+  right:    { axis:'x', dir: 1, split:'one-side', rootAnchor:'origin' },
+  left:     { axis:'x', dir:-1, split:'one-side', rootAnchor:'origin' },
+  down:     { axis:'y', dir: 1, split:'one-side', rootAnchor:'centered', sideName:'down' },
+};
+function treeLayoutOpts(name, hGap, vGap){
+  const base = TREE_LAYOUTS[name];
+  if(!base) return null;
+  return base.axis === 'y'
+    ? { ...base, gapMain: vGap, gapCross: hGap }
+    : { ...base, gapMain: hGap, gapCross: vGap };
 }
 
 function autoLayout(noRender){
@@ -1709,95 +2181,35 @@ function autoLayout(noRender){
   const root=map.nodes[map.rootId];
   root.side='root';
   const layout = map.layout || 'balanced';
+  // Spacing comes from this map's config. Local names, so the module constants
+  // stay the defaults and other callers (drag-insertion, FLIP) are unaffected.
+  const _lc = validateLayoutConfig(map.layoutConfig)[layout] || LAYOUT_CONFIG_DEFAULTS.balanced;
+  const LH = (_lc.hGap != null) ? _lc.hGap : HGAP;
+  const LV = (_lc.vGap != null) ? _lc.vGap : VGAP;
 
-  // ----- TOP-DOWN (org-chart) layout -----
-  if(layout==='down'){
-    const widthOf = id => {
-      const n=map.nodes[id]; const cs=childrenOf(id);
-      if(!cs.length||n.collapsed) return n.w||120;
-      let s=0; cs.forEach((c,i)=>{ s+=widthOf(c)+(i?DOWN_HGAP:0); });
-      return Math.max(n.w||120, s);
-    };
-    const place = (id, leftX, topY) => {
-      const n=map.nodes[id];
-      const tw=widthOf(id);
-      n.x = leftX + (tw - (n.w||120))/2;
-      n.y = topY;
-      const cs=childrenOf(id); if(!cs.length||n.collapsed) return;
-      let cx=leftX;
-      const childY = topY + (n.h||40) + DOWN_VGAP;
-      cs.forEach(c=>{ const cw=widthOf(c); place(c, cx, childY); cx += cw + DOWN_HGAP; });
-    };
-    const assign = id => { map.nodes[id].side='down'; childrenOf(id).forEach(assign); };
-    childrenOf(map.rootId).forEach(assign);
-    place(map.rootId, 0, 0);
-    if(!noRender){ render(); scheduleSave(); flipAnimateNodes(_beforePos); } return;
+  // ----- PLACEMENT -----
+  // One dispatch for every layout: resolve to a strategy plus a complete
+  // parameter set, then run it. Adding a layout is now a table entry rather
+  // than another branch here.
+  const _run = resolveLayout(layout, map.layoutParams);
+  const _p = { ..._run.params };
+  // The per-map spacing config still applies on top, so the settings dialog
+  // keeps working for the built-ins.
+  const _cfg = validateLayoutConfig(map.layoutConfig)[layout];
+  if(_cfg){
+    if(_cfg.hGap != null && _run.strategy === 'tree'){
+      if(_p.axis === 'y'){ _p.gapCross = _cfg.hGap; _p.gapMain = _cfg.vGap; }
+      else { _p.gapMain = _cfg.hGap; _p.gapCross = _cfg.vGap; }
+    }
+    for(const k of ['gap','stem','indent','alternate','start','ring','startAngle','sweep',
+                    'columns','gapX','gapY','rowGap']){
+      if(_cfg[k] !== undefined) _p[k] = _cfg[k];
+    }
   }
-
-  // ----- TIMELINE (horizontal, off-axis) -----
-  if(layout==='timeline'){
-    layoutTimeline(map.nodes, map.rootId, childrenOf, {HGAP, VGAP});
-    if(!noRender){ render(); scheduleSave(); flipAnimateNodes(_beforePos); } return;
-  }
-
-  const kids=childrenOf(map.rootId);
-  // ----- RIGHT-ONLY: all root children go to the right -----
-  let leftSet=[], rightSet=[];
-  if(layout==='right'){
-    rightSet = kids.slice();
-  } else if(layout==='left'){
-    leftSet = kids.slice();
-  } else {
-    // BALANCED — but STABLE. Keep whatever side each child is already on so the
-    // map never reshuffles on an unrelated edit; only freshly-added children
-    // (no side yet) are assigned, choosing whichever side is lighter. This is
-    // what makes auto-layout feel consistent rather than like a "reset".
-    kids.forEach(k=>{
-      const s=map.nodes[k].side;
-      if(s==='left') leftSet.push(k);
-      else if(s==='right') rightSet.push(k);
-    });
-    kids.forEach(k=>{
-      const s=map.nodes[k].side;
-      if(s!=='left' && s!=='right'){
-        if(rightSet.length<=leftSet.length){ rightSet.push(k); map.nodes[k].side='right'; }
-        else { leftSet.push(k); map.nodes[k].side='left'; }
-      }
-    });
-  }
-  const assign=(id,side)=>{ map.nodes[id].side=side; childrenOf(id).forEach(c=>assign(c,side)); };
-  rightSet.forEach(k=>assign(k,'right')); leftSet.forEach(k=>assign(k,'left'));
-
-  // subtree height in px
-  const heightOf=id=>{
-    const n=map.nodes[id]; const cs=childrenOf(id);
-    if(!cs.length||n.collapsed) return n.h||40;
-    let s=0; cs.forEach((c,i)=>{ s+=heightOf(c)+(i?VGAP:0); });
-    return Math.max(n.h||40, s);
-  };
-  // place a side
-  const place=(id,x,topY,dir)=>{
-    const n=map.nodes[id];
-    const th=heightOf(id);
-    n.x=x; n.y=topY+(th-(n.h||40))/2;
-    const cs=childrenOf(id);
-    if(!cs.length||n.collapsed) return;
-    let cy=topY;
-    cs.forEach(c=>{
-      const ch=heightOf(c);
-      const cx = dir>0 ? n.x+(n.w||120)+HGAP : n.x-((map.nodes[c].w)||120)-HGAP;
-      place(c,cx,cy,dir);
-      cy+=ch+VGAP;
-    });
-  };
-  // root centered
-  root.x=0; root.y=0;
-  const rootMid=(root.h||50)/2;
-  let rTop=-(rightSet.reduce((s,k,i)=>s+heightOf(k)+(i?VGAP:0),0))/2 + rootMid;
-  rightSet.forEach(k=>{ const h=heightOf(k); place(k, root.x+(root.w||120)+HGAP, rTop, 1); rTop+=h+VGAP; });
-  let lTop=-(leftSet.reduce((s,k,i)=>s+heightOf(k)+(i?VGAP:0),0))/2 + rootMid;
-  leftSet.forEach(k=>{ const h=heightOf(k); const w=map.nodes[k].w||120; place(k, root.x-w-HGAP, lTop, -1); lTop+=h+VGAP; });
-
+  ({ tree: layoutTree, chain: layoutChain, radial: layoutRadial, grid: layoutGrid,
+     matrix: layoutMatrix }[_run.strategy])
+    (map.nodes, map.rootId, childrenOf, _p);
+  if(!noRender){ render(); scheduleSave(); flipAnimateNodes(_beforePos); } return;
   if(!noRender){ render(); scheduleSave(); flipAnimateNodes(_beforePos); }
   } finally { _ci=_prevCI; }
 }
@@ -2934,6 +3346,139 @@ function formatCitation(c){
   if(c.source) append(c.source);
   if(c.doi) append(/^https?:/.test(c.doi)?c.doi:'doi:'+c.doi);
   return s.trim();
+}
+// Layout config editor. A raw JSON textarea rather than a row of sliders: the
+// point of externalising these constants was that a config can be written,
+// saved and shared as text. Whatever is typed goes through
+// validateLayoutConfig(), so an out-of-range or misspelled value is corrected
+// rather than accepted — and the corrected result is what gets saved, which is
+// the only way to discover the bounds without separate documentation.
+// Import / manage layout presets. Shows the current map's layout as JSON so a
+// user can copy it, tweak it, and paste it back as a new preset — which is the
+// realistic way anyone produces one of these.
+function showLayoutImportForm(){
+  document.querySelectorAll('.var-form').forEach(p=>p.remove());
+  const cur = map ? (findLayout(map.layoutPreset || map.layout) || BUILTIN_LAYOUTS[0]) : BUILTIN_LAYOUTS[0];
+  const sample = JSON.stringify({
+    v:1, id:'my-timeline', name:'My timeline', desc:'Wider spacing',
+    engine: cur.engine,
+    options: validateLayoutConfig(map && map.layoutConfig),
+  }, null, 2);
+  const customs = loadCustomLayouts();
+  const m=document.createElement('div'); m.className='var-form';
+  m.innerHTML=`
+    <div class="vf-backdrop"></div>
+    <div class="vf-card">
+      <button class="vf-close" aria-label="Close">\u00d7</button>
+      <h2>Import a layout</h2>
+      <div class="vf-hint">A layout picks one of the built-in engines
+        (${LAYOUT_ENGINES.join(', ')}) and tunes it — it cannot define a new
+        algorithm. Imported layouts are saved on this device; the maps you apply
+        them to stay readable for everyone.</div>
+      <div class="vf-fields">
+        <textarea class="vf-input vf-json" rows="14" spellcheck="false">${escapeHtml(sample)}</textarea>
+      </div>
+      <div class="vf-err" hidden></div>
+      ${customs.length ? `<div class="vf-hint" style="margin-top:10px">Saved layouts</div>
+        <div class="li-list">${customs.map(c=>
+          `<span class="li-chip">${escapeHtml(c.name)}<button data-del="${escapeHtml(c.id)}" title="Remove">\u00d7</button></span>`
+        ).join('')}</div>` : ''}
+      <div class="vf-actions">
+        <button class="vf-cancel">Cancel</button>
+        <button class="vf-go primary">Import</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('mousedown',e=>e.stopPropagation());
+  const ta=m.querySelector('.vf-json'), err=m.querySelector('.vf-err');
+  ta.focus();
+  const close=()=>m.remove();
+  const fail=msg=>{ err.hidden=false; err.textContent=msg; };
+  m.querySelector('.vf-go').onclick=()=>{
+    let parsed;
+    try{ parsed = JSON.parse(ta.value); }
+    catch(e){ return fail('Not valid JSON: '+e.message); }
+    const preset = validateLayoutPreset(parsed);
+    if(!preset){
+      return fail('Not a usable layout. It needs an "id" (letters, digits and dashes), '
+        + 'a "name", and an "engine" that is one of: ' + LAYOUT_ENGINES.join(', ') + '.');
+    }
+    if(BUILTIN_LAYOUTS.some(b=>b.id===preset.id)){
+      return fail(`"${preset.id}" is a built-in layout name — please choose another id.`);
+    }
+    const list = loadCustomLayouts().filter(c=>c.id!==preset.id);   // re-importing replaces
+    list.push(preset);
+    if(!saveCustomLayouts(list)) return fail('Could not save — this browser\u2019s storage may be full.');
+    close(); toast(`Layout \u201c${preset.name}\u201d imported`);
+    try{ $('#themeBtn').click(); }catch(_){}   // reopen so the new entry is visible
+  };
+  m.querySelectorAll('[data-del]').forEach(b=> b.onclick=()=>{
+    const id=b.dataset.del;
+    saveCustomLayouts(loadCustomLayouts().filter(c=>c.id!==id));
+    // A map already using it keeps working: engine and options live on the map.
+    close(); toast('Layout removed');
+    try{ $('#themeBtn').click(); }catch(_){}
+  });
+  m.querySelector('.vf-cancel').onclick=close;
+  m.querySelector('.vf-close').onclick=close;
+  m.querySelector('.vf-backdrop').onclick=close;
+  m.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); } });
+}
+function showLayoutConfigForm(){
+  if(!map || READONLY) return;
+  document.querySelectorAll('.var-form').forEach(p=>p.remove());
+  // Only the active engine's knobs — showing timeline's settings while
+  // 'balanced' is selected was both confusing and inapplicable.
+  const engine = map.layout || 'balanced';
+  const current = JSON.stringify(layoutConfigFor(engine, map.layoutConfig), null, 2);
+  const m=document.createElement('div'); m.className='var-form';
+  m.innerHTML=`
+    <div class="vf-backdrop"></div>
+    <div class="vf-card">
+      <button class="vf-close" aria-label="Close">\u00d7</button>
+      <h2>Layout settings \u2014 ${escapeHtml((findLayout(map.layoutPreset||engine)||{name:engine}).name)}</h2>
+      <div class="vf-hint">Saved with this map and included in share links. Out-of-range
+        values are clamped and unknown keys ignored, so what you get back may differ
+        from what you type.</div>
+      <div class="vf-fields">
+        <textarea class="vf-input vf-json" rows="14" spellcheck="false">${escapeHtml(current)}</textarea>
+      </div>
+      <div class="vf-err" hidden></div>
+      <div class="vf-actions">
+        <button class="vf-unref">Reset to defaults</button>
+        <button class="vf-cancel">Cancel</button>
+        <button class="vf-go primary">Apply</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('mousedown',e=>e.stopPropagation());
+  const ta=m.querySelector('.vf-json'), err=m.querySelector('.vf-err');
+  ta.focus();
+  const close=()=>m.remove();
+  const apply=section=>{
+    // Merge, do not replace: the dialog only ever shows the ACTIVE engine's
+    // section, so writing a whole fresh object would silently reset the
+    // settings of every other layout the user had tuned.
+    map.layoutConfig = { ...(map.layoutConfig || {}), ...section };
+    // autoLayout re-places and schedules a save; scheduleSave() is called
+    // directly too so the settings persist even if a future change makes that
+    // path conditional.
+    pushHistory(); render(); autoLayout();
+    try{ scheduleSave(); }catch(e){ console.warn('saving layout settings failed:', e.message); }
+    close(); toast('Layout settings saved');
+  };
+  m.querySelector('.vf-go').onclick=()=>{
+    let parsed;
+    try{ parsed = JSON.parse(ta.value); }
+    catch(e){ err.hidden=false; err.textContent='Not valid JSON: '+e.message; return; }
+    // Keep only the section for the engine being edited.
+    apply(layoutConfigFor(engine, parsed));
+  };
+  m.querySelector('.vf-unref').onclick=()=>apply(layoutConfigFor(engine, null));
+  m.querySelector('.vf-cancel').onclick=close;
+  m.querySelector('.vf-close').onclick=close;
+  m.querySelector('.vf-backdrop').onclick=close;
+  m.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); } });
 }
 function showCitationForm(id){
   const n=map.nodes[id]; if(!n) return;
@@ -7793,13 +8338,160 @@ const MAP_STYLES = [
   {id:'bubble',  name:'Bubble',  desc:'Pill cards, thick curves'},
   {id:'sketch',  name:'Sketch',  desc:'Outlined cards, straight lines'}
 ];
-const MAP_LAYOUTS = [
-  {id:'balanced', name:'Balanced', desc:'Branches split left & right'},
-  {id:'right',    name:'Right',    desc:'All branches grow right'},
-  {id:'left',     name:'Left',     desc:'All branches grow left'},
-  {id:'down',     name:'Down',     desc:'Org-chart, top to bottom'},
-  {id:'timeline', name:'Timeline', desc:'Sequence along an axis, sub-topics alternating'}
+/* ------------------------------------------------------------
+   Layout presets.
+
+   A preset SELECTS AND PARAMETERISES one of the placement engines this app
+   implements — it does not define a new algorithm. That distinction is the
+   whole design: 'balanced' keeps each child on whichever side it already had,
+   'down' does org-chart width packing, 'timeline' chains an axis. Those are
+   recursive procedures, not numbers, and the only way JSON could express them
+   is by shipping executable code — which would arrive on a stranger's machine
+   through every #view= link. So an imported layout picks an engine and tunes
+   it, and every built-in below is written in exactly the schema an import must
+   use, so there is no privileged path.
+
+   Applying a preset writes map.layout (the engine) and map.layoutConfig (its
+   options). Both travel with the map, so a shared map renders correctly for
+   someone who has never seen the preset — only the picker entry is local.
+   ------------------------------------------------------------ */
+/* ------------------------------------------------------------
+   Layout strategies and their parameters.
+
+   Steps 1-3 established that every layout this app draws is one of four
+   placement STRATEGIES with different numbers. This exposes those numbers, so
+   a layout can be written as JSON rather than code — which is what makes a
+   shared library of layouts possible without shipping executable plugins.
+
+   Each strategy declares its parameters: enums list their allowed values,
+   pairs are numeric [min,max]. Anything not listed here cannot be set, so a
+   preset can only ever reach knobs the engines actually read.
+   ------------------------------------------------------------ */
+const LAYOUT_PARAMS = {
+  tree: {
+    axis:['x','y'], dir:[-1,1], split:['balanced','one-side'],
+    rootAnchor:['origin','centered'],
+    gapMain:[8,400], gapCross:[4,300],
+  },
+  chain: {
+    axis:['x','y'], dir:[-1,1], start:['above','below'], alternate:'boolean',
+    gap:[8,400], stem:[0,300], indent:[0,300], gapMain:[8,400], gapCross:[4,300],
+    angle:[10,170],
+  },
+  radial: { ring:[60,600], startAngle:[-360,360], sweep:[30,360] },
+  matrix: { colGap:[8,300], rowGap:[8,300], cellGap:[0,120], headGap:[8,300] },
+  grid:   { columns:[1,8], gapX:[8,300], gapY:[8,300], rowGap:[0,120], indent:[0,120] },
+};
+// The built-in layouts, now expressed as strategy + parameters. These are the
+// same values steps 1-3 verified against captured output, so naming a built-in
+// engine and spelling out its parameters are two ways of saying one thing.
+const ENGINE_PARAMS = {
+  balanced:{ strategy:'tree',  params:{ axis:'x', dir: 1, split:'balanced', rootAnchor:'origin',   gapMain:70, gapCross:22 } },
+  right:   { strategy:'tree',  params:{ axis:'x', dir: 1, split:'one-side', rootAnchor:'origin',   gapMain:70, gapCross:22 } },
+  left:    { strategy:'tree',  params:{ axis:'x', dir:-1, split:'one-side', rootAnchor:'origin',   gapMain:70, gapCross:22 } },
+  down:    { strategy:'tree',  params:{ axis:'y', dir: 1, split:'one-side', rootAnchor:'centered', sideName:'down', gapMain:22, gapCross:70 } },
+  timeline:{ strategy:'chain', params:{ axis:'x', dir: 1, gap:70, stem:30, indent:26, alternate:true, start:'above', gapMain:70, gapCross:22 } },
+  radial:  { strategy:'radial',params:{ ring:180, startAngle:-90, sweep:360 } },
+  grid:    { strategy:'grid',  params:{ columns:3, gapX:60, gapY:60, rowGap:14, indent:24 } },
+  matrix:  { strategy:'matrix',params:{ colGap:40, rowGap:24, cellGap:10, headGap:60 } },
+  fishbone:{ strategy:'chain', params:{ axis:'x', dir:1, gap:70, stem:30, indent:26,
+                                        alternate:true, start:'above', angle:35,
+                                        gapMain:70, gapCross:22 } },
+};
+
+// Keeps only parameters the strategy declares, each within its allowed values.
+// Unlike validateLayoutPreset() this REPAIRS rather than rejects: params arrive
+// alongside a preset that is otherwise valid, so a single bad number should not
+// discard the whole layout.
+function validateLayoutParams(strategy, raw){
+  const schema = LAYOUT_PARAMS[strategy];
+  if(!schema) return {};
+  const out = {};
+  if(!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for(const [key, rule] of Object.entries(schema)){
+    const v = raw[key];
+    if(v === undefined) continue;
+    if(rule === 'boolean'){ if(typeof v === 'boolean') out[key] = v; continue; }
+    if(Array.isArray(rule) && typeof rule[0] === 'string'){ if(rule.includes(v)) out[key] = v; continue; }
+    if(Array.isArray(rule)){
+      if(typeof v !== 'number' || !isFinite(v)) continue;   // never coerce
+      out[key] = Math.min(rule[1], Math.max(rule[0], Math.round(v)));
+    }
+  }
+  return out;
+}
+
+// What autoLayout actually runs: a strategy plus a complete parameter set.
+// Accepts a built-in engine name, a strategy name, or neither, and always
+// returns something runnable — an unopenable map is never the right answer to
+// a bad layout name.
+function resolveLayout(name, params){
+  const byEngine = ENGINE_PARAMS[name];
+  const strategy = byEngine ? byEngine.strategy : (LAYOUT_PARAMS[name] ? name : 'tree');
+  const base = byEngine ? byEngine.params : ENGINE_PARAMS.balanced.params;
+  return { strategy, params: { ...base, ...validateLayoutParams(strategy, params) } };
+}
+
+const LAYOUT_ENGINES = ['balanced','right','left','down','timeline','radial','grid','matrix','fishbone'];
+const BUILTIN_LAYOUTS = [
+  {v:1, id:'balanced', name:'Balanced', desc:'Branches split left & right', engine:'balanced'},
+  {v:1, id:'right',    name:'Right',    desc:'All branches grow right',     engine:'right'},
+  {v:1, id:'left',     name:'Left',     desc:'All branches grow left',      engine:'left'},
+  {v:1, id:'down',     name:'Down',     desc:'Org-chart, top to bottom',    engine:'down'},
+  {v:1, id:'timeline', name:'Timeline', desc:'Sequence along an axis, sub-topics alternating',
+        engine:'timeline'},
+  {v:1, id:'radial',   name:'Radial',   desc:'Root at the centre, branches on rings', engine:'radial'},
+  {v:1, id:'grid',     name:'Grid',     desc:'Top-level topics as cards, sub-topics as outlines',
+        engine:'grid'},
+  {v:1, id:'matrix',   name:'Matrix',   desc:'Columns and aligned rows, read like a table', engine:'matrix'},
+  {v:1, id:'fishbone', name:'Fishbone', desc:'Spine with angled ribs, for cause-and-effect', engine:'fishbone'},
 ];
+const CUSTOM_LAYOUTS_KEY = 'mindspark:layouts';
+
+// A preset is per-device (localStorage), not per-map: it is a picker entry.
+function loadCustomLayouts(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(CUSTOM_LAYOUTS_KEY) || '[]');
+    if(!Array.isArray(raw)) return [];
+    return raw.map(validateLayoutPreset).filter(Boolean);
+  }catch(e){ console.warn('could not read saved layouts:', e.message); return []; }
+}
+function saveCustomLayouts(list){
+  try{ localStorage.setItem(CUSTOM_LAYOUTS_KEY, JSON.stringify(list)); return true; }
+  catch(e){ console.warn('could not save layouts:', e.message); return false; }
+}
+function allLayouts(){ return BUILTIN_LAYOUTS.concat(loadCustomLayouts()); }
+function findLayout(id){ return allLayouts().find(l=>l.id===id) || null; }
+
+// Returns a clean preset, or null if it cannot be one. Null rather than
+// defaults on purpose: a preset the user is importing should be REJECTED with
+// a reason, not silently turned into something they did not ask for.
+function validateLayoutPreset(raw){
+  if(!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  // Either form is accepted: an engine name (shorthand for a built-in's
+  // parameters) or a strategy with explicit params. A preset must name one.
+  const hasEngine = LAYOUT_ENGINES.includes(raw.engine);
+  const hasStrategy = typeof raw.strategy === 'string' && !!LAYOUT_PARAMS[raw.strategy];
+  if(!hasEngine && !hasStrategy) return null;
+  const id = typeof raw.id === 'string' ? raw.id.trim().slice(0,40) : '';
+  const name = typeof raw.name === 'string' ? raw.name.trim().slice(0,24) : '';
+  if(!/^[a-z0-9][a-z0-9-]*$/i.test(id) || !name) return null;
+  const out = { v:1, id, name };
+  if(hasEngine) out.engine = raw.engine;
+  if(hasStrategy){
+    out.strategy = raw.strategy;
+    out.params = validateLayoutParams(raw.strategy, raw.params);
+  } else if(raw.params){
+    // Params given against an engine name: validate under that engine's strategy.
+    out.params = validateLayoutParams(ENGINE_PARAMS[raw.engine].strategy, raw.params);
+  }
+  if(typeof raw.desc === 'string' && raw.desc.trim()) out.desc = raw.desc.trim().slice(0,80);
+  // Options reuse the layout-config validator, so bounds live in one place.
+  if(raw.options && typeof raw.options === 'object' && !Array.isArray(raw.options)){
+    out.options = validateLayoutConfig(raw.options);
+  }
+  return out;
+}
 
 function applyTheme(id){
   if(id && id!=='light') document.documentElement.setAttribute('data-theme', id);
@@ -7857,7 +8549,26 @@ function applyMapStyle(id){
 }
 function applyMapLayout(id){
   if(!map) return;
-  map.layout = id;
+  // A preset id resolves to an engine plus options; both are written onto the
+  // map so it stays portable for anyone who does not have this preset.
+  const preset = findLayout(id);
+  if(preset){
+    map.layout = preset.engine;
+    // Only a preset that actually carries options may replace the map's
+    // settings. This used to `delete map.layoutConfig` otherwise, so simply
+    // clicking the current layout again threw away everything the user had
+    // set in the gear dialog.
+    if(preset.options) map.layoutConfig = preset.options;
+    // Structural params travel with the map, so a preset the recipient does
+    // not have still renders the way its author intended.
+    if(preset.params && Object.keys(preset.params).length) map.layoutParams = preset.params;
+    else delete map.layoutParams;
+    if(preset.strategy && !preset.engine) map.layout = preset.strategy;
+    if(preset.id !== preset.engine) map.layoutPreset = preset.id; else delete map.layoutPreset;
+  } else {
+    map.layout = id;
+    delete map.layoutPreset;
+  }
   // Explicitly choosing a layout must re-assign the root children's sides so the
   // change actually takes effect (autoLayout's stable balanced mode otherwise
   // preserves a prior 'right' layout's sides and the map stays right-aligned).
@@ -7899,6 +8610,20 @@ function buildStyleThumb(id){
 }
 function buildLayoutThumb(id){
   let svg;
+  if(id==='radial') return `<span class="style-thumb"><svg viewBox="0 0 70 60" width="70" height="40">
+    <path d="M35,30 L35,12 M35,30 L52,40 M35,30 L18,40" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
+    <circle cx="35" cy="30" r="7" fill="var(--accent)"/>
+    <circle cx="35" cy="10" r="5" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <circle cx="54" cy="42" r="5" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <circle cx="16" cy="42" r="5" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+  </svg></span>`;
+  if(id==='grid') return `<span class="style-thumb"><svg viewBox="0 0 70 60" width="70" height="40">
+    <rect x="27" y="4" width="16" height="9" rx="2" fill="var(--accent)"/>
+    <rect x="6"  y="20" width="26" height="15" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="38" y="20" width="26" height="15" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="6"  y="40" width="26" height="15" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="38" y="40" width="26" height="15" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+  </svg></span>`;
   if(id==='timeline') return `<span class="style-thumb"><svg viewBox="0 0 70 60" width="70" height="40">
     <path d="M10,30 L62,30" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
     <path d="M26,30 L26,16 L34,16 M46,30 L46,44 L54,44" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
@@ -7948,7 +8673,7 @@ $('#themeBtn').onclick=(e)=>{
   const curTheme  = document.documentElement.getAttribute('data-theme') || 'light';
   const curLook   = document.documentElement.getAttribute('data-look')  || 'office';
   const curStyle  = (map && map.style)  || 'modern';
-  const curLayout = (map && map.layout) || 'balanced';
+  const curLayout = (map && (map.layoutPreset || map.layout)) || 'balanced';
   themePanel=document.createElement('div');
   themePanel.className='theme-panel theme-panel-large';
   themePanel.innerHTML = `
@@ -7980,9 +8705,11 @@ $('#themeBtn').onclick=(e)=>{
       </div>
     </div>
     <div class="tp-section">
-      <div class="tp-label">Layout</div>
+      <div class="tp-label">Layout
+        <button class="tp-cog" title="Layout settings (JSON)">\u2699</button>
+      </div>
       <div class="tp-grid tp-scroll-row">
-        ${MAP_LAYOUTS.map(l=>`
+        ${allLayouts().map(l=>`
           <button class="theme-opt${l.id===curLayout?' active':''}" data-cat="layout" data-id="${l.id}" title="${l.desc}">
             ${buildLayoutThumb(l.id)}<span class="theme-name">${l.name}</span>
           </button>`).join('')}
@@ -8007,6 +8734,11 @@ $('#themeBtn').onclick=(e)=>{
   //   - edge fades, shown only on the side that actually has more to reveal
   //   - a normal (vertical) wheel scrolls the row while the pointer is over it
   //   - the active option is scrolled into view when the panel opens
+  // The cog is not a .theme-opt, so it is wired separately rather than going
+  // through the category dispatch below.
+  const cog = themePanel.querySelector('.tp-cog');
+  if(cog) cog.onclick = ev => { ev.stopPropagation(); closeThemePanel(); showLayoutConfigForm(); };
+
   themePanel.querySelectorAll('.tp-scroll-row').forEach(row=>{
     const sync=()=>{
       const max = row.scrollWidth - row.clientWidth;
@@ -8576,8 +9308,10 @@ async function _gunzip(bytes){
   return new TextDecoder().decode(buf);
 }
 function _shareePayload(m){
-  return { v:1, title:m.title, color:m.color, style:m.style, layout:m.layout,
-           rootId:m.rootId, nodes:m.nodes, links:m.links||[], vars:m.vars||{} };
+  const p = { v:1, title:m.title, color:m.color, style:m.style, layout:m.layout,
+              rootId:m.rootId, nodes:m.nodes, links:m.links||[], vars:m.vars||{} };
+  if(m.layoutConfig) p.layoutConfig = m.layoutConfig;   // omitted entirely when unset
+  return p;
 }
 async function buildShareLink(){
   const json=JSON.stringify(_shareePayload(map));
