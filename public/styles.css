@@ -310,7 +310,7 @@
   .topbar{position:absolute;top:14px;left:14px;right:14px;display:flex;align-items:center;gap:8px;z-index:30;pointer-events:none}
   .topbar > *{pointer-events:auto}
   .tb-group{display:flex;align-items:center;gap:2px;background:var(--chrome);border:1px solid var(--chrome-edge);border-radius:12px;padding:4px;box-shadow:var(--shadow)}
-  .tb{border:none;background:none;color:var(--ink);width:36px;height:34px;border-radius:8px;display:grid;place-items:center;font-size:16px}
+  .tb{border:none;background:none;color:var(--ink);width:36px;height:34px;border-radius:8px;display:grid;place-items:center;font-size:16px;white-space:nowrap}
   .tb:hover{background:var(--hover)}
   .tb:disabled{opacity:.32;cursor:default}
   .tb.wide{width:auto;padding:0 12px;font-size:13.5px;font-weight:600;gap:7px}
@@ -601,6 +601,18 @@
   #viewport[data-style="sketch"]  .node{border-radius:3px; border-width:2px; border-color:var(--ink); box-shadow:none}
   #viewport[data-style="sketch"]  .node.root{border-width:0}
   #viewport[data-style="sketch"] {--edge-color:var(--ink-soft);--edge-width:1.6}
+  #viewport[data-style="dashed"]   {--edge-color:var(--line-2);--edge-width:2.2}
+  #viewport[data-style="dashed"]   .node{border-radius:14px}
+  #viewport[data-style="minimal"]  {--edge-color:var(--line-2);--edge-width:1.1}
+  #viewport[data-style="minimal"]  .node{border-radius:6px; border-width:1px; box-shadow:none}
+  #viewport[data-style="minimal"]  .node.root{border-radius:8px}
+  #viewport[data-style="zigzag"]   {--edge-color:var(--line-2);--edge-width:2}
+  #viewport[data-style="zigzag"]   .node{border-radius:2px; border-width:2px; box-shadow:none}
+  #viewport[data-style="zigzag"]   .node.root{border-radius:2px}
+  #viewport[data-style="neon"]     {--edge-color:var(--accent);--edge-width:2.4}
+  #viewport[data-style="neon"]     .node{border-radius:10px; border-width:1px; border-color:color-mix(in srgb, var(--accent) 55%, transparent); box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 16px color-mix(in srgb, var(--accent) 38%, transparent)}
+  #viewport[data-style="neon"]     .node.root{box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent), 0 0 26px color-mix(in srgb, var(--accent) 55%, transparent)}
+  #viewport[data-style="neon"]     #edges path{filter:drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 65%, transparent))}
 
   /* Cascades the pencil font to every part of the app that already
      references --sans/--serif (sidebar, modals, buttons, topbar, and
@@ -702,6 +714,42 @@
   :root[data-look="coffee-shop"] .minimap{ border-radius:10px 4px 10px 4px; border:1.5px solid var(--ink); }
   :root[data-look="coffee-shop"] .toast{ border-radius:12px 4px 12px 4px; border:1.5px solid var(--ink); }
 
+  /* ===== "In the Lab" look and feel — technical, squared-off =====
+     Font-only override plus a quiet blueprint grid on the canvas, same
+     principles as the other looks: no palette change, no card-shape or
+     edge-style interference (those belong to Map Style). Everything is
+     squared and precise to match a monospace: 3px corners instead of
+     organic rounded ones, 1.5px ink borders, a lab-notebook grid texture
+     (both axes) instead of dots or ruled lines. JetBrains Mono is a
+     designed text face, so no font-size compensation on .node. */
+  :root[data-look="lab"]{ --sans:"JetBrains Mono",monospace; --serif:"JetBrains Mono",monospace; }
+  :root[data-look="lab"] .stage{
+    background-image:linear-gradient(color-mix(in srgb, var(--line) 55%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--line) 55%, transparent) 1px, transparent 1px);
+    background-size:26px 26px; background-color:var(--paper);
+  }
+  :root[data-look="lab"] .nodebar{
+    border-radius:3px;
+    border:1.5px solid var(--ink); box-shadow:none;
+  }
+  :root[data-look="lab"] .side{border-right:1.5px solid var(--ink)}
+  :root[data-look="lab"] .new-map{border:1.5px dashed var(--ink-soft)}
+  :root[data-look="lab"] .vf-card{
+    border-radius:3px; border:1.5px solid var(--ink); box-shadow:var(--shadow-lg);
+  }
+  :root[data-look="lab"] .vf-card h2{font-weight:700}
+  :root[data-look="lab"] .row-pop,
+  :root[data-look="lab"] .picker,
+  :root[data-look="lab"] .donate-card,
+  :root[data-look="lab"] .export-pop,
+  :root[data-look="lab"] .tpl-pop{
+    border-radius:3px; border:1.5px solid var(--ink);
+  }
+  :root[data-look="lab"] .donate-card{ border-radius:4px; }
+  :root[data-look="lab"] .search-wrap{ border-radius:3px; border:1.5px solid var(--ink); }
+  :root[data-look="lab"] .minimap{ border-radius:3px; border:1.5px solid var(--ink); }
+  :root[data-look="lab"] .toast{ border-radius:3px; border:1.5px solid var(--ink); }
+
   /* ===== Theme panel — multi-section layout ===== */
   /* ===== Theme picker panel ===== */
   .theme-panel{
@@ -710,7 +758,7 @@
     min-width:340px; font-family:var(--sans);
   }
   .theme-panel-large{
-    min-width:580px; max-width:640px; display:flex; flex-direction:column;
+    min-width:580px; max-width:700px; display:flex; flex-direction:column;
     gap:0; padding:0; overflow-x:hidden; overflow-y:auto;
   }
   .theme-panel-large .tp-section{padding:10px 12px; border-top:1px solid var(--chrome-edge)}
@@ -768,7 +816,7 @@
   .var-form .li-chip button:hover{ color:#c0392b; }
   .theme-panel-large .tp-grid{
     display:grid; gap:4px;
-    grid-template-columns:repeat(4,minmax(125px,1fr));
+    grid-template-columns:repeat(4,minmax(160px,1fr));
   }
   /* One-line scrolling row (Layout). Keeps the panel from gaining a whole
      extra line for a fifth option. Overrides the grid above rather than
@@ -780,7 +828,7 @@
   }
   .theme-panel-large .tp-grid.tp-scroll-row::-webkit-scrollbar{ display:none; }
   .theme-panel-large .tp-grid.tp-scroll-row > .theme-opt{
-    flex:0 0 auto; min-width:125px;
+    flex:0 0 160px; width:160px; min-width:0;
   }
   /* Edge fades: the only cue that more options exist off-screen. Applied with
      a mask so they tint whatever is behind them, and only on the side that
@@ -801,7 +849,7 @@
   /* A focused option must never be hidden behind a fade. */
   .theme-panel-large .tp-grid.tp-scroll-row > .theme-opt:focus-visible{ outline-offset:-2px; }
   .style-thumb{
-    width:62px; height:36px; border-radius:6px; border:1px solid var(--line);
+    width:70px; height:40px; border-radius:6px; border:1px solid var(--line);
     background:var(--paper); display:inline-flex; align-items:center; justify-content:center;
     flex-shrink:0; overflow:hidden;
   }
@@ -814,11 +862,12 @@
   .theme-opt:hover{background:var(--hover)}
   .theme-opt.active{border-color:var(--accent); background:var(--paper-2)}
   .theme-thumb{
-    width:38px; height:38px; border-radius:8px;
+    width:70px; height:40px; border-radius:6px;
     position:relative; border:1px solid var(--line); flex-shrink:0; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; gap:6px;
   }
-  .theme-thumb .t1{position:absolute; left:5px; top:5px; width:14px; height:14px; border-radius:3px}
-  .theme-thumb .t2{position:absolute; right:5px; bottom:5px; width:11px; height:11px; border-radius:50%}
+  .theme-thumb .t1{position:static; width:14px; height:14px; border-radius:3px; flex-shrink:0}
+  .theme-thumb .t2{position:static; width:11px; height:11px; border-radius:50%; flex-shrink:0}
   .theme-thumb.look-thumb{
     display:flex; align-items:center; justify-content:center;
     background:var(--paper); color:var(--ink); font-size:17px; font-weight:600;
@@ -1499,6 +1548,15 @@
   .picker.marker-picker button:hover{ background:var(--hover); }
   .picker.marker-picker button.on{ border-color:var(--accent); background:var(--paper-2); }
   .picker.marker-picker button.mk-none{ grid-column:1 / -1; font-size:13px; color:var(--ink-soft); }
+  .picker.marker-picker button.mk-custom{ grid-column:1 / -1; font-size:13px; color:var(--ink-soft); border:1.5px dashed var(--line-2); }
+  .picker.marker-picker .mk-custom-row{ grid-column:1 / -1; display:flex; align-items:center; gap:6px; }
+  .picker.marker-picker .mk-custom-row input{
+    flex:1; min-width:0; font-size:16px; padding:5px 8px; border-radius:8px;
+    border:1.5px solid var(--line-2); background:var(--paper-1); color:var(--ink); font-family:inherit;
+  }
+  .picker.marker-picker .mk-custom-row input:focus{ outline:none; border-color:var(--accent); }
+  .picker.marker-picker .mk-custom-row button.mk-apply{ font-size:13px; padding:5px 10px; }
+  .picker.marker-picker .mk-custom-row button.mk-apply:disabled{ opacity:.45; cursor:default; }
   .node .task-check{
     flex-shrink:0; width:18px; height:18px; margin-right:7px;
     border:2px solid var(--line-2); border-radius:5px;

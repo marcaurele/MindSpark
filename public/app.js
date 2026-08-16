@@ -621,7 +621,8 @@ function render(){
     return;
   }
   $('#empty').style.display='none';
-  viewport.dataset.style = map.style || 'modern';
+  const mapStyle = map.style || 'modern';
+  viewport.dataset.style = mapStyle;
   viewport.dataset.layout = map.layout || 'balanced';
   const _prevCI=_ci; _ci=buildChildIndex();   // O(1) childrenOf for this whole pass
   try{
@@ -1299,12 +1300,12 @@ function shade(hex,amt){
 function drawEdges(hidden){
   const style=map.style||'modern';
   const layout=map.layout||'balanced';
-  let path='';
+  const segs=[];
   for(const id in map.nodes){
     const n=map.nodes[id]; if(!n.parent||hidden.has(id)||hidden.has(n.parent)) continue;
     const p=map.nodes[n.parent]; if(!p) continue;
     // Choose attach points based on layout orientation
-    let x1,y1,x2,y2,horizontal=true,leftSide=(n.side==='left');
+    let x1,y1,x2,y2,horizontal=true,leftSide=(n.side==='left'),d;
     if(layout==='timeline' && n.parent!==map.rootId){
       // Sub-topic stem: straight up (or down) out of the main topic, then
       // across to the child. Direction is derived from the placed geometry
@@ -1312,10 +1313,8 @@ function drawEdges(hidden){
       const pcx=p.x+(p.w||0)/2, pcy=p.y+(p.h||0)/2;
       const ncy=n.y+(n.h||0)/2;
       const sx=pcx, sy = ncy<pcy ? p.y : p.y+(p.h||0);
-      path += `M${sx},${sy} L${sx},${ncy} L${n.x},${ncy} `;
-      continue;
-    }
-    if(layout==='radial'){
+      d = `M${sx},${sy} L${sx},${ncy} L${n.x},${ncy}`;
+    } else if(layout==='radial'){
       // Spokes. The default bezier attaches to a card's left or right edge,
       // which on a radial map sends a connector for a node directly ABOVE the
       // centre looping out sideways and back — the single thing that stopped
@@ -1324,38 +1323,59 @@ function drawEdges(hidden){
       // remains is a clean spoke.
       const pcx=p.x+(p.w||0)/2, pcy=p.y+(p.h||0)/2;
       const ncx=n.x+(n.w||0)/2, ncy=n.y+(n.h||0)/2;
-      path += `M${pcx},${pcy} L${ncx},${ncy} `;
-      continue;
-    }
-    if(layout==='grid'){
+      d = `M${pcx},${pcy} L${ncx},${ncy}`;
+    } else if(layout==='grid'){
       if(n.parent===map.rootId){
         // Root to card: drop, across, drop. Long curves between grid cards
         // read as accidental rather than structural.
         const sx=p.x+(p.w||0)/2, sy=p.y+(p.h||0);
         const tx=n.x+(n.w||0)/2, ty=n.y;
         const mid=(sy+ty)/2;
-        path += `M${sx},${sy} L${sx},${mid} L${tx},${mid} L${tx},${ty} `;
+        d = `M${sx},${sy} L${sx},${mid} L${tx},${mid} L${tx},${ty}`;
       } else {
         // Within a card's outline: the classic indented-list elbow — straight
         // down the parent's left edge, then across to the child. Indentation
         // already carries the hierarchy, so this only needs to confirm it.
         const sx=p.x+12, sy=p.y+(p.h||0);
         const ty=n.y+(n.h||0)/2;
-        path += `M${sx},${sy} L${sx},${ty} L${n.x},${ty} `;
+        d = `M${sx},${sy} L${sx},${ty} L${n.x},${ty}`;
       }
-      continue;
-    }
-    if(layout==='down'){
-      horizontal=false;
-      x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
-      x2=n.x+(n.w||0)/2; y2=n.y;
+    } else if(layout==='matrix'){
+      // Straight centre-to-centre drop, like XMind's matrix/spreadsheet
+      // structure: a parent sits directly above its cell stack, so a clean
+      // vertical connector reads as a table hierarchy rather than a branch.
+      const pcx=p.x+(p.w||0)/2, pcy=p.y+(p.h||0);
+      const ncx=n.x+(n.w||0)/2, ncy=n.y;
+      d = `M${pcx},${pcy} L${ncx},${ncy}`;
     } else {
-      x1=leftSide ? p.x : p.x+(p.w||0);
-      y1=p.y+(p.h||0)/2;
-      x2=leftSide ? n.x+(n.w||0) : n.x;
-      y2=n.y+(n.h||0)/2;
+      if(layout==='down'){
+        horizontal=false;
+        x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
+        x2=n.x+(n.w||0)/2; y2=n.y;
+      } else {
+        x1=leftSide ? p.x : p.x+(p.w||0);
+        y1=p.y+(p.h||0)/2;
+        x2=leftSide ? n.x+(n.w||0) : n.x;
+        y2=n.y+(n.h||0)/2;
+      }
+      d = edgePath(x1,y1,x2,y2,leftSide,horizontal,style);
     }
-    path += edgePath(x1,y1,x2,y2,leftSide,horizontal,style)+' ';
+    // Stroke settings per style: colour (null → CSS var), width (null → CSS
+    // var), dash (null → solid). Dashed dashes, Minimal thins — the rest keep
+    // the themed CSS defaults, so the merged single path below stays identical
+    // to the old one-element output for those styles.
+    let color=null, width=null, dash=null;
+    if(style==='dashed') dash='7 5';
+    else if(style==='minimal') width='1.1';
+    segs.push({d, color, width, dash});
+  }
+  // Merge segments sharing stroke settings into one path element each, so a
+  // plain map stays a single <path> and only styles that vary (dashed: dash
+  // on, minimal: thin) multiply the element count.
+  const merged=new Map();
+  for(const s of segs){
+    const key=s.color+'|'+s.width+'|'+(s.dash||'');
+    merged.set(key, (merged.get(key)||'')+' '+s.d);
   }
   // Cross-links: non-tree edges (references / dependencies). Drawn as separate
   // dotted paths so they read differently from the structural tree edges.
@@ -1377,8 +1397,20 @@ function drawEdges(hidden){
     linkMarkers.push({x:bx,y:by,cx,cy});
   });
   edges.innerHTML =
-    `<path d="${path}" fill="none" stroke="var(--edge-color, var(--line-2))" stroke-width="var(--edge-width, 2.2)" stroke-linecap="round"/>` +
+    edgePathsHTML(merged) +
     (linkPath ? `<path d="${linkPath}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="2 6" stroke-linecap="round" opacity="0.85"/>` : '');
+}
+// Build <path> elements from merged edge segments (Map key → path data).
+// Pure so tests can pin the stroke/width/dash fallbacks — the 'null' string
+// case is exactly the kind of thing that reads fine in code and then renders
+// as invisible edges (SVG ignores stroke="null", defaulting to none).
+function edgePathsHTML(merged){
+  return [...merged].map(([key,d])=>{
+    const [color,width,dash]=key.split('|');
+    const stroke = (color && color!=='null') ? color : 'var(--edge-color, var(--line-2))';
+    const sw     = (width && width!=='null') ? width : 'var(--edge-width, 2.2)';
+    return `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"${dash&&dash!=='null'?` stroke-dasharray="${dash}"`:''}/>`;
+  }).join('');
 }
 function edgePath(x1,y1,x2,y2,leftSide,horizontal,style){
   switch(style){
@@ -1392,6 +1424,16 @@ function edgePath(x1,y1,x2,y2,leftSide,horizontal,style){
       }
     }
     case 'sketch': return `M${x1},${y1} L${x2},${y2}`;  // straight line
+    case 'zigzag': {                                     // jagged polyline
+      const amp=Math.min(12, Math.max(3, (horizontal?Math.abs(x2-x1):Math.abs(y2-y1))/8));
+      let d=`M${x1},${y1}`;
+      for(let i=1;i<=3;i++){
+        const along = horizontal ? (x1+(x2-x1)*i/3) : (y1+(y2-y1)*i/3);
+        const off   = (i%2 ? -amp : amp);
+        d += horizontal ? ` L${along},${y1+off}` : ` L${x1+off},${along}`;
+      }
+      return d+` L${x2},${y2}`;
+    }
     case 'bubble':                                       // same path as modern but CSS makes it thicker
     case 'modern':
     default: {                                           // smooth bezier
@@ -1684,6 +1726,15 @@ const LAYOUT_CONFIG_DEFAULTS = {
     alternate: true,    // alternate sub-topics above/below, or keep one side
     start: 'above',     // which side the first main topic's sub-topics take
   },
+  matrix: { colGap:40, rowGap:24, cellGap:10, headGap:60 },
+  fishbone: {
+    gap: 70,            // gap between consecutive spine items
+    stem: 30,           // clearance between the spine and a rib's sub-topic block
+    indent: 26,         // sub-topic inset from its rib item's left edge
+    alternate: true,    // alternate ribs above/below the spine, or keep one side
+    start: 'above',     // which side the first rib takes
+    angle: 35,          // rib angle off the spine (90 = perpendicular, like a timeline)
+  },
 };
 // Bounds chosen so any accepted value still produces a readable map: a gap of
 // 0 overlaps cards, and very large values scatter them past a usable canvas.
@@ -1695,6 +1746,8 @@ const LAYOUT_CONFIG_BOUNDS = {
   radial:   { ring:[60,600], startAngle:[-360,360], sweep:[30,360] },
   grid:     { columns:[1,8], gapX:[8,300], gapY:[8,300], rowGap:[0,120], indent:[0,120] },
   timeline: { gap:[8,400], stem:[0,300], indent:[0,300] },
+  matrix:   { colGap:[8,300], rowGap:[8,300], cellGap:[0,120], headGap:[8,300] },
+  fishbone: { gap:[8,400], stem:[0,300], indent:[0,300], angle:[10,170] },
 };
 
 function validateLayoutConfig(raw){
@@ -1714,9 +1767,9 @@ function validateLayoutConfig(raw){
       const [lo,hi] = bounds[key];
       out[engine][key] = Math.min(hi, Math.max(lo, Math.round(v)));
     }
-    if(engine === 'timeline'){
-      if(typeof sec.alternate === 'boolean') out.timeline.alternate = sec.alternate;
-      if(sec.start === 'above' || sec.start === 'below') out.timeline.start = sec.start;
+    if(engine === 'timeline' || engine === 'fishbone'){
+      if(typeof sec.alternate === 'boolean') out[engine].alternate = sec.alternate;
+      if(sec.start === 'above' || sec.start === 'below') out[engine].start = sec.start;
     }
   }
   return out;
@@ -1837,9 +1890,11 @@ function layoutChain(nodes, rootId, kidsOf, opts){
    Mutates x/y/side on the given nodes.
    ------------------------------------------------------------ */
 function layoutRadial(nodes, rootId, kidsOf, opts){
-  const ring   = opts.ring   != null ? opts.ring   : 180;   // radius added per level
+  const ring   = opts.ring   != null ? opts.ring   : 180;   // base radius per level
   const start  = (opts.startAngle != null ? opts.startAngle : -90) * Math.PI / 180;
   const sweep  = (opts.sweep      != null ? opts.sweep      : 360) * Math.PI / 180;
+  const pad    = 14;   // angular gap between neighbouring cards on a ring
+  const padV   = 16;   // radial gap between a card and its parent
 
   // Leaf count drives the wedge share. Counting leaves rather than nodes keeps
   // a long thin branch from crowding out a wide shallow one.
@@ -1850,25 +1905,76 @@ function layoutRadial(nodes, rootId, kidsOf, opts){
     let s = 0; cs.forEach(c => { s += leaves(c); });
     return s;
   };
+  const rootLeaves = leaves(rootId);
+  const csOf = id => nodes[id].collapsed ? [] : kidsOf(id);
+
+  // Collect the visible nodes level by level so each ring can be sized to the
+  // cards it actually holds.
+  const levels = [];
+  const parentOf = {};
+  const walk = (id, depth) => {
+    (levels[depth] = levels[depth] || []).push(id);
+    csOf(id).forEach(c => { parentOf[c] = id; walk(c, depth + 1); });
+  };
+  walk(rootId, 0);
+
+  // Ring radii and angular shares, settled by fixed point. Every card must fit
+  // its share of the sweep, so a card wider than its leaf-earned share takes a
+  // bigger wedge (taking it from nowhere in particular) and the ring grows
+  // until the whole level fits the sweep. That keeps a single long label from
+  // inflating every ring: the map only spreads as wide as its widest level.
+  const share = {};
+  const r = levels.map((_, d) => ring * d);
+  for(let pass = 0; pass < 40; pass++){
+    for(let depth = levels.length - 1; depth >= 1; depth--){
+      levels[depth].forEach(id => {
+        let s = sweep * leaves(id) / rootLeaves;
+        const cardNeed = ((nodes[id].w || 120) + pad) / Math.max(r[depth], 1);
+        if(cardNeed > s) s = cardNeed;
+        const kids = csOf(id);
+        let kidsSum = 0;
+        kids.forEach(c => { kidsSum += share[c]; });
+        if(kidsSum > s) s = kidsSum;
+        share[id] = s;
+      });
+    }
+    let changed = false;
+    for(let depth = 1; depth < levels.length; depth++){
+      let total = 0;
+      levels[depth].forEach(id => { total += share[id]; });
+      if(total > sweep && total > 0){
+        const nr = r[depth] * total / sweep;
+        if(nr > r[depth]){ r[depth] = nr; changed = true; }
+      }
+      // Radial clearance: a card may not sit so close to the centre that it
+      // covers its parent — with the root as parent, that is the centre.
+      let step = r[depth - 1];
+      levels[depth].forEach(id => {
+        const p = nodes[parentOf[id]];
+        step = Math.max(step, r[depth - 1] + (nodes[id].w || 120) / 2 + (p ? (p.w || 120) : 0) / 2 + padV);
+      });
+      if(r[depth] < step){ r[depth] = step; changed = true; }
+    }
+    if(!changed) break;
+  }
 
   const place = (id, a0, a1, depth) => {
     const n = nodes[id];
     const mid = (a0 + a1) / 2;
-    const r = depth * ring;
     // Position by centre, then convert to the top-left the renderer expects.
-    n.x = Math.cos(mid) * r - (n.w || 120) / 2;
-    n.y = Math.sin(mid) * r - (n.h || 40) / 2;
+    n.x = Math.cos(mid) * r[depth] - (n.w || 120) / 2;
+    n.y = Math.sin(mid) * r[depth] - (n.h || 40) / 2;
     // side drives which edge of the card connectors attach to.
     n.side = depth === 0 ? 'root' : (Math.cos(mid) < 0 ? 'left' : 'right');
 
-    const cs = n.collapsed ? [] : kidsOf(id);
+    const cs = csOf(id);
     if(!cs.length) return;
-    const total = leaves(id);
+    const kidsSum = cs.reduce((s, c) => s + share[c], 0) || 1;
     let a = a0;
     cs.forEach(c => {
-      const share = (a1 - a0) * (leaves(c) / total);
-      place(c, a, a + share, depth + 1);
-      a += share;
+      const w = (a1 - a0) * share[c] / kidsSum;
+      place(c, a, a + w, depth + 1);
+      a += w;
     });
   };
 
@@ -2202,7 +2308,7 @@ function autoLayout(noRender){
       else { _p.gapMain = _cfg.hGap; _p.gapCross = _cfg.vGap; }
     }
     for(const k of ['gap','stem','indent','alternate','start','ring','startAngle','sweep',
-                    'columns','gapX','gapY','rowGap']){
+                    'columns','gapX','gapY','rowGap','angle','colGap','cellGap','headGap']){
       if(_cfg[k] !== undefined) _p[k] = _cfg[k];
     }
   }
@@ -3286,15 +3392,46 @@ function showMarkerPicker(anchor, id){
   p.innerHTML = MARKERS.map(m=>
       `<button data-v="${m.c}" title="${escapeHtml(m.label)}" class="${m.c===cur?'on':''}">${m.c}</button>`
     ).join('') +
-    `<button data-v="" title="Remove marker" class="mk-none">\u2716</button>`;
+    `<button data-v="" title="Remove marker" class="mk-none">\u2716</button>` +
+    `<button type="button" class="mk-custom" title="Paste any emoji — copy it from Emojipedia or anywhere else">\uFF0B Custom emoji</button>`;
   document.body.appendChild(p);
   positionPopup(p, anchor, {align:'left'});
   p.addEventListener('mousedown',ev=>ev.stopPropagation());
-  p.querySelectorAll('button').forEach(b=> b.onclick=ev=>{
+  p.querySelectorAll('button[data-v]').forEach(b=> b.onclick=ev=>{
     ev.stopPropagation();
     setMarker(id, b.dataset.v);
     p.remove();
   });
+  // Custom emoji: swap the grid for a paste row. Any single emoji grapheme is
+  // accepted (ZWJ families, flags, skin tones — the Segmenter counts them as
+  // one), so users can copy anything from Emojipedia without us curating it.
+  p.querySelector('.mk-custom').onclick=ev=>{
+    ev.stopPropagation();
+    p.innerHTML = `<div class="mk-custom-row">
+        <input type="text" maxlength="16" placeholder="Paste an emoji\u2026" spellcheck="false">
+        <button type="button" class="mk-apply" disabled>Apply</button>
+      </div>`;
+    const input=p.querySelector('input'), apply=p.querySelector('.mk-apply');
+    const valid=()=>{
+      const v=input.value.trim();
+      if(!v) return false;
+      let parts;
+      try{ parts=[...new Intl.Segmenter().segment(v)]; }catch(e){ parts=null; }
+      if(!parts || parts.length!==1) return false;
+      return /[\u{1F000}-\u{1FAFF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{25A0}-\u{25FF}\u{2190}-\u{21FF}\u{FE0F}]/u.test(v);
+    };
+    const refresh=()=>{ apply.disabled=!valid(); };
+    input.addEventListener('input',refresh);
+    input.addEventListener('keydown',ev=>{
+      ev.stopPropagation();
+      if(ev.key==='Enter' && valid()){ setMarker(id, input.value.trim()); p.remove(); }
+    });
+    apply.onclick=ev=>{
+      ev.stopPropagation();
+      if(valid()){ setMarker(id, input.value.trim()); p.remove(); }
+    };
+    input.focus();
+  };
   // Close on the next outside click, matching how the other popups behave.
   setTimeout(()=>{
     const off=ev=>{ if(!p.contains(ev.target)){ p.remove(); document.removeEventListener('mousedown',off); } };
@@ -7689,11 +7826,8 @@ async function exportPNG(){
   }
   ctx.translate(-minx+pad,-miny+pad);
 
-  // Edges — match map style: bezier (modern/bubble), step (classic), straight (sketch)
-  const edgeColor = (mapStyle==='bubble') ? accent : (mapStyle==='sketch' ? themeInk : themeEdge);
-  const edgeWidth = (mapStyle==='bubble') ? 3 : (mapStyle==='classic' ? 1.6 : 2.2);
-  ctx.strokeStyle = edgeColor;
-  ctx.lineWidth   = edgeWidth;
+  // Edges — match map style: bezier (modern/bubble/dashed/minimal),
+  // step (classic), straight (sketch), jagged (zigzag)
   ctx.lineCap='round'; ctx.lineJoin='round';
   ids.forEach(i=>{
     const n=map.nodes[i]; if(!n.parent||hidden.has(n.parent)) return;
@@ -7703,15 +7837,39 @@ async function exportPNG(){
       horizontal=false;
       x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
       x2=n.x+(n.w||0)/2; y2=n.y;
+    } else if(mapLayout==='matrix'){
+      horizontal=false;
+      x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
+      x2=n.x+(n.w||0)/2; y2=n.y;
     } else {
       x1=leftSide ? p.x : p.x+(p.w||0); y1=p.y+(p.h||0)/2;
       x2=leftSide ? n.x+(n.w||0) : n.x;  y2=n.y+(n.h||0)/2;
     }
+    let col=themeEdge, wid=2.2;
+    if(mapStyle==='bubble'){ col=accent; wid=3; }
+    else if(mapStyle==='sketch'){ col=themeInk; wid=1.6; }
+    else if(mapStyle==='classic'){ wid=1.6; }
+    else if(mapStyle==='minimal'){ wid=1.1; }
+    else if(mapStyle==='neon'){ col=accent; wid=2.4; }
+    ctx.strokeStyle=col; ctx.lineWidth=wid;
+    ctx.setLineDash(mapStyle==='dashed' ? [7,5] : []);
+    if(mapStyle==='neon'){ ctx.shadowColor=col; ctx.shadowBlur=8; }
     ctx.beginPath();
     if(mapStyle==='classic'){
       if(horizontal){ const mid=(x1+x2)/2; ctx.moveTo(x1,y1); ctx.lineTo(mid,y1); ctx.lineTo(mid,y2); ctx.lineTo(x2,y2); }
       else { const mid=(y1+y2)/2; ctx.moveTo(x1,y1); ctx.lineTo(x1,mid); ctx.lineTo(x2,mid); ctx.lineTo(x2,y2); }
     } else if(mapStyle==='sketch'){
+      ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+    } else if(mapStyle==='zigzag'){
+      const amp=Math.min(12, Math.max(3, (horizontal?Math.abs(x2-x1):Math.abs(y2-y1))/8));
+      ctx.moveTo(x1,y1);
+      for(let zi=1;zi<=3;zi++){
+        const along = horizontal ? (x1+(x2-x1)*zi/3) : (y1+(y2-y1)*zi/3);
+        const off   = (zi%2 ? -amp : amp);
+        horizontal ? ctx.lineTo(along, y1+off) : ctx.lineTo(x1+off, along);
+      }
+      ctx.lineTo(x2,y2);
+    } else if(mapLayout==='matrix'){
       ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
     } else {
       if(horizontal){
@@ -7726,6 +7884,8 @@ async function exportPNG(){
     }
     ctx.stroke();
   });
+  ctx.setLineDash([]);
+  ctx.shadowBlur = 0;
 
   // Cross-links — dotted accent curves (match the on-screen rendering)
   if(map.links && map.links.length){
@@ -7749,7 +7909,7 @@ async function exportPNG(){
   }
 
   // Nodes — also match shape per style
-  const nodeRadius = (mapStyle==='bubble') ? 999 : (mapStyle==='classic' || mapStyle==='sketch') ? 4 : 12;
+  const nodeRadius = (mapStyle==='bubble') ? 999 : (mapStyle==='classic' || mapStyle==='sketch') ? 4 : (mapStyle==='minimal' || mapStyle==='zigzag') ? 2 : 12;
   const roll = computeRollups();
   // Small pill badge (task-progress / token-count), matching the on-screen corner style.
   const drawPillBadge = (text, x, yTop, bg, fg) => {
@@ -7775,9 +7935,11 @@ async function exportPNG(){
     }
     ctx.fill();
     if(!isRoot && mapStyle !== 'bubble'){
-      ctx.strokeStyle = mapStyle==='sketch' ? themeInk : themeLine;
-      ctx.lineWidth = mapStyle==='sketch' ? 2 : 1.5;
+      if(mapStyle==='minimal'){ ctx.strokeStyle=themeLine; ctx.lineWidth=1; }
+      else if(mapStyle==='neon'){ ctx.strokeStyle=accent; ctx.lineWidth=1.2; ctx.shadowColor=accent; ctx.shadowBlur=10; }
+      else { ctx.strokeStyle = mapStyle==='sketch' ? themeInk : themeLine; ctx.lineWidth = mapStyle==='sketch' ? 2 : 1.5; }
       ctx.stroke();
+      ctx.shadowBlur = 0;
     }
     // Text — pick a color that contrasts with the node background
     const bg = isRoot ? (map.color || accent) : (n.color || themeNodeBg);
@@ -8311,8 +8473,8 @@ const THEMES = [
   {id:'night-owl',       name:'Night Owl',       swatch:['#011627','#0b2942','#7e57c2']},
   {id:'catppuccin-light', name:'Catppuccin<br>Light', swatch:['#eff1f5','#e6e9ef','#8839ef']},
   {id:'catppuccin-dark',  name:'Catppuccin<br>Dark',  swatch:['#1e1e2e','#181825','#cba6f7']},
-  {id:'rose-pine-moon',  name:'Rosé Pine<br>Moon',  swatch:['#232136','#393552','#c4a7e7']},
   {id:'rose-pine-dawn',  name:'Rosé Pine<br>Dawn',  swatch:['#faf4ed','#fffaf3','#907aa9']},
+  {id:'rose-pine-moon',  name:'Rosé Pine<br>Moon',  swatch:['#232136','#393552','#c4a7e7']},
   {id:'github-light',    name:'GitHub Light',    swatch:['#ffffff','#f6f8fa','#0969da']},
   {id:'github-dark',     name:'GitHub Dark',     swatch:['#0d1117','#161b22','#58a6ff']},
   {id:'dracula',         name:'Dracula',         swatch:['#282a36','#44475a','#ff79c6']},
@@ -8330,13 +8492,18 @@ const THEMES = [
 const LOOKS = [
   {id:'office',      name:'in the<br>Office',  font:'inherit'},
   {id:'coffee-shop', name:'at Coffee<br>Shop', font:'"Nunito",sans-serif'},
-  {id:'handwritten', name:'back to<br>School', font:'"Caveat",cursive'}
+  {id:'handwritten', name:'back to<br>School', font:'"Caveat",cursive'},
+  {id:'lab',         name:'in the<br>Lab',     font:'"JetBrains Mono",monospace'}
 ];
 const MAP_STYLES = [
   {id:'modern',  name:'Modern',  desc:'Soft cards, curved branches'},
   {id:'classic', name:'Classic', desc:'Rectangles, right-angle branches'},
   {id:'bubble',  name:'Bubble',  desc:'Pill cards, thick curves'},
-  {id:'sketch',  name:'Sketch',  desc:'Outlined cards, straight lines'}
+  {id:'sketch',  name:'Sketch',  desc:'Outlined cards, straight lines'},
+  {id:'dashed',  name:'Dashed',  desc:'Curved branches drawn as dashes'},
+  {id:'minimal', name:'Minimal', desc:'Flat hairline cards, slim branches'},
+  {id:'zigzag',  name:'Zigzag',  desc:'Squared cards, jagged branch lines'},
+  {id:'neon',    name:'Neon',    desc:'Glowing cards, luminous branches'}
 ];
 /* ------------------------------------------------------------
    Layout presets.
@@ -8592,23 +8759,55 @@ function buildLookThumb(l){
   return `<span class="theme-thumb look-thumb" style="font-family:${l.font}">Aa</span>`;
 }
 function buildStyleThumb(id){
-  // Small SVG preview showing two nodes + the branch style
+  // Small SVG preview showing two nodes + the branch style. Card sizes mirror
+  // the 'balanced' layout thumbnail (root 14x12, children 14x10) so the two
+  // panel rows read as the same kind of card.
+  const ROOT={x:12,y:22,w:14,h:12}, CH1={x:56,y:6,w:14,h:10}, CH2={x:56,y:42,w:14,h:10};
+  const rects=(rx)=>`<rect x="${ROOT.x}" y="${ROOT.y}" width="${ROOT.w}" height="${ROOT.h}" rx="${rx}" fill="var(--accent)"/>
+      <rect x="${CH1.x}" y="${CH1.y}" width="${CH1.w}" height="${CH1.h}" rx="${rx}" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+      <rect x="${CH2.x}" y="${CH2.y}" width="${CH2.w}" height="${CH2.h}" rx="${rx}" fill="var(--node-bg,#fff)" stroke="var(--line)"/>`;
+  if(id==='neon') return `<span class="style-thumb">
+    <svg viewBox="0 0 70 60" width="70" height="40">
+      ${rects(6)}
+      <path d="M26,28 C38,28 47,11 56,11 M26,28 C38,28 47,47 56,47" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/>
+    </svg>
+  </span>`;
+  if(id==='dashed') return `<span class="style-thumb">
+    <svg viewBox="0 0 70 60" width="70" height="40">
+      ${rects(6)}
+      <path d="M26,28 C38,28 47,11 56,11 M26,28 C38,28 47,47 56,47" fill="none" stroke="var(--ink-soft)" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 3"/>
+    </svg>
+  </span>`;
+  if(id==='minimal') return `<span class="style-thumb">
+    <svg viewBox="0 0 70 60" width="70" height="40">
+      ${rects(3)}
+      <path d="M26,28 C38,28 47,11 56,11 M26,28 C38,28 47,47 56,47" fill="none" stroke="var(--ink-soft)" stroke-width="1.1" stroke-linecap="round"/>
+    </svg>
+  </span>`;
+  if(id==='zigzag') return `<span class="style-thumb">
+    <svg viewBox="0 0 70 60" width="70" height="40">
+      ${rects(1)}
+      <path d="M26,28 L36,22 L44,34 L56,11 M26,28 L36,34 L44,22 L56,47" fill="none" stroke="var(--ink-soft)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </span>`;
   let path;
-  if(id==='classic') path='M30,30 L45,30 L45,12 L60,12 M30,30 L45,30 L45,48 L60,48';
-  else if(id==='sketch') path='M30,30 L60,12 M30,30 L60,48';
-  else path='M30,30 C40,30 50,12 60,12 M30,30 C40,30 50,48 60,48';
-  const radius = id==='bubble'? 8 : id==='classic'? 2 : id==='sketch'? 2 : 4;
+  if(id==='classic') path='M26,28 L40,28 L40,11 L56,11 M26,28 L40,28 L40,47 L56,47';
+  else if(id==='sketch') path='M26,28 L56,11 M26,28 L56,47';
+  else path='M26,28 C38,28 47,11 56,11 M26,28 C38,28 47,47 56,47';
+  const radius = id==='bubble'? 6 : id==='classic'? 2 : id==='sketch'? 2 : 3;
   const stroke = id==='bubble'? 2.2 : 1.4;
   return `<span class="style-thumb">
     <svg viewBox="0 0 70 60" width="70" height="40">
-      <rect x="12" y="22" width="22" height="16" rx="${radius}" fill="var(--accent)"/>
-      <rect x="56" y="6"  width="14" height="12" rx="${radius}" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
-      <rect x="56" y="42" width="14" height="12" rx="${radius}" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+      ${rects(radius)}
       <path d="${path}" fill="none" stroke="var(--ink-soft)" stroke-width="${stroke}"/>
     </svg>
   </span>`;
 }
 function buildLayoutThumb(id){
+  // Card sizes follow one standard so every thumbnail row (map style, layout,
+  // I am) reads the same kind of card: root 14x12, children 14x10 — matching
+  // the 'balanced' layout and the map style thumbs. Compositions differ, not
+  // the cards themselves.
   let svg;
   if(id==='radial') return `<span class="style-thumb"><svg viewBox="0 0 70 60" width="70" height="40">
     <path d="M35,30 L35,12 M35,30 L52,40 M35,30 L18,40" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
@@ -8618,40 +8817,40 @@ function buildLayoutThumb(id){
     <circle cx="16" cy="42" r="5" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
   </svg></span>`;
   if(id==='grid') return `<span class="style-thumb"><svg viewBox="0 0 70 60" width="70" height="40">
-    <rect x="27" y="4" width="16" height="9" rx="2" fill="var(--accent)"/>
-    <rect x="6"  y="20" width="26" height="15" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
-    <rect x="38" y="20" width="26" height="15" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
-    <rect x="6"  y="40" width="26" height="15" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
-    <rect x="38" y="40" width="26" height="15" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="28" y="4"  width="14" height="12" rx="2" fill="var(--accent)"/>
+    <rect x="6"  y="20" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="38" y="20" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="6"  y="40" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="38" y="40" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
   </svg></span>`;
   if(id==='timeline') return `<span class="style-thumb"><svg viewBox="0 0 70 60" width="70" height="40">
-    <path d="M10,30 L62,30" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
+    <path d="M11,30 L62,30" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
     <path d="M26,30 L26,16 L34,16 M46,30 L46,44 L54,44" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
-    <rect x="4"  y="24" width="10" height="12" rx="2" fill="var(--accent)"/>
-    <rect x="20" y="25" width="12" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
-    <rect x="40" y="25" width="12" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
-    <rect x="34" y="12" width="12" height="8" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
-    <rect x="54" y="40" width="12" height="8" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="4"  y="24" width="14" height="12" rx="2" fill="var(--accent)"/>
+    <rect x="20" y="25" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="40" y="25" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="34" y="11" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="54" y="39" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
   </svg></span>`;
   if(id==='down') svg=`<svg viewBox="0 0 70 60" width="70" height="40">
-    <rect x="28" y="6"  width="14" height="10" rx="2" fill="var(--accent)"/>
+    <rect x="28" y="6"  width="14" height="12" rx="2" fill="var(--accent)"/>
     <rect x="8"  y="36" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
     <rect x="28" y="36" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
     <rect x="48" y="36" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
-    <path d="M35,16 L35,26 L15,26 L15,36 M35,26 L35,36 M35,26 L55,26 L55,36" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
+    <path d="M35,18 L35,26 L15,26 L15,36 M35,26 L35,36 M35,26 L55,26 L55,36" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
   </svg>`;
   else if(id==='left') svg=`<svg viewBox="0 0 70 60" width="70" height="40">
     <rect x="50" y="22" width="14" height="12" rx="2" fill="var(--accent)"/>
-    <rect x="6"  y="6"  width="16" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
-    <rect x="6"  y="22" width="16" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
-    <rect x="6"  y="38" width="16" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
-    <path d="M50,28 C38,28 30,11 22,11 M50,28 L22,27 M50,28 C38,28 30,43 22,43" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
+    <rect x="6"  y="6"  width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="6"  y="22" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="6"  y="38" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <path d="M50,28 C38,28 30,11 20,11 M50,28 L20,27 M50,28 C38,28 30,43 20,43" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
   </svg>`;
   else if(id==='right') svg=`<svg viewBox="0 0 70 60" width="70" height="40">
     <rect x="6"  y="22" width="14" height="12" rx="2" fill="var(--accent)"/>
-    <rect x="48" y="6"  width="16" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
-    <rect x="48" y="22" width="16" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
-    <rect x="48" y="38" width="16" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="48" y="6"  width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="48" y="22" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="48" y="38" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
     <path d="M20,28 C32,28 40,11 48,11 M20,28 L48,27 M20,28 C32,28 40,43 48,43" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
   </svg>`;
   else svg=`<svg viewBox="0 0 70 60" width="70" height="40">
@@ -8697,7 +8896,7 @@ $('#themeBtn').onclick=(e)=>{
     </div>
     <div class="tp-section">
       <div class="tp-label">Map style</div>
-      <div class="tp-grid">
+      <div class="tp-grid tp-scroll-row">
         ${MAP_STYLES.map(s=>`
           <button class="theme-opt${s.id===curStyle?' active':''}" data-cat="style" data-id="${s.id}" title="${s.desc}">
             ${buildStyleThumb(s.id)}<span class="theme-name">${s.name}</span>

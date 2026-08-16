@@ -6,8 +6,8 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadFns, extractConst } from './helpers/load-app-fns.mjs';
 
-const { prettyUrl, pickContrast, escapeHtml, shade, edgePath } =
-  loadFns(['prettyUrl', 'pickContrast', 'escapeHtml', 'shade', 'edgePath']);
+const { prettyUrl, pickContrast, escapeHtml, shade, edgePath, edgePathsHTML } =
+  loadFns(['prettyUrl', 'pickContrast', 'escapeHtml', 'shade', 'edgePath', 'edgePathsHTML']);
 const URL_RE = extractConst('URL_RE');
 
 describe('prettyUrl — shortens link labels for display', () => {
@@ -152,5 +152,113 @@ describe('edgePath — branch geometry per map style', () => {
 
   test('vertical layout produces a different path than horizontal', () => {
     assert.notEqual(args('classic', false), args('classic', true));
+  });
+});
+
+describe('edgePathsHTML — merged edge segments become visible <path> elements', () => {
+  // Keys are what drawEdges stores in its merge Map: the literal string
+  // 'null|null|' for styles that defer to CSS vars, hex colours when a style
+  // carries an explicit stroke.
+  test('a plain (null) segment falls back to themed CSS vars, not stroke="null"', () => {
+    const html = edgePathsHTML(new Map([['null|null|', 'M0,0 L10,10']]));
+    assert.ok(html.includes('stroke="var(--edge-color, var(--line-2))"'), 'colour must be the CSS var');
+    assert.ok(html.includes('stroke-width="var(--edge-width, 2.2)"'), 'width must be the CSS var');
+    assert.ok(!html.includes('stroke="null"'), 'never emit the literal stroke="null"');
+    assert.ok(!html.includes('stroke-width="null"'), 'never emit the literal stroke-width="null"');
+  });
+
+  test('an explicit colour stays explicit (custom branch colour)', () => {
+    const html = edgePathsHTML(new Map([['#e0613a|null|', 'M0,0 C5,5 10,10']]));
+    assert.ok(html.includes('stroke="#e0613a"'));
+  });
+
+  test('an explicit width stays explicit (minimal)', () => {
+    const html = edgePathsHTML(new Map([['null|1.6|', 'M0,0 L10,10']]));
+    assert.ok(html.includes('stroke-width="1.6"'));
+  });
+
+  test('a dash renders as stroke-dasharray, and absent dash emits none (dashed)', () => {
+    const dashed = edgePathsHTML(new Map([['null|null|7 5', 'M0,0 L10,10']]));
+    assert.ok(dashed.includes('stroke-dasharray="7 5"'));
+    const solid = edgePathsHTML(new Map([['null|null|', 'M0,0 L10,10']]));
+    assert.ok(!solid.includes('stroke-dasharray'));
+  });
+
+  test('every merged segment is emitted, preserving path data', () => {
+    const html = edgePathsHTML(new Map([
+      ['#e0613a|null|', 'M0,0 C1,1 2,2'],
+      ['null|null|', 'M5,5 L6,6']
+    ]));
+    assert.ok(html.includes('M0,0 C1,1 2,2'));
+    assert.ok(html.includes('M5,5 L6,6'));
+  });
+
+  test('every generated path is well-formed and self-closing', () => {
+    const html = edgePathsHTML(new Map([
+      ['null|null|', 'M0,0 L10,10'],
+      ['#2aa298|null|null', 'M0,0 C1,1 2,2'],
+      ['null|1.1|', 'M0,0 L20,20']
+    ]));
+    const paths = html.match(/<path[^>]*\/>/g) || [];
+    assert.equal(paths.length, 3);
+    paths.forEach(p => assert.ok(p.endsWith('/>'), `well-formed path: ${p}`));
+  });
+});
+
+describe('edgePath — dashed and minimal share the modern curve geometry', () => {
+  const args = (style) => edgePath(0, 0, 100, 50, false, true, style);
+  const NEW_STYLES = ['dashed', 'minimal'];
+
+  test('each new style draws a bezier curve', () => {
+    for (const s of NEW_STYLES) {
+      assert.ok(args(s).includes('C'), `style ${s} must emit a bezier curve`);
+    }
+  });
+
+  test('new styles use the exact same path shape as modern', () => {
+    for (const s of NEW_STYLES) {
+      assert.equal(args(s), args('modern'), `style ${s} should match modern geometry`);
+    }
+  });
+
+  test('every new style produces a path starting at the given origin', () => {
+    for (const s of NEW_STYLES) {
+      assert.match(args(s), /^M0,0/, `style ${s}`);
+    }
+  });
+});
+
+describe('edgePath — zigzag draws a jagged polyline', () => {
+  const horiz = edgePath(0, 0, 96, 50, false, true, 'zigzag');
+  const vert  = edgePath(0, 0, 50, 96, false, false, 'zigzag');
+
+  test('uses only line commands — no curves', () => {
+    assert.ok(!horiz.includes('C') && !vert.includes('C'), 'no bezier segments');
+    assert.match(horiz, /^M0,0 /, 'starts at the given origin');
+  });
+
+  test('bounces above and below the straight axis', () => {
+    const ys = [...horiz.matchAll(/L(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?= L)/g)].map(m => +m[2]);
+    assert.equal(ys.length, 3, 'three zigzag peaks');
+    assert.ok(Math.max(...ys.map(y => Math.abs(y - 0))) > 0, 'at least one peak leaves the axis');
+    assert.ok(ys.every((y, i) => i % 2 === 0 ? y < 0 : y > 0), 'alternates sides');
+  });
+
+  test('vertical variant zigzags on the x axis instead', () => {
+    const xs = [...vert.matchAll(/L(-?\d+(?:\.\d+)?),(\d+(?:\.\d+)?)(?= L)/g)].map(m => +m[1]);
+    assert.equal(xs.length, 3);
+    assert.ok(Math.max(...xs.map(x => Math.abs(x - 0))) > 0, 'peaks leave the x axis');
+    assert.ok(xs.every((x, i) => i % 2 === 0 ? x < 0 : x > 0), 'alternates sides');
+  });
+
+  test('ends exactly on the target point', () => {
+    assert.ok(horiz.endsWith('L96,50'), 'horizontal target');
+    assert.ok(vert.endsWith('L50,96'), 'vertical target');
+  });
+
+  test('amplitude clamps for long distances', () => {
+    const far = edgePath(0, 0, 500, 50, false, true, 'zigzag');
+    const ys = [...far.matchAll(/L-?\d+,(-?\d+(?:\.\d+)?)(?= L)/g)].map(m => +m[1]);
+    assert.ok(ys.every(y => Math.abs(y - 0) <= 12), 'never exceeds the 12px cap');
   });
 });
