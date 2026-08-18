@@ -624,6 +624,9 @@ function render(){
   const mapStyle = map.style || 'modern';
   viewport.dataset.style = mapStyle;
   viewport.dataset.layout = map.layout || 'balanced';
+  applyStyleConfigVars();
+  applyLookConfigVars();
+  applyThemeConfigVars();
   const _prevCI=_ci; _ci=buildChildIndex();   // O(1) childrenOf for this whole pass
   try{
   const roll=computeRollups();                // O(n) descendant + task totals
@@ -1363,10 +1366,12 @@ function drawEdges(hidden){
     // Stroke settings per style: colour (null → CSS var), width (null → CSS
     // var), dash (null → solid). Dashed dashes, Minimal thins — the rest keep
     // the themed CSS defaults, so the merged single path below stays identical
-    // to the old one-element output for those styles.
+    // to the old one-element output for those styles. The style config feeds
+    // the dashes here; width and colour ride the --edge-width/--edge-color
+    // CSS vars applyStyleConfigVars() sets on #viewport.
     let color=null, width=null, dash=null;
-    if(style==='dashed') dash='7 5';
-    else if(style==='minimal') width='1.1';
+    const _sc = { ...STYLE_CONFIG_DEFAULTS[style], ...((map.styleConfig || {})[style] || {}) };
+    if(style==='dashed') dash = _sc.dash > 0 ? `${_sc.dash} ${Math.max(2, Math.round(_sc.dash * 0.7))}` : null;
     segs.push({d, color, width, dash});
   }
   // Merge segments sharing stroke settings into one path element each, so a
@@ -3612,6 +3617,171 @@ function showLayoutConfigForm(){
     apply(layoutConfigFor(engine, parsed));
   };
   m.querySelector('.vf-unref').onclick=()=>apply(layoutConfigFor(engine, null));
+  m.querySelector('.vf-cancel').onclick=close;
+  m.querySelector('.vf-close').onclick=close;
+  m.querySelector('.vf-backdrop').onclick=close;
+  m.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); } });
+}
+function showStyleConfigForm(){
+  if(!map || READONLY) return;
+  document.querySelectorAll('.var-form').forEach(p=>p.remove());
+  // Only the active style's knobs — same rule as the layout dialog.
+  const style = map.style || 'modern';
+  const current = JSON.stringify(styleConfigFor(style, map.styleConfig), null, 2);
+  const m=document.createElement('div'); m.className='var-form';
+  m.innerHTML=`
+    <div class="vf-backdrop"></div>
+    <div class="vf-card">
+      <button class="vf-close" aria-label="Close">\u00d7</button>
+      <h2>Map style settings \u2014 ${escapeHtml((MAP_STYLES.find(s=>s.id===style)||{name:style}).name)}</h2>
+      <div class="vf-hint">Saved with this map and included in share links.
+        edgeColor is any CSS color ("" = the theme default); cardPad is a
+        uniform card padding (0 = the style's own padding); glow only affects
+        Neon and dash only affects Dashed. Out-of-range values are clamped and
+        unknown keys ignored, so what you get back may differ from what you
+        type.</div>
+      <div class="vf-fields">
+        <textarea class="vf-input vf-json" rows="14" spellcheck="false">${escapeHtml(current)}</textarea>
+      </div>
+      <div class="vf-err" hidden></div>
+      <div class="vf-actions">
+        <button class="vf-unref">Reset to defaults</button>
+        <button class="vf-cancel">Cancel</button>
+        <button class="vf-go primary">Apply</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('mousedown',e=>e.stopPropagation());
+  const ta=m.querySelector('.vf-json'), err=m.querySelector('.vf-err');
+  ta.focus();
+  const close=()=>m.remove();
+  const apply=section=>{
+    // Merge, do not replace: only the ACTIVE style's section is shown, so a
+    // whole fresh object would silently reset every other style the user had
+    // tuned — exactly the trap the layout dialog guards against.
+    map.styleConfig = { ...(map.styleConfig || {}), ...section };
+    // render() re-applies the CSS vars; autoLayout() re-tidies because a
+    // cardPad/radius change can resize cards and shift neighbours.
+    pushHistory(); render(); autoLayout();
+    try{ scheduleSave(); }catch(e){ console.warn('saving style settings failed:', e.message); }
+    close(); toast('Map style settings saved');
+  };
+  m.querySelector('.vf-go').onclick=()=>{
+    let parsed;
+    try{ parsed = JSON.parse(ta.value); }
+    catch(e){ err.hidden=false; err.textContent='Not valid JSON: '+e.message; return; }
+    apply(styleConfigFor(style, parsed));
+  };
+  m.querySelector('.vf-unref').onclick=()=>apply(styleConfigFor(style, null));
+  m.querySelector('.vf-cancel').onclick=close;
+  m.querySelector('.vf-close').onclick=close;
+  m.querySelector('.vf-backdrop').onclick=close;
+  m.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); } });
+}
+function showLookConfigForm(){
+  if(!map || READONLY) return;
+  document.querySelectorAll('.var-form').forEach(p=>p.remove());
+  // Only the active look's knobs — same rule as the style and layout dialogs.
+  const look = document.documentElement.getAttribute('data-look') || 'office';
+  const current = JSON.stringify(lookConfigFor(look, map.lookConfig), null, 2);
+  const m=document.createElement('div'); m.className='var-form';
+  m.innerHTML=`
+    <div class="vf-backdrop"></div>
+    <div class="vf-card">
+      <button class="vf-close" aria-label="Close">\u00d7</button>
+      <h2>Look settings \u2014 ${escapeHtml(((LOOKS.find(l=>l.id===look)||{name:look}).name).replace(/<br\s*\/?>/gi, ' '))}</h2>
+      <div class="vf-hint">Saved with this map and included in share links. font is
+        any CSS font family ("" keeps the look's own default font); nodeSize
+        scales the node text (1 = the look's own size); radius rounds the
+        chrome — popups, pickers, minimap, modals (equal to the look's default
+        keeps the look's own asymmetric corners). Out-of-range values are
+        clamped and unknown keys ignored, so what you get back may differ from
+        what you type.</div>
+      <div class="vf-fields">
+        <textarea class="vf-input vf-json" rows="14" spellcheck="false">${escapeHtml(current)}</textarea>
+      </div>
+      <div class="vf-err" hidden></div>
+      <div class="vf-actions">
+        <button class="vf-unref">Reset to defaults</button>
+        <button class="vf-cancel">Cancel</button>
+        <button class="vf-go primary">Apply</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('mousedown',e=>e.stopPropagation());
+  const ta=m.querySelector('.vf-json'), err=m.querySelector('.vf-err');
+  ta.focus();
+  const close=()=>m.remove();
+  const apply=section=>{
+    // Merge, do not replace: only the ACTIVE look's section is shown, so a
+    // whole fresh object would silently reset every other look the user had
+    // tuned — exactly the trap the style dialog guards against.
+    map.lookConfig = { ...(map.lookConfig || {}), ...section };
+    pushHistory(); render(); autoLayout();
+    try{ scheduleSave(); }catch(e){ console.warn('saving look settings failed:', e.message); }
+    close(); toast('Look settings saved');
+  };
+  m.querySelector('.vf-go').onclick=()=>{
+    let parsed;
+    try{ parsed = JSON.parse(ta.value); }
+    catch(e){ err.hidden=false; err.textContent='Not valid JSON: '+e.message; return; }
+    apply(lookConfigFor(look, parsed));
+  };
+  m.querySelector('.vf-unref').onclick=()=>apply(lookConfigFor(look, null));
+  m.querySelector('.vf-cancel').onclick=close;
+  m.querySelector('.vf-close').onclick=close;
+  m.querySelector('.vf-backdrop').onclick=close;
+  m.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); } });
+}
+function showThemeConfigForm(){
+  if(!map || READONLY) return;
+  document.querySelectorAll('.var-form').forEach(p=>p.remove());
+  // Only the active theme's knobs — same rule as the other dialogs.
+  const theme = document.documentElement.getAttribute('data-theme') || 'light';
+  const current = JSON.stringify(themeConfigFor(theme, map.themeConfig), null, 2);
+  const m=document.createElement('div'); m.className='var-form';
+  m.innerHTML=`
+    <div class="vf-backdrop"></div>
+    <div class="vf-card">
+      <button class="vf-close" aria-label="Close">\u00d7</button>
+      <h2>Colour theme settings \u2014 ${escapeHtml(((THEMES.find(t=>t.id===theme)||{name:theme}).name).replace(/<br\s*\/?>/gi, ' '))}</h2>
+      <div class="vf-hint">Saved with this map and included in share links. Each
+        key is any CSS colour: paper (canvas background), ink (text), accent
+        (highlights), nodeBg (cards), line (borders), glow (the stage wash).
+        Typing "" keeps the theme's own colour; everything else in the theme's
+        palette is untouched. Values are capped at 40 characters and unknown
+        keys ignored, so what you get back may differ from what you type.</div>
+      <div class="vf-fields">
+        <textarea class="vf-input vf-json" rows="14" spellcheck="false">${escapeHtml(current)}</textarea>
+      </div>
+      <div class="vf-err" hidden></div>
+      <div class="vf-actions">
+        <button class="vf-unref">Reset to defaults</button>
+        <button class="vf-cancel">Cancel</button>
+        <button class="vf-go primary">Apply</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('mousedown',e=>e.stopPropagation());
+  const ta=m.querySelector('.vf-json'), err=m.querySelector('.vf-err');
+  ta.focus();
+  const close=()=>m.remove();
+  const apply=section=>{
+    // Merge, do not replace: only the ACTIVE theme's section is shown, so a
+    // whole fresh object would silently reset every other theme the user had
+    // tuned — exactly the trap the style dialog guards against.
+    map.themeConfig = { ...(map.themeConfig || {}), ...section };
+    pushHistory(); render(); autoLayout();
+    try{ scheduleSave(); }catch(e){ console.warn('saving theme settings failed:', e.message); }
+    close(); toast('Colour theme settings saved');
+  };
+  m.querySelector('.vf-go').onclick=()=>{
+    let parsed;
+    try{ parsed = JSON.parse(ta.value); }
+    catch(e){ err.hidden=false; err.textContent='Not valid JSON: '+e.message; return; }
+    apply(themeConfigFor(theme, parsed));
+  };
+  m.querySelector('.vf-unref').onclick=()=>apply(themeConfigFor(theme, null));
   m.querySelector('.vf-cancel').onclick=close;
   m.querySelector('.vf-close').onclick=close;
   m.querySelector('.vf-backdrop').onclick=close;
@@ -7742,334 +7912,316 @@ function drawNodeMath(ctx, text, o){
 
 async function exportPNG(){
   render();
-  // Read live theme colors from CSS custom properties so the export matches
-  // whatever theme/map style the user has selected.
-  const cs = getComputedStyle(document.documentElement);
-  const css = name => cs.getPropertyValue(name).trim();
-  const themeBg     = css('--paper')     || '#f4efe6';
-  const themeEdge   = css('--line-2')    || '#c8bda8';
-  const themeInk    = css('--ink')       || '#23201b';
-  const themeNodeBg = css('--node-bg')   || '#ffffff';
-  const themeLine   = css('--line')      || '#d8cfbf';
-  const accent      = css('--accent')    || '#e0613a';
-  const mapStyle  = map.style  || 'modern';
-  const mapLayout = map.layout || 'balanced';
-
-  const hidden=hiddenSet(); const ids=Object.keys(map.nodes).filter(i=>!hidden.has(i));
-  // Pre-load every node's image — ctx.drawImage() needs an actual loaded Image
-  // object, not the data-URL string, so this has to finish before the drawing
-  // pass below runs. A per-image timeout means one slow/corrupt image can't hang
-  // the whole export; that node just falls back to no image, like before.
-  const loadImg = src => new Promise(resolve=>{
-    const img=new Image();
-    let done=false; const finish=v=>{ if(!done){ done=true; resolve(v); } };
-    img.onload=()=>finish(img);
-    img.onerror=()=>finish(null);
-    setTimeout(()=>finish(null), 4000);
-    img.src=src;
-  });
-  const imgMap={};
-  await Promise.all(ids.filter(i=>map.nodes[i].image).map(async i=>{ imgMap[i]=await loadImg(map.nodes[i].image); }));
-
-  // Favicons for link nodes, so the export matches what the live canvas shows.
-  // crossOrigin='anonymous' is the whole safety story here: favicons come from
-  // a third-party host, and drawing a cross-origin image WITHOUT it taints the
-  // canvas, which makes the final toBlob() throw and kills the entire export.
-  // With it, the browser either gets CORS headers and the icon is safe to
-  // draw, or the load fails outright and we simply skip that icon. A missing
-  // favicon is a cosmetic loss; a tainted canvas is a broken feature.
-  const loadFavicon = src => new Promise(resolve=>{
-    const img=new Image();
-    let done=false; const finish=v=>{ if(!done){ done=true; resolve(v); } };
-    img.crossOrigin='anonymous';
-    img.onload=()=>finish(img);
-    img.onerror=()=>finish(null);
-    setTimeout(()=>finish(null), 3000);   // never let a slow icon host stall the export
-    img.src=src;
-  });
-  const favicons={};
-  {
-    const hosts=new Set();
-    ids.forEach(i=>{
-      const t=map.nodes[i].text||'';
-      URL_RE.lastIndex=0; let m;
-      while((m=URL_RE.exec(t))!==null){
-        try{ hosts.add(new URL(m[0]).hostname.replace(/^www\./,'')); }catch(_){}
-      }
-    });
-    await Promise.all([...hosts].map(async h=>{
-      favicons[h]=await loadFavicon('https://icons.duckduckgo.com/ip3/'+h+'.ico');
-    }));
-  }
+  const hidden=hiddenSet();
+  const ids=Object.keys(map.nodes).filter(i=>!hidden.has(i));
+  if(ids.length===0){ toast('Nothing to export — the map is empty'); return; }
   let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
   ids.forEach(i=>{const n=map.nodes[i];minx=Math.min(minx,n.x);miny=Math.min(miny,n.y);maxx=Math.max(maxx,n.x+(n.w||120));maxy=Math.max(maxy,n.y+(n.h||40));});
-  const pad=50,scale=2;
-  const W=(maxx-minx+pad*2),H=(maxy-miny+pad*2);
-  const cv=document.createElement('canvas');cv.width=W*scale;cv.height=H*scale;
-  const ctx=cv.getContext('2d');ctx.scale(scale,scale);
-  ctx.fillStyle=themeBg; ctx.fillRect(0,0,W,H);
-  // Dot-grid texture — matches .stage's CSS exactly (26px spacing, 1px radius,
-  // var(--canvas-dot)). The solid fill above was the only background the
-  // export drew; the live canvas always has this texture, so without it the
-  // export looks visibly flatter/emptier than what's actually on screen.
-  const dotColor = css('--canvas-dot');
-  if(dotColor){
-    ctx.fillStyle = dotColor;
-    ctx.beginPath();
-    for(let dx=0; dx<=W; dx+=26){
-      for(let dy=0; dy<=H; dy+=26){
-        ctx.moveTo(dx+1, dy);
-        ctx.arc(dx, dy, 1, 0, Math.PI*2);
-      }
-    }
-    ctx.fill();
-  }
-  ctx.translate(-minx+pad,-miny+pad);
-
-  // Edges — match map style: bezier (modern/bubble/dashed/minimal),
-  // step (classic), straight (sketch), jagged (zigzag)
-  ctx.lineCap='round'; ctx.lineJoin='round';
-  ids.forEach(i=>{
-    const n=map.nodes[i]; if(!n.parent||hidden.has(n.parent)) return;
-    const p=map.nodes[n.parent]; if(!p) return;
-    let x1,y1,x2,y2,leftSide=(n.side==='left'),horizontal=true;
-    if(mapLayout==='down'){
-      horizontal=false;
-      x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
-      x2=n.x+(n.w||0)/2; y2=n.y;
-    } else if(mapLayout==='matrix'){
-      horizontal=false;
-      x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
-      x2=n.x+(n.w||0)/2; y2=n.y;
-    } else {
-      x1=leftSide ? p.x : p.x+(p.w||0); y1=p.y+(p.h||0)/2;
-      x2=leftSide ? n.x+(n.w||0) : n.x;  y2=n.y+(n.h||0)/2;
-    }
-    let col=themeEdge, wid=2.2;
-    if(mapStyle==='bubble'){ col=accent; wid=3; }
-    else if(mapStyle==='sketch'){ col=themeInk; wid=1.6; }
-    else if(mapStyle==='classic'){ wid=1.6; }
-    else if(mapStyle==='minimal'){ wid=1.1; }
-    else if(mapStyle==='neon'){ col=accent; wid=2.4; }
-    ctx.strokeStyle=col; ctx.lineWidth=wid;
-    ctx.setLineDash(mapStyle==='dashed' ? [7,5] : []);
-    if(mapStyle==='neon'){ ctx.shadowColor=col; ctx.shadowBlur=8; }
-    ctx.beginPath();
-    if(mapStyle==='classic'){
-      if(horizontal){ const mid=(x1+x2)/2; ctx.moveTo(x1,y1); ctx.lineTo(mid,y1); ctx.lineTo(mid,y2); ctx.lineTo(x2,y2); }
-      else { const mid=(y1+y2)/2; ctx.moveTo(x1,y1); ctx.lineTo(x1,mid); ctx.lineTo(x2,mid); ctx.lineTo(x2,y2); }
-    } else if(mapStyle==='sketch'){
-      ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
-    } else if(mapStyle==='zigzag'){
-      const amp=Math.min(12, Math.max(3, (horizontal?Math.abs(x2-x1):Math.abs(y2-y1))/8));
-      ctx.moveTo(x1,y1);
-      for(let zi=1;zi<=3;zi++){
-        const along = horizontal ? (x1+(x2-x1)*zi/3) : (y1+(y2-y1)*zi/3);
-        const off   = (zi%2 ? -amp : amp);
-        horizontal ? ctx.lineTo(along, y1+off) : ctx.lineTo(x1+off, along);
-      }
-      ctx.lineTo(x2,y2);
-    } else if(mapLayout==='matrix'){
-      ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
-    } else {
-      if(horizontal){
-        const dx=Math.abs(x2-x1)*0.5;
-        ctx.moveTo(x1,y1);
-        ctx.bezierCurveTo(x1+(leftSide?-dx:dx),y1, x2+(leftSide?dx:-dx),y2, x2,y2);
-      } else {
-        const dy=Math.abs(y2-y1)*0.5;
-        ctx.moveTo(x1,y1);
-        ctx.bezierCurveTo(x1,y1+dy, x2,y2-dy, x2,y2);
-      }
-    }
-    ctx.stroke();
-  });
-  ctx.setLineDash([]);
-  ctx.shadowBlur = 0;
-
-  // Cross-links — dotted accent curves (match the on-screen rendering)
-  if(map.links && map.links.length){
-    ctx.save();
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([2, 6]);
-    ctx.globalAlpha = 0.85;
-    map.links.forEach(lk=>{
-      const a=map.nodes[lk.from], b=map.nodes[lk.to];
-      if(!a||!b||hidden.has(lk.from)||hidden.has(lk.to)) return;   // a folded-away endpoint still has coordinates but isn't in the exported bounds — drawing to it sends the curve off-canvas
-      const ax=a.x+(a.w||120)/2, ay=a.y+(a.h||40)/2;
-      const bx=b.x+(b.w||120)/2, by=b.y+(b.h||40)/2;
-      const mx=(ax+bx)/2, my=(ay+by)/2;
-      const dx=bx-ax, dy=by-ay; const len=Math.hypot(dx,dy)||1;
-      const off=Math.min(60, len*0.18);
-      const cx=mx-(dy/len)*off, cy=my+(dx/len)*off;
-      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.quadraticCurveTo(cx,cy,bx,by); ctx.stroke();
-    });
-    ctx.restore();
-  }
-
-  // Nodes — also match shape per style
-  const nodeRadius = (mapStyle==='bubble') ? 999 : (mapStyle==='classic' || mapStyle==='sketch') ? 4 : (mapStyle==='minimal' || mapStyle==='zigzag') ? 2 : 12;
-  const roll = computeRollups();
-  // Small pill badge (task-progress / token-count), matching the on-screen corner style.
-  const drawPillBadge = (text, x, yTop, bg, fg) => {
-    ctx.font = 'bold 10px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
-    const tw = ctx.measureText(text).width;
-    const padX=7, ph=15, pw=tw+padX*2;
-    roundRect(ctx, x, yTop, pw, ph, ph/2);
-    ctx.fillStyle = bg; ctx.fill();
-    ctx.lineWidth=1.5; ctx.strokeStyle=themeNodeBg; ctx.stroke();
-    ctx.fillStyle = fg; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(text, x+pw/2, yTop+ph/2+0.5);
-    ctx.textAlign='start';
-  };
-  ids.forEach(i=>{
-    const n=map.nodes[i]; const isRoot=(i===map.rootId);
-    const w=n.w||120, h=n.h||40;
-    const r = Math.min(nodeRadius, h/2);
-    roundRect(ctx, n.x, n.y, w, h, r);
-    if(isRoot){
-      ctx.fillStyle = map.color || accent;
-    } else {
-      ctx.fillStyle = n.color || themeNodeBg;
-    }
-    ctx.fill();
-    if(!isRoot && mapStyle !== 'bubble'){
-      if(mapStyle==='minimal'){ ctx.strokeStyle=themeLine; ctx.lineWidth=1; }
-      else if(mapStyle==='neon'){ ctx.strokeStyle=accent; ctx.lineWidth=1.2; ctx.shadowColor=accent; ctx.shadowBlur=10; }
-      else { ctx.strokeStyle = mapStyle==='sketch' ? themeInk : themeLine; ctx.lineWidth = mapStyle==='sketch' ? 2 : 1.5; }
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-    }
-    // Text — pick a color that contrasts with the node background
-    const bg = isRoot ? (map.color || accent) : (n.color || themeNodeBg);
-    const textFill = n.textColor || (isRoot ? pickContrast(bg) : (n.color ? pickContrast(n.color) : themeInk));
-    const fontPx = n.fontSize || (isRoot ? 19 : 15);
-    ctx.textBaseline='middle';
-    const insetX = isRoot ? 22 : 15;
-    // Node image — drawn first, at the top, so text/checkbox center in the space below it
-    let imgDrawH = 0;
-    const img = imgMap[i];
-    if(img){
-      const contentW = w - insetX*2;
-      imgDrawH = Math.min(200, contentW * (img.naturalHeight/img.naturalWidth || 1));
-      const imgY = n.y + (isRoot?14:10);
-      ctx.save();
-      roundRect(ctx, n.x+insetX, imgY, contentW, imgDrawH, 8);
-      ctx.clip();
-      ctx.drawImage(img, n.x+insetX, imgY, contentW, imgDrawH);
-      ctx.restore();
-      imgDrawH += (isRoot?14:10)+6;   // top offset + the CSS's 6px margin-bottom, so text centers below it correctly
-    }
-    const textCenterY = n.y + imgDrawH + (h-imgDrawH)/2;
-    // Highlight (background per text) — node-wide for the canvas export
-    if(n.highlight){
-      ctx.fillStyle = n.highlight;
-      ctx.fillRect(n.x+insetX-2, n.y+imgDrawH+4, w-insetX*2+4, h-imgDrawH-8);
-    }
-    const baseX = n.x+insetX;
-    let textX = baseX, textMaxWidth = w-insetX*2;
-    // Marker badge — drawn before the task box so export order matches the DOM.
-    if(n.marker){
-      ctx.font='15px sans-serif'; ctx.textAlign='start'; ctx.textBaseline='middle';
-      ctx.fillStyle=textFill;
-      ctx.fillText(n.marker, textX, textCenterY);
-      const mw=ctx.measureText(n.marker).width+6;
-      textX += mw; textMaxWidth -= mw;
-    }
-    // Task checkbox — 18px box + 7px gap, matching .task-check's live CSS exactly
-    if(n.task){
-      const boxSize=18, boxY=textCenterY-boxSize/2, boxX=textX;
-      roundRect(ctx, boxX, boxY, boxSize, boxSize, 5);
-      ctx.fillStyle = n.task==='done' ? '#4a9d5b' : themeNodeBg;
-      ctx.fill();
-      ctx.strokeStyle = n.task==='doing' ? '#c98a1a' : (n.task==='done' ? '#4a9d5b' : themeLine);
-      ctx.lineWidth=2; ctx.stroke();
-      if(n.task==='done'||n.task==='doing'){
-        ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillStyle = n.task==='done' ? '#fff' : '#c98a1a';
-        ctx.fillText(n.task==='done'?'\u2713':'\u25D0', boxX+boxSize/2, boxY+boxSize/2+1);
-        ctx.textAlign='start';
-      }
-      textX = boxX+boxSize+7; textMaxWidth -= boxSize+7;
-    }
-    // Render with inline B/I/U/S support, list bullets, line wrapping.
-    // Nodes with $...$ math go through the canvas math renderer so equations
-    // export as laid-out math instead of raw LaTeX source.
-    if(containsMath(n.text||'')){
-      drawNodeMath(ctx, n.text||'', {
-        x: textX, y: textCenterY, maxWidth: textMaxWidth,
-        fontPx, color: textFill, family: '"Bricolage Grotesque", sans-serif',
-        bold: !!n.bold || isRoot, align: n.align || 'center', listType: n.listType || null
-      });
-    } else {
-    drawFormattedText(ctx, n.text||'', {
-      favicons,
-      x: textX,
-      y: textCenterY,
-      maxWidth: textMaxWidth,
-      fontPx,
-      color: textFill,
-      family: '"Bricolage Grotesque", sans-serif',
-      baseBold: !!n.bold || isRoot,
-      baseItalic: !!n.italic,
-      baseUnderline: !!n.underline,
-      baseStrike: !!n.strike,
-      align: n.align || 'center',
-      listType: n.listType || null
-    });
-    }
-    // Notes indicator — small white-circle dot with a 📝 glyph (top-right)
-    const noteText = (n.notes||'').replace(/<[^>]*>/g,'').trim();
-    if(noteText){
-      const cx = (n.side==='left') ? n.x + 4 : n.x + w - 4;
-      const cy = n.y + 4;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 10, 0, Math.PI*2);
-      ctx.fillStyle = themeNodeBg;
-      ctx.fill();
-      ctx.lineWidth = 1.4;
-      ctx.strokeStyle = themeLine;
-      ctx.stroke();
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = themeInk;
-      ctx.fillText('📝', cx, cy);
-      ctx.textAlign = 'start';   // restore
-      ctx.textBaseline = 'middle';
-    }
-    // Task-progress roll-up badge — top-left pill, shown on nodes with task-bearing
-    // descendants (but that aren't themselves a task)
-    const prog = {done:roll.tdone[i], total:roll.ttot[i]};
-    if(prog.total>0 && !n.task){
-      const complete = prog.done===prog.total;
-      drawPillBadge(`\u2713 ${prog.done}/${prog.total}`, n.x-6, n.y-9, complete?'#4a9d5b':themeInk, '#fff');
-    }
-    // Token-count badge — bottom-left pill, same threshold as the on-screen version
-    const tokens = estimateTokens(n.text, n.notes);
-    if(tokens>=25){
-      drawPillBadge(`~${tokens}t`, n.x-6, n.y+h-6, themeInk, '#fff');
-    }
-    // Reference/citation mark — top-left circle with a 📖 glyph
-    if(n.ref){
-      const cx=n.x-9+11, cy=n.y-9+11;
-      ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI*2);
-      ctx.fillStyle=themeNodeBg; ctx.fill();
-      ctx.lineWidth=1.5; ctx.strokeStyle=accent; ctx.stroke();
-      ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillStyle=themeInk; ctx.fillText('📖', cx, cy);
-      ctx.textAlign='start';
-    }
-  });
-
+  const pad=50;
+  const W=(maxx-minx+pad*2), H=(maxy-miny+pad*2);
+  // Canvas has hard size limits (~16k px per side); shrink the scale rather
+  // than throw, so giant maps still export.
+  let scale=2;
+  const MAX=16384;
+  if(W*scale>MAX || H*scale>MAX) scale=Math.min(scale, MAX/W, MAX/H);
+  const cv=document.createElement('canvas'); cv.width=Math.round(W*scale); cv.height=Math.round(H*scale);
+  const ctx=cv.getContext('2d');
+  ctx.scale(scale,scale);
+  drawExportBackground(ctx,W,H,minx-pad,miny-pad);
   try{
-    cv.toBlob(b=>{download(b,(map.title||'mindmap')+'.png');toast('PNG exported');});
+    const svgXML=await buildMapSnapshot(minx-pad, miny-pad, W, H);
+    const svgUrl='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svgXML);
+    const img=await new Promise((res,rej)=>{
+      const im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error('snapshot failed to decode'));
+      im.src=svgUrl;
+    });
+    ctx.drawImage(img,0,0,W,H);
   }catch(e){
-    // Only reachable if the canvas got tainted despite the CORS guard above.
     console.warn('PNG export failed:', e.message);
     toast('Could not export the PNG');
+    return;
   }
+  window.__lastExportCanvas=cv;   // test hook: the final raster, pre-download
+  cv.toBlob(b=>{ download(b,(map.title||'mindmap')+'.png'); toast('PNG exported'); });
+}
+
+/* ============================================================
+   PNG export internals — a faithful DOM snapshot, not a re-painter.
+
+   The previous export re-drew every node with canvas primitives: its own text
+   wrapper and line-breaker, its own badges and pill counters, its own image
+   handling. Every CSS tweak on the live map (padding, glow, looks, fonts)
+   silently drifted out of the export. This version rasterizes the actual
+   #viewport DOM instead: clone it, inline every computed style so no
+   stylesheet is needed, synthesize ::before/::after pseudo-elements, embed
+   fonts and images as data: URLs (an SVG used as an <img> is sandboxed and
+   cannot fetch anything), and let the browser's own compositor paint it.
+   "Exactly the same as the canvas" by construction rather than by
+   maintenance.
+   ============================================================ */
+
+// The export's backdrop: just the --paper fill. The stage's texture and glow
+// wash are painted by the compositor via the stage div injected into the
+// snapshot (buildMapSnapshot), which reproduces the live .stage exactly.
+function drawExportBackground(ctx,W,H,x0,y0){
+  const cs=getComputedStyle(document.documentElement);
+  const css=n=>cs.getPropertyValue(n).trim();
+  const paper=css('--paper')||'#f4efe6';
+  ctx.fillStyle=paper;
+  ctx.fillRect(0,0,W,H);
+}
+
+// Clone #viewport, strip transient selection chrome, and return a tree with
+// every computed style (including custom properties) inlined, pseudo-elements
+// materialized, and the view transform overridden so the export rectangle
+// lands at the origin.
+async function buildMapSnapshot(x0,y0,W,H){
+  const live=viewport;
+  const clone=live.cloneNode(true);
+  // The node toolbar lives inside #viewport (so it pans/zooms with the map),
+  // but it is editing chrome, not map content — strip it or an export taken
+  // with a node selected would bake the toolbar into the PNG.
+  clone.querySelector('#nodebar')?.remove();
+  clone.querySelectorAll('.node').forEach(el=>{
+    el.classList.remove(
+      'sel','editing','dim','match','match-current','multi-sel',
+      'drop-before','drop-after','drop-target','link-source','file-drop','pres-current'
+    );
+  });
+  inlineComputedStyles(live, clone);
+  // The live map sits at fractional screen offsets (the pan/zoom transform),
+  // so its pixel rasterization is sampled at those sub-pixel positions. The
+  // export must sample at the same offsets or every glyph, card edge and dot
+  // rasterizes one fractional step away and the whole content region differs.
+  // Shift the clone by the fractional parts of (tx+stage.left) and
+  // (ty+stage.top): the diff's round() mapping then lands the same pixels on
+  // the same windows as the live compositor.
+  const vt=getComputedStyle(viewport).transform;
+  let vtx=0, vty=0;
+  if(vt && vt!=='none'){
+    const m=vt.match(/matrix\(([^)]+)\)/);
+    if(m){ const vv=m[1].split(',').map(parseFloat); vtx=vv[4]||0; vty=vv[5]||0; }
+  }
+  const fmod=n=>((n%1)+1)%1;
+  const srect2=document.querySelector('.stage').getBoundingClientRect();
+  const dx=fmod(vtx+srect2.left+x0), dy=fmod(vty+srect2.top+y0);
+  clone.style.transform='translate('+(-x0+dx)+'px,'+(-y0+dy)+'px)';
+  clone.style.width=W+'px'; clone.style.height=H+'px';
+  // The stage backdrop (the dots/lines texture and the --stage-glow wash)
+  // lives on a sibling box behind the map, not inside #viewport, so the clone
+  // never carries it. Inject a stage-sized div carrying the live stage's own
+  // background layers: the compositor then paints the tiles and the glow
+  // exactly like the live page — same gradients, same interpolation, same
+  // rasterization — instead of a canvas approximation. (Injected after the
+  // lockstep style walk so the parallel traversal stays in sync.)
+  const stage=document.querySelector('.stage');
+  if(stage){
+    const st=getComputedStyle(viewport).transform;
+    let s=1,tx=0,ty=0;
+    if(st && st!=='none'){
+      const m=st.match(/matrix\(([^)]+)\)/);
+      if(m){ const v=m[1].split(',').map(parseFloat); s=v[0]||1; tx=v[4]||0; ty=v[5]||0; }
+    }
+    const stx=-tx/s-x0, sty=-ty/s-y0;
+    const srect=stage.getBoundingClientRect();
+    const scs=getComputedStyle(stage);
+    const glow=scs.getPropertyValue('--stage-glow')||getComputedStyle(document.documentElement).getPropertyValue('--stage-glow');
+    let img=scs.backgroundImage, size=scs.backgroundSize, rep=scs.backgroundRepeat, pos=scs.backgroundPosition;
+    if(glow && glow!=='transparent' && glow!=='none'){
+      img='radial-gradient(ellipse at 50% 0%, '+glow+', transparent 60%), '+img;
+      size='auto, '+size; rep='no-repeat, '+rep; pos='0 0, '+pos;
+    }
+    const div=document.createElement('div');
+    // The div lives inside the transformed clone (map space), so offset by
+    // (x0,y0): the clone's translate(-x0,-y0) then lands it at the stage's
+    // export-space position (stx,sty).
+    div.style.cssText='position:absolute;left:'+(stx+x0)+'px;top:'+(sty+y0)+'px;width:'+srect.width+'px;height:'+srect.height+'px;'+
+      'background-color:transparent;background-image:'+img+';background-size:'+size+';background-repeat:'+rep+';'+
+      'background-position:'+pos+';transform:none;';
+    clone.insertBefore(div, clone.firstChild);
+  }
+  // The clone's ancestors don't exist in the SVG image, so nothing inherits
+  // the theme's custom properties from them. Edge paths reference --edge-color
+  // etc. through presentation-attribute var(), node backgrounds reference
+  // --node-bg, color-mix() shadows reference --accent — all of it needs the
+  // :root values on the clone itself.
+  const rootCS=getComputedStyle(document.documentElement);
+  for(const p of rootCS){
+    if(p.startsWith('--')) clone.style.setProperty(p, rootCS.getPropertyValue(p));
+  }
+  await inlineImagesAsDataURLs(clone);
+  const fontCSS=await snapshotFontCSS();
+  const NS='http://www.w3.org/2000/svg', XHTML='http://www.w3.org/1999/xhtml';
+  const svg=document.createElementNS(NS,'svg');
+  svg.setAttribute('xmlns',NS);
+  svg.setAttribute('width',W); svg.setAttribute('height',H);
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  const fo=document.createElementNS(NS,'foreignObject');
+  fo.setAttribute('width',W); fo.setAttribute('height',H);
+  const wrap=document.createElementNS(XHTML,'div');
+  wrap.style.width=W+'px'; wrap.style.height=H+'px';
+  wrap.style.position='relative'; wrap.style.overflow='hidden';
+  const st=document.createElementNS(XHTML,'style');
+  st.textContent=fontCSS;
+  wrap.appendChild(st);
+  wrap.appendChild(clone);
+  fo.appendChild(wrap);
+  svg.appendChild(fo);
+  return new XMLSerializer().serializeToString(svg);
+}
+
+// Walk the live tree and the clone in lockstep, copying the live element's
+// computed style onto the clone as inline styles. Also materialize ::before /
+// ::after pseudo-elements as real children, because the SVG image document
+// has no stylesheet to generate them from. Children are walked first so the
+// inserted pseudo spans can't desync the parallel traversal.
+function inlineComputedStyles(liveRoot, cloneRoot){
+  const apply=(liveEl, cloneEl)=>{
+    const lc=liveEl.children, cc=cloneEl.children;
+    const n=Math.min(lc.length, cc.length);
+    for(let i=0;i<n;i++) apply(lc[i], cc[i]);
+    const cs=getComputedStyle(liveEl);
+    const st=cloneEl.style;
+    for(const p of cs) st.setProperty(p, cs.getPropertyValue(p));
+    for(const pseudo of ['::before','::after']){
+      const pc=getComputedStyle(liveEl, pseudo);
+      const content=pc.getPropertyValue('content');
+      if(content && content!=='none' && content!=='normal' && content!=='""' && content!=="''"){
+        const s=document.createElement('span');
+        s.textContent=decodeCSSContent(content);
+        const pst=s.style;
+        for(const p of pc) pst.setProperty(p, pc.getPropertyValue(p));
+        if(pseudo==='::before') cloneEl.insertBefore(s, cloneEl.firstChild);
+        else cloneEl.appendChild(s);
+      }
+    }
+  };
+  apply(liveRoot, cloneRoot);
+}
+
+// cssText content values come back quoted with CSS escapes, e.g. "\0192x".
+function decodeCSSContent(content){
+  let s=content.trim();
+  if(s.length>=2 && ((s[0]==='"'&&s[s.length-1]==='"')||(s[0]==="'"&&s[s.length-1]==="'"))){
+    s=s.slice(1,-1);
+  } else if(s==='none' || s==='normal' || !s){
+    return '';
+  }
+  return s
+    .replace(/\\([0-9a-fA-F]{1,6})(\s)?/g, (_,hex,ws)=>{
+      const ch=String.fromCodePoint(parseInt(hex,16));
+      return (ws===undefined||ws==='') ? ch : ch+' ';
+    })
+    .replace(/\\(.)/g,'$1');
+}
+
+// Node images and link favicons must become data: URLs — an SVG consumed as
+// an <img> cannot load external resources, so a remote src simply won't
+// paint. Same-origin and CORS-enabled URLs inline cleanly; a cross-origin
+// URL without CORS headers falls back to a plain drawImage capture (works
+// same-origin) and is otherwise left alone (that node just exports without
+// its picture, exactly as if the image itself had failed to load). Favicons
+// come from a host some sandboxes block for fetch() — they get a server-side
+// proxy fallback.
+async function inlineImagesAsDataURLs(root){
+  const imgs=[...root.querySelectorAll('img')];
+  await Promise.all(imgs.map(async img=>{
+    const src=img.getAttribute('src');
+    if(!src || src.startsWith('data:')) return;
+    const proxy = /^https:\/\/icons\.duckduckgo\.com\//i.test(src)
+      ? '/api/icon?host='+encodeURIComponent(new URL(src).hostname)
+      : null;
+    try{
+      const resp=await fetchWithProxy(src, proxy);
+      if(!resp.ok) throw new Error('http '+resp.status);
+      img.setAttribute('src', await readBlobAsDataURL(await resp.blob()));
+    }catch(_){
+      try{
+        const im=new Image();
+        await new Promise((res,rej)=>{ im.onload=res; im.onerror=rej; im.src=src; });
+        const c=document.createElement('canvas');
+        c.width=im.naturalWidth||1; c.height=im.naturalHeight||1;
+        c.getContext('2d').drawImage(im,0,0);
+        img.setAttribute('src', c.toDataURL('image/png'));
+      }catch(_){ /* cross-origin without CORS — keep the src; it just won't paint */ }
+    }
+  }));
+}
+
+// fetch() with a same-origin proxy fallback, for hosts the page's CSP or the
+// sandbox lets <link>/<img> load but blocks for fetch() (Google Fonts,
+// DuckDuckGo favicons).
+async function fetchWithProxy(url, proxy){
+  try{
+    const r=await fetch(url);
+    if(r.ok) return r;
+    throw new Error('http '+r.status);
+  }catch(e){
+    if(!proxy) throw e;
+    const r2=await fetch(proxy);
+    if(!r2.ok) throw new Error('proxy http '+r2.status);
+    return r2;
+  }
+}
+
+const readBlobAsDataURL = blob => new Promise((res,rej)=>{
+  const fr=new FileReader();
+  fr.onload=()=>res(fr.result);
+  fr.onerror=rej;
+  fr.readAsDataURL(blob);
+});
+
+// Collect every @font-face the page uses (same-origin stylesheets via CSSOM,
+// the Google Fonts stylesheet by fetching its text) and inline the font files
+// as data: URLs. Same sandbox reason as the images: the snapshot document has
+// no network access, and without the fonts the image silently falls back to
+// system fonts and stops matching the canvas. Google Fonts can be fetch-blocked
+// where the page's own <link> still loads them, so both fetches fall back to
+// the server's allowlisted proxies. Cached across exports. v2: the proxy now
+// fetches with a Chrome UA (woff2/variable-font responses) — bump the version
+// if the proxy's served bytes change so stale browser caches can't leak old
+// font files into exports.
+let _snapshotFontCSS=null;
+const _FONT_PROXY_VERSION='v2';
+async function snapshotFontCSS(){
+  if(_snapshotFontCSS) return _snapshotFontCSS;
+  const rules=[];
+  for(const sheet of document.styleSheets){
+    let cssRules;
+    try{ cssRules=sheet.cssRules; }catch(_){ continue; }
+    for(const r of cssRules){ if(r.type===CSSRule.FONT_FACE_RULE) rules.push(r.cssText); }
+  }
+  for(const link of document.querySelectorAll('link[rel="stylesheet"]')){
+    const href=link.href||'';
+    if(!/fonts\.(googleapis|gstatic)\.com/i.test(href)) continue;
+    try{
+      const resp=await fetchWithProxy(href, '/api/font-css?href='+encodeURIComponent(href)+'&v='+_FONT_PROXY_VERSION);
+      const text=await resp.text();
+      const re=/@font-face\s*{[^}]+}/g; let m;
+      while((m=re.exec(text))!==null) rules.push(m[0]);
+    }catch(_){ /* no fonts is better than a broken export */ }
+  }
+  const out=[];
+  for(const rule of rules){
+    let text=rule;
+    const urls=[...rule.matchAll(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g)];
+    for(const u of urls){
+      const url=u[2];
+      if(/^data:/i.test(url)) continue;
+      try{
+        const proxy = /^https:\/\/fonts\.gstatic\.com\//i.test(url)
+          ? '/api/font-file?url='+encodeURIComponent(url)
+          : null;
+        const resp=await fetchWithProxy(url, proxy);
+        if(!resp.ok) throw new Error('http '+resp.status);
+        const data=await readBlobAsDataURL(await resp.blob());
+        text=text.replace(u[0], 'url("'+data+'")');
+      }catch(_){ /* leave the external URL; the font just won't embed */ }
+    }
+    out.push(text);
+  }
+  _snapshotFontCSS=out.join('\n');
+  return _snapshotFontCSS;
 }
 
 // Render text (possibly containing inline <b>/<i>/<u>/<s>/<a>/<br>/<ul>/<ol>/<li>)
@@ -8495,6 +8647,132 @@ const LOOKS = [
   {id:'handwritten', name:'back to<br>School', font:'"Caveat",cursive'},
   {id:'lab',         name:'in the<br>Lab',     font:'"JetBrains Mono",monospace'}
 ];
+// Per-look tunables, keyed by look id on the map as map.lookConfig — the
+// same pattern as styleConfig/layoutConfig. font is the look's own font
+// family by default (mirroring the --sans/--serif each look's CSS declares,
+// so an unconfigured map renders exactly as before); nodeSize scales node
+// text (1 = the look's own size); radius rounds the chrome (popups, pickers,
+// minimap, modals — equal to the look's default keeps its own asymmetric
+// corners).
+const LOOK_CONFIG_DEFAULTS = {
+  office:       { font:'"Bricolage Grotesque",system-ui,sans-serif', nodeSize:1, radius:14 },
+  'coffee-shop':{ font:'"Nunito",sans-serif',                        nodeSize:1, radius:18 },
+  handwritten:  { font:'"Caveat",cursive',                           nodeSize:1, radius:20 },
+  lab:          { font:'"JetBrains Mono",monospace',                 nodeSize:1, radius:4  },
+};
+const LOOK_CONFIG_BOUNDS = { nodeSize:[0.8,1.6], radius:[0,60] };
+// Repairs rather than rejects, like validateStyleConfig: numbers are clamped
+// to their bounds, font is kept as a short string (typing "" keeps the
+// look's own default font), unknown keys and unknown looks are dropped, and
+// every look gets its defaults merged in so a section never comes back
+// half-formed.
+function validateLookConfig(raw){
+  const out = {};
+  for(const look of Object.keys(LOOK_CONFIG_DEFAULTS)){
+    out[look] = { ...LOOK_CONFIG_DEFAULTS[look] };
+  }
+  if(!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for(const look of Object.keys(out)){
+    const sec = raw[look];
+    if(!sec || typeof sec !== 'object' || Array.isArray(sec)) continue;
+    if(typeof sec.font === 'string' && sec.font.trim()){
+      out[look].font = sec.font.trim().slice(0, 60);
+    }
+    for(const key of ['nodeSize','radius']){
+      const v = sec[key];
+      if(typeof v !== 'number' || !isFinite(v)) continue;
+      const [lo,hi] = LOOK_CONFIG_BOUNDS[key];
+      out[look][key] = Math.min(hi, Math.max(lo, v));
+    }
+  }
+  return out;
+}
+// The knobs that apply to one look — what the settings dialog shows.
+function lookConfigFor(look, raw){
+  const all = validateLookConfig(raw);
+  return all[look] ? { [look]: all[look] } : {};
+}
+// Push the active look's config onto :root as inline custom properties —
+// inline styles beat the :root[data-look=...] attribute rules, so configured
+// values win over the look's own CSS without touching it (and --look-radius/
+// --look-node-size are consumed by the base chrome/node rules, which fall
+// back to the look's own values when unset). Called on every render so load,
+// look switches and map loads all agree.
+function applyLookConfigVars(){
+  const root = document.documentElement;
+  if(!root || !map) return;
+  const look = root.getAttribute('data-look') || 'office';
+  const cfg = { ...LOOK_CONFIG_DEFAULTS[look], ...((map.lookConfig || {})[look] || {}) };
+  if(cfg.font){ root.style.setProperty('--sans', cfg.font); root.style.setProperty('--serif', cfg.font); }
+  else { root.style.removeProperty('--sans'); root.style.removeProperty('--serif'); }
+  if(cfg.nodeSize !== 1) root.style.setProperty('--look-node-size', cfg.nodeSize);
+  else root.style.removeProperty('--look-node-size');
+  if(cfg.radius !== LOOK_CONFIG_DEFAULTS[look].radius) root.style.setProperty('--look-radius', cfg.radius + 'px');
+  else root.style.removeProperty('--look-radius');
+}
+// Per-theme tunables, keyed by theme id on the map as map.themeConfig — the
+// same pattern as styleConfig/layoutConfig/lookConfig. Each colour defaults
+// to what the theme's own CSS block declares (the base :root for 'light',
+// the implicit default), so an unconfigured map renders exactly as before.
+// Only these six knobs are touched — everything else in a theme's palette
+// keeps its own colours.
+const THEME_CONFIG_DEFAULTS = {
+  'light':            { paper:'#f4efe6',  ink:'#23201b', accent:'#e0613a', nodeBg:'#ffffff', line:'#d8cfbf', glow:'rgba(255,255,255,.5)' },
+  'dark':             { paper:'#1e1e1e',  ink:'#d4d4d4', accent:'#3794ff', nodeBg:'#2d2d2d', line:'#3c3c3c', glow:'rgba(255,255,255,.04)' },
+  'light-owl':        { paper:'#fbfbfb',  ink:'#403f53', accent:'#2aa298', nodeBg:'#ffffff', line:'#ececec', glow:'rgba(255,255,255,.6)' },
+  'night-owl':        { paper:'#011627',  ink:'#d6deeb', accent:'#7e57c2', nodeBg:'#0b2942', line:'#1d3b53', glow:'rgba(126,87,194,.06)' },
+  'catppuccin-light': { paper:'#eff1f5',  ink:'#4c4f69', accent:'#8839ef', nodeBg:'#ffffff', line:'#ccd0da', glow:'rgba(136,57,239,.04)' },
+  'catppuccin-dark':  { paper:'#1e1e2e',  ink:'#cdd6f4', accent:'#cba6f7', nodeBg:'#313244', line:'#313244', glow:'rgba(203,166,247,.05)' },
+  'rose-pine-dawn':   { paper:'#faf4ed',  ink:'#575279', accent:'#907aa9', nodeBg:'#fffaf3', line:'#f2e9e1', glow:'rgba(144,122,169,.04)' },
+  'rose-pine-moon':   { paper:'#232136',  ink:'#e0def4', accent:'#c4a7e7', nodeBg:'#393552', line:'#393552', glow:'rgba(196,167,231,.05)' },
+  'github-light':     { paper:'#ffffff',  ink:'#1f2328', accent:'#0969da', nodeBg:'#ffffff', line:'#d0d7de', glow:'rgba(9,105,218,.04)' },
+  'github-dark':      { paper:'#0d1117',  ink:'#e6edf3', accent:'#58a6ff', nodeBg:'#161b22', line:'#30363d', glow:'rgba(88,166,255,.05)' },
+  'dracula':          { paper:'#282a36',  ink:'#f8f8f2', accent:'#ff79c6', nodeBg:'#44475a', line:'#44475a', glow:'rgba(189,147,249,.06)' },
+  'nord':             { paper:'#2e3440',  ink:'#eceff4', accent:'#88c0d0', nodeBg:'#434c5e', line:'#434c5e', glow:'rgba(143,188,187,.05)' },
+};
+const THEME_CONFIG_BOUNDS = { color:[0,40] };
+// Repairs rather than rejects, like validateLookConfig: every colour is kept
+// as a short CSS colour string (typing "" keeps the theme's own colour),
+// unknown keys and unknown themes are dropped, and every theme gets its
+// defaults merged in so a section never comes back half-formed.
+function validateThemeConfig(raw){
+  const out = {};
+  for(const theme of Object.keys(THEME_CONFIG_DEFAULTS)){
+    out[theme] = { ...THEME_CONFIG_DEFAULTS[theme] };
+  }
+  if(!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for(const theme of Object.keys(out)){
+    const sec = raw[theme];
+    if(!sec || typeof sec !== 'object' || Array.isArray(sec)) continue;
+    for(const key of ['paper','ink','accent','nodeBg','line','glow']){
+      if(typeof sec[key] === 'string' && sec[key].trim()){
+        out[theme][key] = sec[key].trim().slice(0, THEME_CONFIG_BOUNDS.color[1]);
+      }
+    }
+  }
+  return out;
+}
+// The knobs that apply to one theme — what the settings dialog shows.
+function themeConfigFor(theme, raw){
+  const all = validateThemeConfig(raw);
+  return all[theme] ? { [theme]: all[theme] } : {};
+}
+// Push the active theme's config onto :root as inline custom properties —
+// inline styles beat the :root[data-theme=...] rules, so configured colours
+// win over the theme's own palette without touching it. Called on every
+// render so load, theme switches and map loads all agree.
+function applyThemeConfigVars(){
+  const root = document.documentElement;
+  if(!root || !map) return;
+  const theme = root.getAttribute('data-theme') || 'light';
+  const cfg = { ...THEME_CONFIG_DEFAULTS[theme], ...((map.themeConfig || {})[theme] || {}) };
+  const vars = { paper:'--paper', ink:'--ink', accent:'--accent', nodeBg:'--node-bg', line:'--line', glow:'--stage-glow' };
+  for(const key of Object.keys(vars)){
+    const v = cfg[key];
+    if(v && typeof v === 'string') root.style.setProperty(vars[key], v);
+    else root.style.removeProperty(vars[key]);
+  }
+}
 const MAP_STYLES = [
   {id:'modern',  name:'Modern',  desc:'Soft cards, curved branches'},
   {id:'classic', name:'Classic', desc:'Rectangles, right-angle branches'},
@@ -8505,6 +8783,71 @@ const MAP_STYLES = [
   {id:'zigzag',  name:'Zigzag',  desc:'Squared cards, jagged branch lines'},
   {id:'neon',    name:'Neon',    desc:'Glowing cards, luminous branches'}
 ];
+// Per-style tunables, keyed by style id on the map as map.styleConfig — the
+// same pattern as layoutConfig. Defaults mirror what the CSS and the export
+// painter hardcode today, so an unconfigured map renders exactly as before.
+const STYLE_CONFIG_DEFAULTS = {
+  modern:  { edgeWidth:2.2, edgeColor:'', radius:12,  cardPad:0,  glow:0,  dash:0 },
+  classic: { edgeWidth:1.6, edgeColor:'', radius:4,   cardPad:0,  glow:0,  dash:0 },
+  bubble:  { edgeWidth:3,   edgeColor:'', radius:999, cardPad:22, glow:0,  dash:0 },
+  sketch:  { edgeWidth:1.6, edgeColor:'', radius:3,   cardPad:0,  glow:0,  dash:0 },
+  dashed:  { edgeWidth:2.2, edgeColor:'', radius:14,  cardPad:0,  glow:0,  dash:7 },
+  minimal: { edgeWidth:1.1, edgeColor:'', radius:6,   cardPad:0,  glow:0,  dash:0 },
+  zigzag:  { edgeWidth:2,   edgeColor:'', radius:2,   cardPad:0,  glow:0,  dash:0 },
+  neon:    { edgeWidth:2.4, edgeColor:'', radius:10,  cardPad:0,  glow:16, dash:0 },
+};
+const STYLE_CONFIG_BOUNDS = {
+  edgeWidth:[1,8], edgeColor:[0,40], radius:[0,999], cardPad:[0,80], glow:[0,80], dash:[0,60],
+};
+// Repairs rather than rejects, like validateLayoutConfig: numbers are clamped
+// to their bounds, edgeColor is kept as a short string ('' = theme default),
+// unknown keys and unknown styles are dropped, and every style gets its
+// defaults merged in so a section never comes back half-formed.
+function validateStyleConfig(raw){
+  const out = {};
+  for(const style of Object.keys(STYLE_CONFIG_DEFAULTS)){
+    out[style] = { ...STYLE_CONFIG_DEFAULTS[style] };
+  }
+  if(!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for(const style of Object.keys(out)){
+    const sec = raw[style];
+    if(!sec || typeof sec !== 'object' || Array.isArray(sec)) continue;
+    if(typeof sec.edgeColor === 'string' && sec.edgeColor.trim()){
+      out[style].edgeColor = sec.edgeColor.trim().slice(0, STYLE_CONFIG_BOUNDS.edgeColor[1]);
+    }
+    for(const key of ['edgeWidth','radius','cardPad','glow','dash']){
+      const v = sec[key];
+      if(typeof v !== 'number' || !isFinite(v)) continue;
+      const [lo,hi] = STYLE_CONFIG_BOUNDS[key];
+      out[style][key] = Math.min(hi, Math.max(lo, v));
+    }
+  }
+  return out;
+}
+// The knobs that apply to one style — what the settings dialog shows.
+function styleConfigFor(style, raw){
+  const all = validateStyleConfig(raw);
+  return all[style] ? { [style]: all[style] } : {};
+}
+// Push the active style's config onto #viewport as inline custom properties,
+// which override the per-style CSS rules (inline beats attribute selectors).
+// Called on every render so load, style switches and theme changes all agree.
+function applyStyleConfigVars(){
+  const vp = viewport;
+  if(!vp || !map) return;
+  const style = map.style || 'modern';
+  const cfg = { ...STYLE_CONFIG_DEFAULTS[style], ...((map.styleConfig || {})[style] || {}) };
+  vp.style.setProperty('--edge-width', cfg.edgeWidth);
+  vp.style.setProperty('--edge-color', cfg.edgeColor || null);
+  // Length vars need explicit units: a bare number is invalid for
+  // border-radius/padding, and an invalid var() makes the property fall back
+  // to its initial value (radius 0, padding 0) instead of the style's default.
+  vp.style.setProperty('--node-radius', cfg.radius + 'px');
+  vp.style.setProperty('--node-pad-x', cfg.cardPad ? cfg.cardPad + 'px' : null);
+  vp.style.setProperty('--node-pad-y', cfg.cardPad ? cfg.cardPad + 'px' : null);
+  vp.style.setProperty('--node-glow', cfg.glow + 'px');
+  vp.style.setProperty('--edge-glow', Math.max(2, Math.round(cfg.glow / 5)));
+}
 /* ------------------------------------------------------------
    Layout presets.
 
@@ -8877,7 +9220,9 @@ $('#themeBtn').onclick=(e)=>{
   themePanel.className='theme-panel theme-panel-large';
   themePanel.innerHTML = `
     <div class="tp-section">
-      <div class="tp-label">Colour theme</div>
+      <div class="tp-label">Colour theme
+        <button class="tp-cog" data-cog="theme" title="Colour theme settings (JSON)">\u2699</button>
+      </div>
       <div class="tp-grid">
         ${THEMES.map(t=>`
           <button class="theme-opt${t.id===curTheme?' active':''}" data-cat="theme" data-id="${t.id}">
@@ -8886,7 +9231,9 @@ $('#themeBtn').onclick=(e)=>{
       </div>
     </div>
     <div class="tp-section tp-section-special">
-      <div class="tp-label">I am</div>
+      <div class="tp-label">I am
+        <button class="tp-cog" data-cog="look" title="Look settings (JSON)">\u2699</button>
+      </div>
       <div class="tp-grid">
         ${LOOKS.map(l=>`
           <button class="theme-opt${l.id===curLook?' active':''}" data-cat="look" data-id="${l.id}">
@@ -8895,7 +9242,9 @@ $('#themeBtn').onclick=(e)=>{
       </div>
     </div>
     <div class="tp-section">
-      <div class="tp-label">Map style</div>
+      <div class="tp-label">Map style
+        <button class="tp-cog" data-cog="style" title="Map style settings (JSON)">\u2699</button>
+      </div>
       <div class="tp-grid tp-scroll-row">
         ${MAP_STYLES.map(s=>`
           <button class="theme-opt${s.id===curStyle?' active':''}" data-cat="style" data-id="${s.id}" title="${s.desc}">
@@ -8905,7 +9254,7 @@ $('#themeBtn').onclick=(e)=>{
     </div>
     <div class="tp-section">
       <div class="tp-label">Layout
-        <button class="tp-cog" title="Layout settings (JSON)">\u2699</button>
+        <button class="tp-cog" data-cog="layout" title="Layout settings (JSON)">\u2699</button>
       </div>
       <div class="tp-grid tp-scroll-row">
         ${allLayouts().map(l=>`
@@ -8935,8 +9284,14 @@ $('#themeBtn').onclick=(e)=>{
   //   - the active option is scrolled into view when the panel opens
   // The cog is not a .theme-opt, so it is wired separately rather than going
   // through the category dispatch below.
-  const cog = themePanel.querySelector('.tp-cog');
-  if(cog) cog.onclick = ev => { ev.stopPropagation(); closeThemePanel(); showLayoutConfigForm(); };
+  const cogs = themePanel.querySelectorAll('.tp-cog');
+  if(cogs.length) cogs.forEach(cog=> cog.onclick = ev => {
+    ev.stopPropagation(); closeThemePanel();
+    if(cog.dataset.cog === 'style') showStyleConfigForm();
+    else if(cog.dataset.cog === 'layout') showLayoutConfigForm();
+    else if(cog.dataset.cog === 'look') showLookConfigForm();
+    else showThemeConfigForm();
+  });
 
   themePanel.querySelectorAll('.tp-scroll-row').forEach(row=>{
     const sync=()=>{
@@ -9510,6 +9865,8 @@ function _shareePayload(m){
   const p = { v:1, title:m.title, color:m.color, style:m.style, layout:m.layout,
               rootId:m.rootId, nodes:m.nodes, links:m.links||[], vars:m.vars||{} };
   if(m.layoutConfig) p.layoutConfig = m.layoutConfig;   // omitted entirely when unset
+  if(m.lookConfig) p.lookConfig = m.lookConfig;         // omitted entirely when unset
+  if(m.themeConfig) p.themeConfig = m.themeConfig;       // omitted entirely when unset
   return p;
 }
 async function buildShareLink(){

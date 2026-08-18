@@ -17,6 +17,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const zlib = require('node:zlib');
 const { DatabaseSync } = require('node:sqlite');
 
 const PORT = process.env.PORT || 3000;
@@ -131,10 +132,30 @@ function buildMapFromSpec(spec) {
 const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css',
   '.json':'application/json', '.svg':'image/svg+xml', '.png':'image/png', '.ico':'image/x-icon',
   '.webmanifest':'application/manifest+json' };
+// Text-ish types worth gzipping (png/ico are already compressed; font files go
+// through /api/font-file, not here).
+const COMPRESSIBLE = new Set(['.html', '.js', '.mjs', '.css', '.json', '.svg', '.webmanifest', '.txt']);
+// gzipSync on a 558KB app.js per request is wasteful; cache the encoded body
+// keyed on the file's (size, mtimeMs) so re-reads after an edit re-compress
+// but identical files serve the cached copy.
+const _gz = new Map();
+function gzipStatic(full) {
+  const st = fs.statSync(full);
+  const key = full + ':' + st.size + ':' + st.mtimeMs;
+  const hit = _gz.get(key);
+  if (hit) return hit;
+  const buf = zlib.gzipSync(fs.readFileSync(full), { level: 6 });
+  if (_gz.size > 200) _gz.clear();
+  _gz.set(key, buf);
+  return buf;
+}
 const send = (res, code, body, type='application/json') => {
   res.writeHead(code, { 'Content-Type': type });
   res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 };
+// Chrome UA so the font proxies get the same WOFF2/variable-font responses
+// the page's own <link> tags received (see /api/font-css below).
+const UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const readBody = (req) => new Promise((resolve, reject) => {
   let d = '';
   req.on('data', c => { d += c; if (d.length > 8e6) { req.destroy(); reject(new Error('payload too large')); } });
@@ -169,6 +190,50 @@ const server = http.createServer(async (req, res) => {
 
   try {
     // ----- API -----
+    // Font/icon fetch proxies for the PNG export. The export rasterizes a DOM
+    // snapshot as an SVG image, and that document has no network access — so
+    // every font and favicon it needs must be inlined as a data: URL first.
+    // Some sandboxes (containers, corporate proxies) let the <link> tags load
+    // Google Fonts but block the page's own fetch() to them; these three
+    // allowlisted routes give the page a same-origin path to the same bytes.
+    // Each is GET-only and pinned to a single trusted origin so they can't be
+    // turned into an open proxy.
+    const q = new URL(req.url, 'http://localhost').searchParams;
+    if (p === '/api/font-css' && req.method === 'GET') {
+      const href = q.get('href') || '';
+      if (!href.startsWith('https://fonts.googleapis.com/css2?')) return send(res, 400, { error: 'bad href' });
+      // Send a real browser UA: Google Fonts serves variable WOFF2 + unicode-range
+      // subsets to Chrome but a single static TTF to curl/Node. The page itself
+      // loaded the Chrome response, so the export must embed the same files or
+      // the glyphs (e.g. Fraunces' optical-size axis) silently drift.
+      const r = await fetch(href, { headers: { 'User-Agent': UA } });
+      if (!r.ok) return send(res, 502, { error: 'upstream ' + r.status });
+      const body = await r.text();
+      // The css is tiny; don't cache it — the page re-fetches it with the UA
+      // it needs and a stale cached response (e.g. an older curl-UA TTF one)
+      // would silently ship the wrong font files into exports.
+      res.setHeader('Cache-Control', 'no-store');
+      return send(res, 200, body, 'text/css; charset=utf-8');
+    }
+    if (p === '/api/font-file' && req.method === 'GET') {
+      const url = q.get('url') || '';
+      if (!url.startsWith('https://fonts.gstatic.com/')) return send(res, 400, { error: 'bad url' });
+      const r = await fetch(url, { headers: { 'User-Agent': UA } });
+      if (!r.ok) return send(res, 502, { error: 'upstream ' + r.status });
+      const buf = Buffer.from(await r.arrayBuffer());
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return send(res, 200, buf, r.headers.get('content-type') || 'application/octet-stream');
+    }
+    if (p === '/api/icon' && req.method === 'GET') {
+      const host = (q.get('host') || '').replace(/[^a-z0-9.-]/gi, '');
+      if (!host) return send(res, 400, { error: 'bad host' });
+      const r = await fetch('https://icons.duckduckgo.com/ip3/' + host + '.ico');
+      if (!r.ok) return send(res, 502, { error: 'upstream ' + r.status });
+      const buf = Buffer.from(await r.arrayBuffer());
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return send(res, 200, buf, r.headers.get('content-type') || 'image/x-icon');
+    }
+
     if (p === '/api/maps' && req.method === 'GET') return send(res, 200, Q.list.all());
 
     if (p === '/api/maps' && req.method === 'POST') {
@@ -224,7 +289,19 @@ const server = http.createServer(async (req, res) => {
     // "<PUBLIC>-evil" can never satisfy the check (defense in depth).
     if ((full === PUBLIC || full.startsWith(PUBLIC + path.sep)) && fs.existsSync(full) && fs.statSync(full).isFile()) {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      return send(res, 200, fs.readFileSync(full), MIME[path.extname(full)] || 'application/octet-stream');
+      const ext = path.extname(full);
+      const type = MIME[ext] || 'application/octet-stream';
+      const st = fs.statSync(full);
+      // Gzip compressible text only, and only when the client asked for it —
+      // freshness semantics are unchanged (still no-store, still revalidated).
+      const wantsGzip = COMPRESSIBLE.has(ext) && st.size > 256 &&
+        /(?:^|,)\s*(?:gzip|\*)\s*(?:,|$)/.test((req.headers['accept-encoding'] || '').toLowerCase());
+      if (wantsGzip) {
+        res.setHeader('Content-Encoding', 'gzip');
+        res.setHeader('Vary', 'Accept-Encoding');
+        return send(res, 200, gzipStatic(full), type);
+      }
+      return send(res, 200, fs.readFileSync(full), type);
     }
 
     // If the frontend itself is missing, explain it instead of a cryptic 404.
