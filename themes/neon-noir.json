@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "neon-noir",
+  "name": "Neon Noir",
+  "vars": {
+    "--toolbar-bg": "#ffffff",
+    "--toolbar-text": "#0a0a0f",
+    "--paper": "#0a0a0f",
+    "--paper-2": "#12121c",
+    "--ink": "#c8c8d4",
+    "--ink-soft": "#5a5a70",
+    "--line": "#1f1f2e",
+    "--line-2": "#2a2a3e",
+    "--accent": "#00ff9f",
+    "--accent-deep": "#00cc7e",
+    "--teal": "#a0ffd0",
+    "--chrome": "#12121c",
+    "--chrome-edge": "#1f1f2e",
+    "--node-bg": "#12121c",
+    "--node-ink": "#c8c8d4",
+    "--canvas-dot": "#1f1f2e",
+    "--stage-glow": "rgba(0,255,159,.07)",
+    "--link": "#00ff9f",
+    "--shadow": "0 2px 4px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.60)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.70)"
+  }
+}

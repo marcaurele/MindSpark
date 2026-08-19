@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "ruby-night",
+  "name": "Ruby Night",
+  "vars": {
+    "--toolbar-bg": "#ffd4dc",
+    "--toolbar-text": "#151314",
+    "--paper": "#151314",
+    "--paper-2": "#24191c",
+    "--ink": "#e8dddf",
+    "--ink-soft": "#8e7a7e",
+    "--line": "#43242b",
+    "--line-2": "#57313a",
+    "--accent": "#f43f5e",
+    "--accent-deep": "#c62b47",
+    "--teal": "#ff7187",
+    "--chrome": "#24191c",
+    "--chrome-edge": "#43242b",
+    "--node-bg": "#24191c",
+    "--node-ink": "#e8dddf",
+    "--canvas-dot": "#43242b",
+    "--stage-glow": "rgba(244,63,94,.07)",
+    "--link": "#f43f5e",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

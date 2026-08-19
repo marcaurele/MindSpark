@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "copper-lab",
+  "name": "Copper Lab",
+  "vars": {
+    "--toolbar-bg": "#fff8f2",
+    "--toolbar-text": "#1b1715",
+    "--paper": "#1b1715",
+    "--paper-2": "#29201c",
+    "--ink": "#e4d7ce",
+    "--ink-soft": "#927c70",
+    "--line": "#463128",
+    "--line-2": "#573d32",
+    "--accent": "#d97745",
+    "--accent-deep": "#b45b30",
+    "--teal": "#e89a70",
+    "--chrome": "#29201c",
+    "--chrome-edge": "#463128",
+    "--node-bg": "#29201c",
+    "--node-ink": "#e4d7ce",
+    "--canvas-dot": "#463128",
+    "--stage-glow": "rgba(217,119,69,.06)",
+    "--link": "#d97745",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "sakura-drift",
+  "name": "Sakura Drift",
+  "vars": {
+    "--toolbar-bg": "#2c1e23",
+    "--toolbar-text": "#fff9fa",
+    "--paper": "#fff9fa",
+    "--paper-2": "#ffebf0",
+    "--ink": "#4a3e43",
+    "--ink-soft": "#9e8890",
+    "--line": "#f7d6df",
+    "--line-2": "#efc3ce",
+    "--accent": "#ff758f",
+    "--accent-deep": "#e35472",
+    "--teal": "#8d86c9",
+    "--chrome": "#ffebf0",
+    "--chrome-edge": "#f7d6df",
+    "--node-bg": "#ffffff",
+    "--node-ink": "#4a3e43",
+    "--canvas-dot": "#f7d6df",
+    "--stage-glow": "rgba(255,117,143,.05)",
+    "--link": "#ff758f",
+    "--shadow": "0 1px 3px rgba(74,62,67,.10),0 8px 24px rgba(74,62,67,.08)",
+    "--shadow-lg": "0 12px 40px rgba(74,62,67,.16)"
+  }
+}

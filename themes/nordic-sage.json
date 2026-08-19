@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "nordic-sage",
+  "name": "Nordic Sage",
+  "vars": {
+    "--toolbar-bg": "#1b2621",
+    "--toolbar-text": "#f3f5f3",
+    "--paper": "#f3f5f3",
+    "--paper-2": "#e4eae6",
+    "--ink": "#2d3a34",
+    "--ink-soft": "#687770",
+    "--line": "#d5ddd8",
+    "--line-2": "#c3cdc7",
+    "--accent": "#3b604d",
+    "--accent-deep": "#2c4a3a",
+    "--teal": "#52b788",
+    "--chrome": "#e4eae6",
+    "--chrome-edge": "#d5ddd8",
+    "--node-bg": "#ffffff",
+    "--node-ink": "#2d3a34",
+    "--canvas-dot": "#d5ddd8",
+    "--stage-glow": "rgba(59,96,77,.05)",
+    "--link": "#3b604d",
+    "--shadow": "0 1px 3px rgba(45,58,52,.10),0 8px 24px rgba(45,58,52,.08)",
+    "--shadow-lg": "0 12px 40px rgba(45,58,52,.16)"
+  }
+}

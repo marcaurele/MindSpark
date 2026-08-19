@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "aurora-frost",
+  "name": "Aurora Frost",
+  "vars": {
+    "--toolbar-bg": "#e0fbfc",
+    "--toolbar-text": "#0b132b",
+    "--paper": "#0b132b",
+    "--paper-2": "#1c2541",
+    "--ink": "#c0d6df",
+    "--ink-soft": "#486581",
+    "--line": "#1c2541",
+    "--line-2": "#2a3a5e",
+    "--accent": "#70e000",
+    "--accent-deep": "#54a800",
+    "--teal": "#64dfdf",
+    "--chrome": "#1c2541",
+    "--chrome-edge": "#1c2541",
+    "--node-bg": "#1c2541",
+    "--node-ink": "#c0d6df",
+    "--canvas-dot": "#1c2541",
+    "--stage-glow": "rgba(112,224,0,.06)",
+    "--link": "#70e000",
+    "--shadow": "0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.50)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.60)"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "arctic-glass",
+  "name": "Arctic Glass",
+  "vars": {
+    "--toolbar-bg": "#102a43",
+    "--toolbar-text": "#f4faff",
+    "--paper": "#f4faff",
+    "--paper-2": "#e9f5fb",
+    "--ink": "#274154",
+    "--ink-soft": "#6b8496",
+    "--line": "#d6eaf4",
+    "--line-2": "#c4deeb",
+    "--accent": "#149bd7",
+    "--accent-deep": "#0f7cac",
+    "--teal": "#38bdf8",
+    "--chrome": "#e9f5fb",
+    "--chrome-edge": "#d6eaf4",
+    "--node-bg": "#ffffff",
+    "--node-ink": "#274154",
+    "--canvas-dot": "#d6eaf4",
+    "--stage-glow": "rgba(20,155,215,.05)",
+    "--link": "#149bd7",
+    "--shadow": "0 1px 3px rgba(39,65,84,.10),0 8px 24px rgba(39,65,84,.08)",
+    "--shadow-lg": "0 12px 40px rgba(39,65,84,.16)"
+  }
+}

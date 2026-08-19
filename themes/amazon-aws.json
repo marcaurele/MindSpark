@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "amazon-aws",
+  "name": "AWS Console",
+  "vars": {
+    "--toolbar-bg": "#f9fafb",
+    "--toolbar-text": "#111827",
+    "--paper": "#161e2e",
+    "--paper-2": "#1f2937",
+    "--ink": "#d1d5db",
+    "--ink-soft": "#6b7280",
+    "--line": "#374151",
+    "--line-2": "#455160",
+    "--accent": "#ff9900",
+    "--accent-deep": "#ec7211",
+    "--teal": "#93c5fd",
+    "--chrome": "#1f2937",
+    "--chrome-edge": "#374151",
+    "--node-bg": "#232f3e",
+    "--node-ink": "#d1d5db",
+    "--canvas-dot": "#374151",
+    "--stage-glow": "rgba(255,153,0,.05)",
+    "--link": "#ff9900",
+    "--shadow": "0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.55)"
+  }
+}

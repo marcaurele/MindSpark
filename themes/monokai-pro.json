@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "monokai-pro",
+  "name": "Monokai Pro",
+  "vars": {
+    "--toolbar-bg": "#fcfcfa",
+    "--toolbar-text": "#2d2a2e",
+    "--paper": "#2d2a2e",
+    "--paper-2": "#19181a",
+    "--ink": "#fcfcfa",
+    "--ink-soft": "#727072",
+    "--line": "#403e41",
+    "--line-2": "#504d52",
+    "--accent": "#a9dc76",
+    "--accent-deep": "#6ca030",
+    "--teal": "#ffd866",
+    "--chrome": "#19181a",
+    "--chrome-edge": "#403e41",
+    "--node-bg": "#363337",
+    "--node-ink": "#fcfcfa",
+    "--canvas-dot": "#403e41",
+    "--stage-glow": "rgba(169,220,118,.05)",
+    "--link": "#ff6188",
+    "--shadow": "0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.50)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.60)"
+  }
+}

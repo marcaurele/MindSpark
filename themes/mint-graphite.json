@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "mint-graphite",
+  "name": "Mint Graphite",
+  "vars": {
+    "--toolbar-bg": "#18251f",
+    "--toolbar-text": "#f7fbf9",
+    "--paper": "#f7fbf9",
+    "--paper-2": "#e6f3ee",
+    "--ink": "#34423c",
+    "--ink-soft": "#71827a",
+    "--line": "#d8e8e1",
+    "--line-2": "#c6dbd1",
+    "--accent": "#0f9f75",
+    "--accent-deep": "#0b7e5c",
+    "--teal": "#34d399",
+    "--chrome": "#e6f3ee",
+    "--chrome-edge": "#d8e8e1",
+    "--node-bg": "#ffffff",
+    "--node-ink": "#34423c",
+    "--canvas-dot": "#d8e8e1",
+    "--stage-glow": "rgba(15,159,117,.05)",
+    "--link": "#0f9f75",
+    "--shadow": "0 1px 3px rgba(52,66,60,.10),0 8px 24px rgba(52,66,60,.08)",
+    "--shadow-lg": "0 12px 40px rgba(52,66,60,.16)"
+  }
+}

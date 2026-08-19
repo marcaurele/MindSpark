@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "carbon-amber",
+  "name": "Carbon & Amber",
+  "vars": {
+    "--toolbar-bg": "#ffd066",
+    "--toolbar-text": "#121212",
+    "--paper": "#121212",
+    "--paper-2": "#1a1400",
+    "--ink": "#d4af37",
+    "--ink-soft": "#8c6a00",
+    "--line": "#332600",
+    "--line-2": "#4a3a00",
+    "--accent": "#ffb000",
+    "--accent-deep": "#c98f00",
+    "--teal": "#ffd066",
+    "--chrome": "#1a1400",
+    "--chrome-edge": "#332600",
+    "--node-bg": "#1f1800",
+    "--node-ink": "#d4af37",
+    "--canvas-dot": "#332600",
+    "--stage-glow": "rgba(255,176,0,.06)",
+    "--link": "#ffb000",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

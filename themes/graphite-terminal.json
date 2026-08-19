@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "graphite-terminal",
+  "name": "Graphite Terminal",
+  "vars": {
+    "--toolbar-bg": "#e8e8e8",
+    "--toolbar-text": "#1a1a1a",
+    "--paper": "#1a1a1a",
+    "--paper-2": "#242424",
+    "--ink": "#b8b8b8",
+    "--ink-soft": "#6a6a6a",
+    "--line": "#333333",
+    "--line-2": "#424242",
+    "--accent": "#60a5fa",
+    "--accent-deep": "#4585e0",
+    "--teal": "#93c5fd",
+    "--chrome": "#242424",
+    "--chrome-edge": "#333333",
+    "--node-bg": "#242424",
+    "--node-ink": "#b8b8b8",
+    "--canvas-dot": "#333333",
+    "--stage-glow": "rgba(96,165,250,.06)",
+    "--link": "#60a5fa",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "magenta-pulse",
+  "name": "Magenta Pulse",
+  "vars": {
+    "--toolbar-bg": "#fff0ff",
+    "--toolbar-text": "#140a16",
+    "--paper": "#140a16",
+    "--paper-2": "#221022",
+    "--ink": "#e8d0e8",
+    "--ink-soft": "#9a6a9a",
+    "--line": "#3a1a3a",
+    "--line-2": "#4a234a",
+    "--accent": "#ec4899",
+    "--accent-deep": "#c82e7b",
+    "--teal": "#f472b6",
+    "--chrome": "#221022",
+    "--chrome-edge": "#3a1a3a",
+    "--node-bg": "#221022",
+    "--node-ink": "#e8d0e8",
+    "--canvas-dot": "#3a1a3a",
+    "--stage-glow": "rgba(236,72,153,.08)",
+    "--link": "#ec4899",
+    "--shadow": "0 2px 4px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.60)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.70)"
+  }
+}

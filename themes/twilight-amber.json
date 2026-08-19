@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "twilight-amber",
+  "name": "Twilight Amber",
+  "vars": {
+    "--toolbar-bg": "#fff8ec",
+    "--toolbar-text": "#16120c",
+    "--paper": "#16120c",
+    "--paper-2": "#241e14",
+    "--ink": "#e8dcc8",
+    "--ink-soft": "#9a8a6a",
+    "--line": "#3a3020",
+    "--line-2": "#4a3d2a",
+    "--accent": "#fbbf24",
+    "--accent-deep": "#d19f12",
+    "--teal": "#fcd34d",
+    "--chrome": "#241e14",
+    "--chrome-edge": "#3a3020",
+    "--node-bg": "#241e14",
+    "--node-ink": "#e8dcc8",
+    "--canvas-dot": "#3a3020",
+    "--stage-glow": "rgba(251,191,36,.07)",
+    "--link": "#fbbf24",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

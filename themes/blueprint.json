@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "blueprint",
+  "name": "Blueprint",
+  "vars": {
+    "--toolbar-bg": "#e0f2fe",
+    "--toolbar-text": "#005596",
+    "--paper": "#005596",
+    "--paper-2": "#004478",
+    "--ink": "#e0f2fe",
+    "--ink-soft": "#7dd3fc",
+    "--line": "#4080b0",
+    "--line-2": "#5797c2",
+    "--accent": "#ffffff",
+    "--accent-deep": "#c9e3f5",
+    "--teal": "#7dd3fc",
+    "--chrome": "#004478",
+    "--chrome-edge": "#4080b0",
+    "--node-bg": "#004478",
+    "--node-ink": "#e0f2fe",
+    "--canvas-dot": "#4080b0",
+    "--stage-glow": "rgba(255,255,255,.08)",
+    "--link": "#7dd3fc",
+    "--shadow": "0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.50)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.60)"
+  }
+}

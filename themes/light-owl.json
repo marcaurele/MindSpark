@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "light-owl",
+  "name": "Light Owl",
+  "vars": {
+    "--toolbar-bg": "#403f53",
+    "--toolbar-text": "#fbfbfb",
+    "--paper": "#fbfbfb",
+    "--paper-2": "#f0f0f0",
+    "--ink": "#403f53",
+    "--ink-soft": "#90a7b2",
+    "--line": "#ececec",
+    "--line-2": "#d9d9d9",
+    "--accent": "#2aa298",
+    "--accent-deep": "#1f7d75",
+    "--teal": "#0c969b",
+    "--chrome": "#f0f0f0",
+    "--chrome-edge": "#e0e0e0",
+    "--node-bg": "#ffffff",
+    "--node-ink": "#403f53",
+    "--canvas-dot": "#d9d9d9",
+    "--stage-glow": "rgba(255,255,255,.6)",
+    "--link": "#288ed7",
+    "--shadow": "0 1px 3px rgba(64,63,83,.10),0 8px 24px rgba(64,63,83,.08)",
+    "--shadow-lg": "0 12px 40px rgba(64,63,83,.16)"
+  }
+}

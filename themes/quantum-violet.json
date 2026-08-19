@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "quantum-violet",
+  "name": "Quantum Violet",
+  "vars": {
+    "--toolbar-bg": "#f0ecff",
+    "--toolbar-text": "#0e0a18",
+    "--paper": "#0e0a18",
+    "--paper-2": "#18122a",
+    "--ink": "#d0c8e8",
+    "--ink-soft": "#7a6a9a",
+    "--line": "#2a1e48",
+    "--line-2": "#38295e",
+    "--accent": "#8b5cf6",
+    "--accent-deep": "#6f3ee0",
+    "--teal": "#a78bfa",
+    "--chrome": "#18122a",
+    "--chrome-edge": "#2a1e48",
+    "--node-bg": "#18122a",
+    "--node-ink": "#d0c8e8",
+    "--canvas-dot": "#2a1e48",
+    "--stage-glow": "rgba(139,92,246,.08)",
+    "--link": "#8b5cf6",
+    "--shadow": "0 2px 4px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.60)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.70)"
+  }
+}

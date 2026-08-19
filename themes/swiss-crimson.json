@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "swiss-crimson",
+  "name": "Swiss Crimson",
+  "vars": {
+    "--toolbar-bg": "#000000",
+    "--toolbar-text": "#f4f4f4",
+    "--paper": "#f4f4f4",
+    "--paper-2": "#e6e6e6",
+    "--ink": "#111111",
+    "--ink-soft": "#666666",
+    "--line": "#d1d1d1",
+    "--line-2": "#c0c0c0",
+    "--accent": "#d90429",
+    "--accent-deep": "#a60320",
+    "--teal": "#2f2f2f",
+    "--chrome": "#e6e6e6",
+    "--chrome-edge": "#d1d1d1",
+    "--node-bg": "#ffffff",
+    "--node-ink": "#111111",
+    "--canvas-dot": "#d1d1d1",
+    "--stage-glow": "rgba(217,4,41,.05)",
+    "--link": "#d90429",
+    "--shadow": "0 1px 3px rgba(17,17,17,.10),0 8px 24px rgba(17,17,17,.08)",
+    "--shadow-lg": "0 12px 40px rgba(17,17,17,.16)"
+  }
+}

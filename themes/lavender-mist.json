@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "lavender-mist",
+  "name": "Lavender",
+  "vars": {
+    "--toolbar-bg": "#211a32",
+    "--toolbar-text": "#faf8ff",
+    "--paper": "#faf8ff",
+    "--paper-2": "#f0ebfa",
+    "--ink": "#403a52",
+    "--ink-soft": "#817a94",
+    "--line": "#e4ddf2",
+    "--line-2": "#d6cee8",
+    "--accent": "#7956c8",
+    "--accent-deep": "#6041a6",
+    "--teal": "#b69cff",
+    "--chrome": "#f0ebfa",
+    "--chrome-edge": "#e4ddf2",
+    "--node-bg": "#ffffff",
+    "--node-ink": "#403a52",
+    "--canvas-dot": "#e4ddf2",
+    "--stage-glow": "rgba(121,86,200,.05)",
+    "--link": "#7956c8",
+    "--shadow": "0 1px 3px rgba(64,58,82,.10),0 8px 24px rgba(64,58,82,.08)",
+    "--shadow-lg": "0 12px 40px rgba(64,58,82,.16)"
+  }
+}

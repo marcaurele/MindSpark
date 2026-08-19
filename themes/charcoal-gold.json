@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "charcoal-gold",
+  "name": "Charcoal Gold",
+  "vars": {
+    "--toolbar-bg": "#f5f0e6",
+    "--toolbar-text": "#121212",
+    "--paper": "#121212",
+    "--paper-2": "#1c1c18",
+    "--ink": "#d4d0c8",
+    "--ink-soft": "#8a8678",
+    "--line": "#2e2e28",
+    "--line-2": "#3c3c34",
+    "--accent": "#eab308",
+    "--accent-deep": "#c29304",
+    "--teal": "#facc15",
+    "--chrome": "#1c1c18",
+    "--chrome-edge": "#2e2e28",
+    "--node-bg": "#1c1c18",
+    "--node-ink": "#d4d0c8",
+    "--canvas-dot": "#2e2e28",
+    "--stage-glow": "rgba(234,179,8,.07)",
+    "--link": "#eab308",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

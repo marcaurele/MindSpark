@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "cyber-quantum",
+  "name": "Cyber Quantum",
+  "vars": {
+    "--toolbar-bg": "#e2f8ff",
+    "--toolbar-text": "#0a101d",
+    "--paper": "#0a101d",
+    "--paper-2": "#10192c",
+    "--ink": "#e2f8ff",
+    "--ink-soft": "#62879b",
+    "--line": "#1b3b4d",
+    "--line-2": "#28526b",
+    "--accent": "#00f0ff",
+    "--accent-deep": "#00b8c4",
+    "--teal": "#ff0055",
+    "--chrome": "#10192c",
+    "--chrome-edge": "#1b3b4d",
+    "--node-bg": "#10192c",
+    "--node-ink": "#e2f8ff",
+    "--canvas-dot": "#1b3b4d",
+    "--stage-glow": "rgba(0,240,255,.07)",
+    "--link": "#00f0ff",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}
