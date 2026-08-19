@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "frosted-pine",
+  "name": "Frosted Pine",
+  "vars": {
+    "--toolbar-bg": "#e8f8ec",
+    "--toolbar-text": "#0c1610",
+    "--paper": "#0c1610",
+    "--paper-2": "#122018",
+    "--ink": "#c0d8c8",
+    "--ink-soft": "#5a8a6a",
+    "--line": "#1a3a28",
+    "--line-2": "#234c34",
+    "--accent": "#34d399",
+    "--accent-deep": "#27ac7d",
+    "--teal": "#6ee7b7",
+    "--chrome": "#122018",
+    "--chrome-edge": "#1a3a28",
+    "--node-bg": "#122018",
+    "--node-ink": "#c0d8c8",
+    "--canvas-dot": "#1a3a28",
+    "--stage-glow": "rgba(52,211,153,.07)",
+    "--link": "#34d399",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "vscode-onedark",
+  "name": "One Dark Pro",
+  "vars": {
+    "--toolbar-bg": "#abb2bf",
+    "--toolbar-text": "#282c34",
+    "--paper": "#282c34",
+    "--paper-2": "#21252b",
+    "--ink": "#abb2bf",
+    "--ink-soft": "#5c6370",
+    "--line": "#3e4451",
+    "--line-2": "#4a5261",
+    "--accent": "#98c379",
+    "--accent-deep": "#50a14f",
+    "--teal": "#61afef",
+    "--chrome": "#21252b",
+    "--chrome-edge": "#3e4451",
+    "--node-bg": "#2c323d",
+    "--node-ink": "#abb2bf",
+    "--canvas-dot": "#3e4451",
+    "--stage-glow": "rgba(152,195,121,.05)",
+    "--link": "#61afef",
+    "--shadow": "0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.55)"
+  }
+}

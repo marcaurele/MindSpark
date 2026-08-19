@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "steel-orange",
+  "name": "Steel & Orange",
+  "vars": {
+    "--toolbar-bg": "#d9dee3",
+    "--toolbar-text": "#171a1d",
+    "--paper": "#171a1d",
+    "--paper-2": "#23282d",
+    "--ink": "#d9dee3",
+    "--ink-soft": "#7d8790",
+    "--line": "#353b40",
+    "--line-2": "#454c54",
+    "--accent": "#f97316",
+    "--accent-deep": "#d15c0b",
+    "--teal": "#ff9a55",
+    "--chrome": "#23282d",
+    "--chrome-edge": "#353b40",
+    "--node-bg": "#23282d",
+    "--node-ink": "#d9dee3",
+    "--canvas-dot": "#353b40",
+    "--stage-glow": "rgba(249,115,22,.06)",
+    "--link": "#f97316",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

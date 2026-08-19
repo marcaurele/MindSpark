@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "desert-oasis",
+  "name": "Desert Oasis",
+  "vars": {
+    "--toolbar-bg": "#2c2116",
+    "--toolbar-text": "#fdf6e9",
+    "--paper": "#fdf6e9",
+    "--paper-2": "#f5e8d0",
+    "--ink": "#4a3c2a",
+    "--ink-soft": "#8a7a62",
+    "--line": "#e8d5b5",
+    "--line-2": "#dcc59e",
+    "--accent": "#d97706",
+    "--accent-deep": "#b45f05",
+    "--teal": "#f59e0b",
+    "--chrome": "#f5e8d0",
+    "--chrome-edge": "#e8d5b5",
+    "--node-bg": "#ffffff",
+    "--node-ink": "#4a3c2a",
+    "--canvas-dot": "#e8d5b5",
+    "--stage-glow": "rgba(217,119,6,.06)",
+    "--link": "#d97706",
+    "--shadow": "0 1px 3px rgba(74,60,42,.10),0 8px 24px rgba(74,60,42,.08)",
+    "--shadow-lg": "0 12px 40px rgba(74,60,42,.16)"
+  }
+}

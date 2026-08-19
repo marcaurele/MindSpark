@@ -5957,6 +5957,7 @@ function exportMenu(){
     <button data-a="buildprompt"><span class="ex-ic">✨</span><span><b>Compile subtree → prompt</b><i>Assemble the selected branch into a prompt</i></span></button>
     <div class="ex-grp">Export</div>
     <button data-a="png"   ><span class="ex-ic">🖼</span><span><b>PNG image</b><i>Themed export, honors map style</i></span></button>
+    <button data-a="svg"   ><span class="ex-ic">🖊</span><span><b>SVG vector</b><i>Editable in Inkscape, Illustrator, Figma</i></span></button>
     <button data-a="prompt"><span class="ex-ic">⚡</span><span><b>Export as prompt</b><i>Fill variables, then copy clean text</i></span></button>
     <button data-a="mdrich"><span class="ex-ic">📝</span><span><b>Markdown</b><i>Formatting, tasks, tables, code</i></span></button>
     <button data-a="copy"  ><span class="ex-ic">⎘</span><span><b>Copy as text (clipboard)</b><i>Plain outline, no download</i></span></button>
@@ -5968,7 +5969,7 @@ function exportMenu(){
     <button data-a="astemplate"><span class="ex-ic">⭐</span><span><b>Save as template</b><i>Reuse this structure for new maps</i></span></button>
     <button data-a="json"  ><span class="ex-ic">{}</span><span><b>JSON file</b><i>Full backup, re-importable</i></span></button>
     <div class="ex-grp">Import</div>
-    <button data-a="import"><span class="ex-ic">↑</span><span><b>Import file</b><i>JSON, OPML, or Markdown outline</i></span></button>`;
+    <button data-a="import"><span class="ex-ic">↑</span><span><b>Import file</b><i>JSON, OPML, Markdown, FreeMind (.mm), GitMind, MindMeister</i></span></button>`;
   document.body.appendChild(pop);
   positionPopup(pop, $('#menuExport'), {align:'right'});
   pop.addEventListener('mousedown',e=>e.stopPropagation());
@@ -5986,6 +5987,7 @@ function exportMenu(){
     else if(a==='present') startPresentation();
     else if(a==='buildprompt') showBuildPrompt(sel || (map&&map.rootId));
     else if(a==='png') exportPNG();
+    else if(a==='svg') exportSVG();
     else if(a==='prompt') exportAsPrompt();
     else if(a==='mdrich') exportMarkdown(false, true);
     else if(a==='copy') exportMarkdown(true);
@@ -6482,10 +6484,110 @@ async function parseMind(buf, filename){
   return convertMindToMap(d, filename);
 }
 
+// ---- FreeMind (.mm) import ------------------------------------------------
+// A .mm file is plain XML: <map><node TEXT="..." ...><node .../></node></map>.
+// Attributes: TEXT, POSITION (left/right on root children), COLOR (text),
+// BACKGROUND_COLOR (card), FOLDED, LINK, plus <font> and <richcontent>
+// (TYPE="NODE" for rich text, TYPE="NOTE" for notes).
+function fmAttr(el, name){
+  // FreeMind attributes are all-caps in the wild (TEXT, FOLDED, COLOR,
+  // POSITION, LINK...) but a few exporters write them lowercase; match either.
+  const v=el.getAttribute(name)
+    ?? el.getAttribute(name.toUpperCase())
+    ?? el.getAttribute(name.toLowerCase());
+  return v==null ? '' : v;
+}
+function fmHtmlToInline(html){
+  // FreeMind richcontent wraps its HTML in <html><body>; strip those, then
+  // reuse the GitMind conversion (block folding + inline sanitizer).
+  return gmindHtmlToInline(String(html).replace(/^[\s\S]*?<body[^>]*>/i,'').replace(/<\/body>[\s\S]*$/i,''), '');
+}
+function convertFreemindToMap(doc, filename){
+  const mapEl=doc.documentElement;
+  if(!mapEl || String(mapEl.tagName).toLowerCase()!=='map'){
+    throw new Error('Unrecognized .mm structure (expected <map> with <node> children)');
+  }
+  const topLevel=[...mapEl.children].filter(el=>String(el.tagName).toLowerCase()==='node');
+  if(!topLevel.length) throw new Error('Unrecognized .mm structure (no <node> found)');
+  const nodes={}; const links=[]; let counter=0; const newId=()=>'f'+(counter++);
+  let rootId=null;
+  const nodeText=(el)=>{
+    const rc=[...el.children].find(c=>String(c.tagName).toLowerCase()==='richcontent'
+      && fmAttr(c,'type').toUpperCase()==='NODE');
+    if(rc) return fmHtmlToInline(rc.innerHTML);
+    const plain=fmAttr(el,'text');
+    return plain.indexOf('\n')>=0 ? plain.split('\n').map(escapeHtml).join('<br>') : plain;
+  };
+  const applyStyle=(n, el)=>{
+    const textColor=fmAttr(el,'color');
+    if(/^#?[0-9a-f]{6}$/i.test(textColor)) n.textColor='#'+textColor.replace(/^#/,'');
+    const bg=fmAttr(el,'background_color');
+    if(/^#?[0-9a-f]{6}$/i.test(bg)) n.color='#'+bg.replace(/^#/,'');
+    if(String(fmAttr(el,'folded')).toLowerCase()==='true') n.collapsed=true;
+    const font=[...el.children].find(c=>String(c.tagName).toLowerCase()==='font');
+    if(font){
+      const fs=parseInt(fmAttr(font,'size'),10); if(fs) n.fontSize=fs;
+      if(String(fmAttr(font,'bold')).toLowerCase()==='true') n.bold=true;
+      if(String(fmAttr(font,'italic')).toLowerCase()==='true') n.italic=true;
+    }
+    const link=fmAttr(el,'link');
+    if(/^(https?|ftp|mailto):/i.test(link)){
+      n.notes=(n.notes||'')+`<p><a href="${escapeHtml(link)}">${escapeHtml(link)}</a></p>`;
+    }
+    const note=[...el.children].find(c=>String(c.tagName).toLowerCase()==='richcontent'
+      && fmAttr(c,'type').toUpperCase()==='NOTE');
+    if(note){
+      const noteText = note.querySelector('html') ? fmHtmlToInline(note.innerHTML) : note.textContent;
+      if(noteText && noteText.trim()) n.notes=(n.notes||'')+sanitizeNotes(noteText.replace(/\n/g,'<br>'));
+    }
+  };
+  const walk=(el, parentId, isRoot)=>{
+    const id=newId();
+    const n={ id, parent:parentId, x:0, y:0, text:nodeText(el) };
+    applyStyle(n, el);
+    nodes[id]=n;
+    const kids=[...el.children].filter(c=>String(c.tagName).toLowerCase()==='node');
+    if(isRoot){
+      rootId=id; n.side='root';
+      const split=Math.ceil(kids.length/2);
+      kids.forEach((c,i)=>{
+        const cid=walk(c,id,false);
+        const p=String(fmAttr(c,'position')).toLowerCase();
+        nodes[cid].side = p==='left'||p==='right' ? p : (i<split?'right':'left');
+      });
+    } else {
+      kids.forEach(c=> walk(c,id,false));
+    }
+    return id;
+  };
+  let title;
+  if(topLevel.length===1){
+    walk(topLevel[0], null, true);
+    title = nodeTextPlain(nodes[rootId].text);
+  } else {
+    // Multiple top-level nodes (allowed by FreeMind): wrap them under a
+    // synthetic root so the map still has exactly one.
+    rootId=newId();
+    nodes[rootId]={ id:rootId, parent:null, x:0, y:0, text:escapeHtml((filename||'Imported').replace(/\.mm$/i,'')), side:'root' };
+    const half=Math.ceil(topLevel.length/2);
+    topLevel.forEach((el,i)=>{ const cid=walk(el,rootId,false); nodes[cid].side = i<half?'right':'left'; });
+    title='';
+  }
+  return { id:uid(), title: title || (filename||'Imported').replace(/\.mm$/i,''),
+           titleAuto:false, color:'#e0613a', rootId, nodes, links, vars:{} };
+}
+function parseFreemind(text, filename){
+  let doc;
+  try{ doc=new DOMParser().parseFromString(text, 'application/xml'); }
+  catch(e){ throw new Error('Not a valid .mm (FreeMind XML) file'); }
+  if(doc.querySelector('parsererror')) throw new Error('Not a valid .mm (FreeMind XML) file');
+  return convertFreemindToMap(doc, filename);
+}
+
 function importFile(){
   const inp=document.createElement('input');
   inp.type='file';
-  inp.accept='.json,.opml,.xml,.md,.markdown,.txt,.gmind,.mind';
+  inp.accept='.json,.opml,.xml,.md,.markdown,.txt,.gmind,.mind,.mm';
   inp.onchange=async()=>{
     const f=inp.files[0]; if(!f) return;
     const name=(f.name||'').toLowerCase();
@@ -6500,6 +6602,10 @@ function importFile(){
         // MindMeister ZIP (map.json). No reliable collapse state in the export,
         // so fall through to the default collapse-to-overview below.
         m=await parseMind(await f.arrayBuffer(), f.name);
+      } else if(name.endsWith('.mm')){
+        // FreeMind XML carries its own folded state.
+        m=parseFreemind(await f.text(), f.name);
+        preserveState=true;
       } else {
         const t=await f.text();
         if(name.endsWith('.json')) { m=JSON.parse(t); }
@@ -7945,6 +8051,34 @@ async function exportPNG(){
   cv.toBlob(b=>{ download(b,(map.title||'mindmap')+'.png'); toast('PNG exported'); });
 }
 
+// SVG export: the PNG path already builds a faithful DOM snapshot as an <svg>
+// with a <foreignObject> (buildMapSnapshot) purely to rasterize it. A vector
+// export is that same snapshot, downloaded as-is — the map stays real SVG
+// (editable shapes in Inkscape/Illustrator/Figma), with the paper background
+// painted as a plain <rect> the way the PNG path paints it on the canvas.
+async function exportSVG(){
+  render();
+  const hidden=hiddenSet();
+  const ids=Object.keys(map.nodes).filter(i=>!hidden.has(i));
+  if(ids.length===0){ toast('Nothing to export — the map is empty'); return; }
+  let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+  ids.forEach(i=>{const n=map.nodes[i];minx=Math.min(minx,n.x);miny=Math.min(miny,n.y);maxx=Math.max(maxx,n.x+(n.w||120));maxy=Math.max(maxy,n.y+(n.h||40));});
+  const pad=50;
+  const W=(maxx-minx+pad*2), H=(maxy-miny+pad*2);
+  try{
+    let svgXML=await buildMapSnapshot(minx-pad, miny-pad, W, H);
+    const paper=getComputedStyle(document.documentElement).getPropertyValue('--paper').trim()||'#f4efe6';
+    // buildMapSnapshot serializes <svg ...><foreignObject ...>; slide the
+    // background rect in between so the file opens with the theme's paper.
+    svgXML=svgXML.replace('><foreignObject', '><rect width="'+W+'" height="'+H+'" fill="'+paper+'"/><foreignObject');
+    download(new Blob([svgXML], {type:'image/svg+xml;charset=utf-8'}), (map.title||'mindmap')+'.svg');
+    toast('SVG exported');
+  }catch(e){
+    console.warn('SVG export failed:', e.message);
+    toast('Could not export the SVG');
+  }
+}
+
 /* ============================================================
    PNG export internals — a faithful DOM snapshot, not a re-painter.
 
@@ -8628,9 +8762,54 @@ const THEMES = [
   {id:'rose-pine-dawn',  name:'Rosé Pine<br>Dawn',  swatch:['#faf4ed','#fffaf3','#907aa9']},
   {id:'rose-pine-moon',  name:'Rosé Pine<br>Moon',  swatch:['#232136','#393552','#c4a7e7']},
   {id:'github-light',    name:'GitHub Light',    swatch:['#ffffff','#f6f8fa','#0969da']},
-  {id:'github-dark',     name:'GitHub Dark',     swatch:['#0d1117','#161b22','#58a6ff']},
-  {id:'dracula',         name:'Dracula',         swatch:['#282a36','#44475a','#ff79c6']},
-  {id:'nord',            name:'Nord',            swatch:['#2e3440','#434c5e','#88c0d0']}
+{id:'github-dark',    name:'GitHub Dark',   swatch:['#0d1117','#161b22','#58a6ff']},
+  {id:'solarized',       name:'Solarized',       swatch:['#fdf6e3','#eee8d5','#268bd2']},
+  {id:'scholar-parchment', name:'Scholar',       swatch:['#faf8f3','#f1ece1','#0a4d3c']},
+  {id:'paper-ink',       name:'Paper &<br>Ink',  swatch:['#fcfbf7','#f1efe9','#27364b']},
+  {id:'mint-graphite',   name:'Mint<br>Graphite', swatch:['#f7fbf9','#e6f3ee','#0f9f75']},
+  {id:'carbon-amber',     name:'Carbon &<br>Amber', swatch:['#121212','#1a1400','#ffb000']},
+  {id:'cyber-quantum',    name:'Cyber<br>Quantum', swatch:['#0a101d','#10192c','#00f0ff']},
+  {id:'blueprint',        name:'Blueprint',        swatch:['#005596','#004478','#ffffff']},
+  {id:'obsidian',         name:'Obsidian',         swatch:['#000000','#18181b','#ffffff']},
+  {id:'swiss-crimson',    name:'Swiss<br>Crimson', swatch:['#f4f4f4','#e6e6e6','#d90429']},
+  {id:'nordic-sage',      name:'Nordic<br>Sage',   swatch:['#f3f5f3','#e4eae6','#3b604d']},
+  {id:'deep-ocean',       name:'Deep<br>Ocean',    swatch:['#06181d','#0d282e','#10b981']},
+  {id:'google-material',  name:'Material<br>You',  swatch:['#1f1f1f','#2d2d2d','#a8c7fa']},
+  {id:'github-modern',    name:'GitHub<br>Modern', swatch:['#22272e','#2d333b','#539bf5']},
+  {id:'sakura-drift',     name:'Sakura<br>Drift',  swatch:['#fff9fa','#ffebf0','#ff758f']},
+  {id:'aurora-frost',     name:'Aurora<br>Frost',  swatch:['#0b132b','#1c2541','#70e000']},
+  {id:'espresso',         name:'Espresso',         swatch:['#1a1412','#281e19','#d4a373']},
+  {id:'arctic-glass',     name:'Arctic<br>Glass',  swatch:['#f4faff','#e9f5fb','#149bd7']},
+  {id:'copper-lab',       name:'Copper<br>Lab',    swatch:['#1b1715','#29201c','#d97745']},
+  {id:'forest-night',     name:'Forest<br>Night',  swatch:['#101b17','#172720','#63c174']},
+  {id:'cobalt',           name:'Cobalt',           swatch:['#0b1530','#121f42','#4f8cff']},
+  {id:'lavender-mist',    name:'Lavender',         swatch:['#faf8ff','#f0ebfa','#7956c8']},
+  {id:'ruby-night',       name:'Ruby<br>Night',    swatch:['#151314','#24191c','#f43f5e']},
+  {id:'sandstone',        name:'Sandstone',        swatch:['#fbf6ee','#f3e7d4','#b45309']},
+  {id:'electric-indigo',  name:'Electric<br>Indigo', swatch:['#0e0a22','#191238','#8b5cf6']},
+  {id:'teal-paper',       name:'Teal<br>Paper',    swatch:['#f7fcfb','#e6f2f0','#0f766e']},
+  {id:'steel-orange',     name:'Steel &<br>Orange', swatch:['#171a1d','#23282d','#f97316']},
+  {id:'cosmic-rose',      name:'Cosmic<br>Rose',   swatch:['#100c1b','#20142a','#f472b6']},
+  {id:'plasma-crimson',   name:'Plasma<br>Crimson', swatch:['#12080c','#1f0e14','#ff2d55']},
+  {id:'neon-noir',        name:'Neon<br>Noir',     swatch:['#0a0a0f','#12121c','#00ff9f']},
+  {id:'desert-oasis',     name:'Desert<br>Oasis',  swatch:['#fdf6e9','#f5e8d0','#d97706']},
+  {id:'ice-crystal',      name:'Ice<br>Crystal',   swatch:['#f0f9ff','#e0f2fe','#0ea5e9']},
+  {id:'ember-forge',      name:'Ember<br>Forge',   swatch:['#140e0a','#221610','#ef4444']},
+  {id:'violet-circuit',   name:'Violet<br>Circuit', swatch:['#0f0a1a','#1a1230','#a855f7']},
+  {id:'moss-stone',       name:'Moss &<br>Stone',  swatch:['#f4f6f0','#e8eedc','#4d7c0f']},
+  {id:'twilight-amber',   name:'Twilight<br>Amber', swatch:['#16120c','#241e14','#fbbf24']},
+  {id:'ocean-depth',      name:'Ocean<br>Depth',   swatch:['#06141c','#0c1e28','#22d3ee']},
+  {id:'charcoal-gold',    name:'Charcoal<br>Gold', swatch:['#121212','#1c1c18','#eab308']},
+  {id:'soft-clay',        name:'Soft<br>Clay',     swatch:['#fbf6f2','#f5e8e0','#c2410c']},
+  {id:'azure-horizon',    name:'Azure<br>Horizon', swatch:['#0a1420','#121e30','#3b82f6']},
+  {id:'jade-temple',      name:'Jade<br>Temple',   swatch:['#0a1612','#12241c','#10b981']},
+  {id:'magenta-pulse',    name:'Magenta<br>Pulse', swatch:['#140a16','#221022','#ec4899']},
+  {id:'graphite-terminal', name:'Graphite<br>Terminal', swatch:['#1a1a1a','#242424','#60a5fa']},
+  {id:'honeycomb',        name:'Honeycomb',        swatch:['#fffbeb','#fef3c7','#f59e0b']},
+  {id:'frosted-pine',     name:'Frosted<br>Pine',  swatch:['#0c1610','#122018','#34d399']},
+  {id:'quantum-violet',   name:'Quantum<br>Violet', swatch:['#0e0a18','#18122a','#8b5cf6']},
+  {id:'copper-rust',      name:'Copper<br>Rust',   swatch:['#16120e','#241a12','#ea580c']},
+  {id:'lunar-silver',     name:'Lunar<br>Silver',  swatch:['#0e1014','#181c22','#94a3b8']}
 ];
 // Shown in their own dedicated panel section, not mixed into the regular
 // colour-theme grid above. Deliberately a different kind of thing from
@@ -8646,6 +8825,11 @@ const LOOKS = [
   {id:'coffee-shop', name:'at Coffee<br>Shop', font:'"Nunito",sans-serif'},
   {id:'handwritten', name:'back to<br>School', font:'"Caveat",cursive'},
   {id:'lab',         name:'in the<br>Lab',     font:'"JetBrains Mono",monospace'}
+];
+const DENSITIES = [
+  {id:'default', name:'Default', desc:'Today\'s spacing and size'},
+  {id:'comfy',   name:'Comfy',   desc:'Roomier nodes and larger chrome'},
+  {id:'compact', name:'Compact', desc:'Tighter nodes and chrome — more on screen'},
 ];
 // Per-look tunables, keyed by look id on the map as map.lookConfig — the
 // same pattern as styleConfig/layoutConfig. font is the look's own font
@@ -8729,6 +8913,60 @@ const THEME_CONFIG_DEFAULTS = {
   'github-dark':      { paper:'#0d1117',  ink:'#e6edf3', accent:'#58a6ff', nodeBg:'#161b22', line:'#30363d', glow:'rgba(88,166,255,.05)' },
   'dracula':          { paper:'#282a36',  ink:'#f8f8f2', accent:'#ff79c6', nodeBg:'#44475a', line:'#44475a', glow:'rgba(189,147,249,.06)' },
   'nord':             { paper:'#2e3440',  ink:'#eceff4', accent:'#88c0d0', nodeBg:'#434c5e', line:'#434c5e', glow:'rgba(143,188,187,.05)' },
+  'slate-steel':      { paper:'#0f172a',  ink:'#cbd5e1', accent:'#38bdf8', nodeBg:'#1e293b', line:'#334155', glow:'rgba(56,189,248,.05)' },
+  'vscode-onedark':   { paper:'#282c34',  ink:'#abb2bf', accent:'#98c379', nodeBg:'#2c323d', line:'#3e4451', glow:'rgba(152,195,121,.05)' },
+  'monokai-pro':      { paper:'#2d2a2e',  ink:'#fcfcfa', accent:'#a9dc76', nodeBg:'#363337', line:'#403e41', glow:'rgba(169,220,118,.05)' },
+  'amazon-aws':       { paper:'#161e2e',  ink:'#d1d5db', accent:'#ff9900', nodeBg:'#232f3e', line:'#374151', glow:'rgba(255,153,0,.05)' },
+  'synthwave':        { paper:'#1a102f',  ink:'#e2d9f3', accent:'#00f5d4', nodeBg:'#281b45', line:'#483267', glow:'rgba(255,113,206,.06)' },
+  'matrix-green':     { paper:'#030705',  ink:'#9ef7b2', accent:'#39ff88', nodeBg:'#0b2414', line:'#123a1f', glow:'rgba(57,255,136,.06)' },
+  'solarized':        { paper:'#fdf6e3',  ink:'#657b83', accent:'#268bd2', nodeBg:'#ffffff', line:'#eee8d5', glow:'rgba(38,139,210,.05)' },
+  'scholar-parchment':{ paper:'#faf8f3',  ink:'#2c2c2a', accent:'#0a4d3c', nodeBg:'#ffffff', line:'#e2ddd3', glow:'rgba(197,160,89,.06)' },
+  
+  'paper-ink':        { paper:'#fcfbf7',  ink:'#343434', accent:'#27364b', nodeBg:'#ffffff', line:'#ddd9d0', glow:'rgba(39,54,75,.05)' },
+  'mint-graphite':    { paper:'#f7fbf9',  ink:'#34423c', accent:'#0f9f75', nodeBg:'#ffffff', line:'#d8e8e1', glow:'rgba(15,159,117,.05)' },
+  'carbon-amber':     { paper:'#121212',  ink:'#d4af37', accent:'#ffb000', nodeBg:'#1f1800', line:'#332600', glow:'rgba(255,176,0,.06)' },
+  'cyber-quantum':    { paper:'#0a101d',  ink:'#e2f8ff', accent:'#00f0ff', nodeBg:'#10192c', line:'#1b3b4d', glow:'rgba(0,240,255,.07)' },
+  'blueprint':        { paper:'#005596',  ink:'#e0f2fe', accent:'#ffffff', nodeBg:'#004478', line:'#4080b0', glow:'rgba(255,255,255,.08)' },
+  'obsidian':         { paper:'#000000',  ink:'#a1a1aa', accent:'#ffffff', nodeBg:'#18181b', line:'#27272a', glow:'rgba(255,255,255,.05)' },
+  'swiss-crimson':    { paper:'#f4f4f4',  ink:'#111111', accent:'#d90429', nodeBg:'#ffffff', line:'#d1d1d1', glow:'rgba(217,4,41,.05)' },
+  'nordic-sage':      { paper:'#f3f5f3',  ink:'#2d3a34', accent:'#3b604d', nodeBg:'#ffffff', line:'#d5ddd8', glow:'rgba(59,96,77,.05)' },
+  'deep-ocean':       { paper:'#06181d',  ink:'#a3e5d9', accent:'#10b981', nodeBg:'#0d282e', line:'#113836', glow:'rgba(16,185,129,.06)' },
+  'google-material':  { paper:'#1f1f1f',  ink:'#e3e2e6', accent:'#a8c7fa', nodeBg:'#2d2d2d', line:'#444746', glow:'rgba(168,199,250,.05)' },
+  'github-modern':    { paper:'#22272e',  ink:'#adbac7', accent:'#539bf5', nodeBg:'#2d333b', line:'#444c56', glow:'rgba(83,155,245,.05)' },
+  'sakura-drift':     { paper:'#fff9fa',  ink:'#4a3e43', accent:'#ff758f', nodeBg:'#ffffff', line:'#f7d6df', glow:'rgba(255,117,143,.05)' },
+  'aurora-frost':     { paper:'#0b132b',  ink:'#c0d6df', accent:'#70e000', nodeBg:'#1c2541', line:'#1c2541', glow:'rgba(112,224,0,.06)' },
+  'espresso':         { paper:'#1a1412',  ink:'#e3d5ca', accent:'#d4a373', nodeBg:'#281e19', line:'#382b24', glow:'rgba(212,163,115,.06)' },
+  'arctic-glass':     { paper:'#f4faff',  ink:'#274154', accent:'#149bd7', nodeBg:'#ffffff', line:'#d6eaf4', glow:'rgba(20,155,215,.05)' },
+  'copper-lab':       { paper:'#1b1715',  ink:'#e4d7ce', accent:'#d97745', nodeBg:'#29201c', line:'#463128', glow:'rgba(217,119,69,.06)' },
+  'forest-night':     { paper:'#101b17',  ink:'#d5e5dc', accent:'#63c174', nodeBg:'#172720', line:'#294138', glow:'rgba(99,193,116,.06)' },
+  'cobalt':           { paper:'#0b1530',  ink:'#d7e3ff', accent:'#4f8cff', nodeBg:'#121f42', line:'#263b6b', glow:'rgba(79,140,255,.06)' },
+  'lavender-mist':    { paper:'#faf8ff',  ink:'#403a52', accent:'#7956c8', nodeBg:'#ffffff', line:'#e4ddf2', glow:'rgba(121,86,200,.05)' },
+  'ruby-night':       { paper:'#151314',  ink:'#e8dddf', accent:'#f43f5e', nodeBg:'#24191c', line:'#43242b', glow:'rgba(244,63,94,.07)' },
+  'sandstone':        { paper:'#fbf6ee',  ink:'#51463a', accent:'#b45309', nodeBg:'#ffffff', line:'#e8d8c2', glow:'rgba(180,83,9,.06)' },
+  'electric-indigo':  { paper:'#0e0a22',  ink:'#dcd7ff', accent:'#8b5cf6', nodeBg:'#191238', line:'#33255b', glow:'rgba(139,92,246,.07)' },
+  'teal-paper':       { paper:'#f7fcfb',  ink:'#304744', accent:'#0f766e', nodeBg:'#ffffff', line:'#d4e7e3', glow:'rgba(15,118,110,.05)' },
+  'steel-orange':     { paper:'#171a1d',  ink:'#d9dee3', accent:'#f97316', nodeBg:'#23282d', line:'#353b40', glow:'rgba(249,115,22,.06)' },
+  'cosmic-rose':      { paper:'#100c1b',  ink:'#e4d9ea', accent:'#f472b6', nodeBg:'#20142a', line:'#38223f', glow:'rgba(244,114,182,.07)' },
+  'plasma-crimson':   { paper:'#12080c',  ink:'#f5d0d8', accent:'#ff2d55', nodeBg:'#1f0e14', line:'#4a1a28', glow:'rgba(255,45,85,.08)' },
+  'neon-noir':        { paper:'#0a0a0f',  ink:'#c8c8d4', accent:'#00ff9f', nodeBg:'#12121c', line:'#1f1f2e', glow:'rgba(0,255,159,.07)' },
+  'desert-oasis':     { paper:'#fdf6e9',  ink:'#4a3c2a', accent:'#d97706', nodeBg:'#ffffff', line:'#e8d5b5', glow:'rgba(217,119,6,.06)' },
+  'ice-crystal':      { paper:'#f0f9ff',  ink:'#1e3a5f', accent:'#0ea5e9', nodeBg:'#ffffff', line:'#bae6fd', glow:'rgba(14,165,233,.05)' },
+  'ember-forge':      { paper:'#140e0a',  ink:'#e8d5c4', accent:'#ef4444', nodeBg:'#221610', line:'#3d2418', glow:'rgba(239,68,68,.08)' },
+  'violet-circuit':   { paper:'#0f0a1a',  ink:'#d4c8f0', accent:'#a855f7', nodeBg:'#1a1230', line:'#2e1f4a', glow:'rgba(168,85,247,.08)' },
+  'moss-stone':       { paper:'#f4f6f0',  ink:'#2e3a2a', accent:'#4d7c0f', nodeBg:'#ffffff', line:'#d4dcc8', glow:'rgba(77,124,15,.06)' },
+  'twilight-amber':   { paper:'#16120c',  ink:'#e8dcc8', accent:'#fbbf24', nodeBg:'#241e14', line:'#3a3020', glow:'rgba(251,191,36,.07)' },
+  'ocean-depth':      { paper:'#06141c',  ink:'#b8d8e8', accent:'#22d3ee', nodeBg:'#0c1e28', line:'#0e2a38', glow:'rgba(34,211,238,.07)' },
+  'charcoal-gold':    { paper:'#121212',  ink:'#d4d0c8', accent:'#eab308', nodeBg:'#1c1c18', line:'#2e2e28', glow:'rgba(234,179,8,.07)' },
+  'soft-clay':        { paper:'#fbf6f2',  ink:'#4a3a32', accent:'#c2410c', nodeBg:'#ffffff', line:'#e8d8cc', glow:'rgba(194,65,12,.06)' },
+  'azure-horizon':    { paper:'#0a1420',  ink:'#c0d8f0', accent:'#3b82f6', nodeBg:'#121e30', line:'#1a2e48', glow:'rgba(59,130,246,.07)' },
+  'jade-temple':      { paper:'#0a1612',  ink:'#c0e0d4', accent:'#10b981', nodeBg:'#12241c', line:'#1a3a2e', glow:'rgba(16,185,129,.07)' },
+  'magenta-pulse':    { paper:'#140a16',  ink:'#e8d0e8', accent:'#ec4899', nodeBg:'#221022', line:'#3a1a3a', glow:'rgba(236,72,153,.08)' },
+  'graphite-terminal':{ paper:'#1a1a1a',  ink:'#b8b8b8', accent:'#60a5fa', nodeBg:'#242424', line:'#333333', glow:'rgba(96,165,250,.06)' },
+  'honeycomb':        { paper:'#fffbeb',  ink:'#4a3a1a', accent:'#f59e0b', nodeBg:'#ffffff', line:'#f5e6b0', glow:'rgba(245,158,11,.07)' },
+  'frosted-pine':     { paper:'#0c1610',  ink:'#c0d8c8', accent:'#34d399', nodeBg:'#122018', line:'#1a3a28', glow:'rgba(52,211,153,.07)' },
+  'quantum-violet':   { paper:'#0e0a18',  ink:'#d0c8e8', accent:'#8b5cf6', nodeBg:'#18122a', line:'#2a1e48', glow:'rgba(139,92,246,.08)' },
+  'copper-rust':      { paper:'#16120e',  ink:'#e0d0c0', accent:'#ea580c', nodeBg:'#241a12', line:'#3a2a1e', glow:'rgba(234,88,12,.08)' },
+  'lunar-silver':     { paper:'#0e1014',  ink:'#c8d0d8', accent:'#94a3b8', nodeBg:'#181c22', line:'#2a3038', glow:'rgba(148,163,184,.06)' },
 };
 const THEME_CONFIG_BOUNDS = { color:[0,40] };
 // Repairs rather than rejects, like validateLookConfig: every colour is kept
@@ -8765,7 +9003,17 @@ function applyThemeConfigVars(){
   const root = document.documentElement;
   if(!root || !map) return;
   const theme = root.getAttribute('data-theme') || 'light';
-  const cfg = { ...THEME_CONFIG_DEFAULTS[theme], ...((map.themeConfig || {})[theme] || {}) };
+  // A custom theme has no THEME_CONFIG_DEFAULTS entry — its own palette takes
+  // that role, so the six config knobs still start from (and can tune) it.
+  let defaults = THEME_CONFIG_DEFAULTS[theme];
+  if(theme==='custom'){
+    const custom = loadCustomTheme();
+    if(custom){
+      const m = { paper:'--paper', ink:'--ink', accent:'--accent', nodeBg:'--node-bg', line:'--line', glow:'--stage-glow' };
+      defaults = Object.fromEntries(Object.entries(m).map(([k,v])=>[k, custom.vars[v]]));
+    } else defaults = THEME_CONFIG_DEFAULTS.light;
+  }
+  const cfg = { ...defaults, ...((map.themeConfig || {})[theme] || {}) };
   const vars = { paper:'--paper', ink:'--ink', accent:'--accent', nodeBg:'--node-bg', line:'--line', glow:'--stage-glow' };
   for(const key of Object.keys(vars)){
     const v = cfg[key];
@@ -9004,12 +9252,180 @@ function validateLayoutPreset(raw){
 }
 
 function applyTheme(id){
+  if(id==='custom'){ applyCustomTheme(); return; }
+  clearCustomThemeVars();
   if(id && id!=='light') document.documentElement.setAttribute('data-theme', id);
   else document.documentElement.removeAttribute('data-theme');
   try{ localStorage.setItem('mindspark:theme', id||'light'); }catch(e){}
   // Colour theme doesn't change node size today, but re-render anyway rather
   // than assume that stays true forever — cheap, and matches applyLook below.
   if(map) render();
+}
+// Custom themes: the "Add theme" tile in the colour-theme panel. Unlike the
+// built-ins a custom theme has no CSS block of its own — it carries the same
+// 20 variables as themes/*.json and they are applied inline on :root. There is
+// exactly one slot: importing again replaces the previous theme.
+const CUSTOM_THEME_VARS = ['--toolbar-bg','--toolbar-text','--paper','--paper-2','--ink','--ink-soft','--line','--line-2','--accent','--accent-deep','--teal','--chrome','--chrome-edge','--node-bg','--node-ink','--canvas-dot','--stage-glow','--link','--shadow','--shadow-lg'];
+// Repairs rather than rejects: out-of-range or non-colour values are dropped
+// and the rest rebuilt, so a slightly-off paste still imports cleanly.
+function validateCustomTheme(raw){
+  if(!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  if(typeof raw.id !== 'string' || !/^[a-z0-9-]{1,40}$/.test(raw.id)) return null;
+  if(typeof raw.name !== 'string' || !raw.name.trim() || raw.name.trim().length>40) return null;
+  if(!raw.vars || typeof raw.vars !== 'object' || Array.isArray(raw.vars)) return null;
+  const vars = {};
+  for(const key of CUSTOM_THEME_VARS){
+    const v = raw.vars[key];
+    if(typeof v !== 'string' || !v.trim() || v.trim().length>80) return null;
+    vars[key] = v.trim();
+  }
+  return { v:1, id: raw.id, name: raw.name.trim(), vars };
+}
+function loadCustomTheme(){
+  try{ return validateCustomTheme(JSON.parse(localStorage.getItem('mindspark:custom-theme')||'null')); }
+  catch(e){ return null; }
+}
+function saveCustomTheme(theme){
+  try{
+    if(theme) localStorage.setItem('mindspark:custom-theme', JSON.stringify(theme));
+    else localStorage.removeItem('mindspark:custom-theme');
+    return true;
+  }catch(e){ return false; }
+}
+function clearCustomThemeVars(){
+  const root = document.documentElement;
+  for(const key of CUSTOM_THEME_VARS) root.style.removeProperty(key);
+}
+function applyCustomTheme(){
+  const theme = loadCustomTheme();
+  if(!theme){
+    // A stored 'custom' with no theme behind it is a stale save — fall back
+    // and repair the storage rather than leaving the app on a half-theme.
+    clearCustomThemeVars();
+    document.documentElement.removeAttribute('data-theme');
+    try{ localStorage.setItem('mindspark:theme', 'light'); }catch(e){}
+    if(map) render();
+    return;
+  }
+  clearCustomThemeVars();
+  const root = document.documentElement;
+  for(const [key, val] of Object.entries(theme.vars)) root.style.setProperty(key, val);
+  root.setAttribute('data-theme', 'custom');
+  try{ localStorage.setItem('mindspark:theme', 'custom'); }catch(e){}
+  if(map) render();
+}
+// Import / manage the single custom theme. Mirrors the layout import form: the
+// theme is pasted as JSON, exactly as it appears in the themes/ folder. Only
+// one imported theme can exist — pasting another replaces it.
+function showThemeImportForm(){
+  document.querySelectorAll('.var-form').forEach(p=>p.remove());
+  const cur = loadCustomTheme();
+  const live = getComputedStyle(document.documentElement);
+  const sample = JSON.stringify({
+    v:1, id:'my-theme', name:'My theme',
+    vars: Object.fromEntries(CUSTOM_THEME_VARS.map(k=>[k, live.getPropertyValue(k).trim()])),
+  }, null, 2);
+  const m=document.createElement('div'); m.className='var-form';
+  m.innerHTML=`
+    <div class="vf-backdrop"></div>
+    <div class="vf-card">
+      <button class="vf-close" aria-label="Close">\u00d7</button>
+      <h2>Add a theme</h2>
+      <div class="vf-hint">A theme is a palette of ${CUSTOM_THEME_VARS.length} colour
+        variables, exactly the format of the files in the themes/ folder. Paste
+        one in to try it. Only one imported theme is kept at a time —
+        importing again replaces it.</div>
+      <div class="vf-fields">
+        <textarea class="vf-input vf-json" rows="14" spellcheck="false">${escapeHtml(sample)}</textarea>
+      </div>
+      <div class="vf-err" hidden></div>
+      <div class="vf-hint" style="margin-top:12px">…or pick one of the ${THEMES.length-11} library themes — one click, no JSON</div>
+      <div class="lib-grid">
+        ${THEMES.slice(11).map(t=>`
+          <button class="lib-card" data-lib="${t.id}" title="Import \u201c${escapeHtml(t.name.replace(/<br\s*\/?>/gi,' '))}\u201d">
+            ${buildSwatchHTML(t)}<span class="lib-name">${t.name}</span>
+          </button>`).join('')}
+      </div>
+      ${cur ? `<div class="vf-hint" style="margin-top:10px">Imported theme</div>
+        <div class="li-list"><span class="li-chip">${escapeHtml(cur.name)}<button data-del="1" title="Remove">\u00d7</button></span></div>` : ''}
+      <div class="vf-actions">
+        <button class="vf-cancel">Cancel</button>
+        <button class="vf-go primary">Import</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('mousedown',e=>e.stopPropagation());
+  // Also stop clicks bubbling: the Import button reopens the theme panel, and
+  // without this the same click's bubble phase would hit the document-level
+  // outside-click handler and close it again a frame later.
+  m.addEventListener('click',e=>e.stopPropagation());
+  const ta=m.querySelector('.vf-json'), err=m.querySelector('.vf-err');
+  ta.focus();
+  const close=()=>m.remove();
+  const fail=msg=>{ err.hidden=false; err.textContent=msg; };
+  m.querySelector('.vf-go').onclick=()=>{
+    let parsed;
+    try{ parsed = JSON.parse(ta.value); }
+    catch(e){ return fail('Not valid JSON: '+e.message); }
+    const theme = validateCustomTheme(parsed);
+    if(!theme){
+      return fail('Not a usable theme. It needs an "id" (lowercase letters, digits and dashes), '
+        + 'a "name", and a "vars" object covering all '+CUSTOM_THEME_VARS.length+' colour variables.');
+    }
+    if(!saveCustomTheme(theme)) return fail('Could not save — this browser\u2019s storage may be full.');
+    close(); toast(`Theme \u201c${theme.name}\u201d imported`);
+    applyCustomTheme();
+    try{ $('#themeBtn').click(); }catch(_){}   // reopen so the new theme shows as active
+  };
+  const delBtn=m.querySelector('[data-del]');
+  if(delBtn) delBtn.onclick=()=>{
+    saveCustomTheme(null);
+    if(document.documentElement.getAttribute('data-theme')==='custom') applyTheme('light');
+    close(); toast('Theme removed');
+    try{ $('#themeBtn').click(); }catch(_){}
+  };
+  m.querySelector('.vf-cancel').onclick=close;
+  m.querySelector('.vf-close').onclick=close;
+  m.querySelectorAll('.lib-card').forEach(b=> b.onclick=()=>{
+    importLibraryTheme(b.dataset.lib);
+  });
+}
+// Import one of the shipped library themes (the ones beyond the panel's top
+// three rows) straight from the Add-a-theme dialog. The theme's palette is
+// read from its own live CSS block, so the imported result is exactly what
+// the user sees — no server round-trip, no embedded copy of the JSON.
+function importLibraryTheme(id){
+  const t=THEMES.find(x=>x.id===id);
+  if(!t) return;
+  const root=document.documentElement;
+  // The palette must be read from the theme's own CSS block, but two things
+  // sit on :root as INLINE styles and would win over the attribute selector:
+  // the six config knobs applyThemeConfigVars() writes, and (when a custom
+  // theme is active) the previous custom theme's 20 inline variables. Clear
+  // them for the read, then restore exactly what was there before.
+  const saved={};
+  for(const key of CUSTOM_THEME_VARS) saved[key]=root.style.getPropertyValue(key);
+  const prev=root.getAttribute('data-theme');
+  root.setAttribute('data-theme', id);
+  const cs=getComputedStyle(root);
+  const vars={};
+  for(const key of CUSTOM_THEME_VARS){
+    root.style.removeProperty(key);
+    vars[key]=cs.getPropertyValue(key).trim();
+  }
+  for(const key of CUSTOM_THEME_VARS){
+    if(saved[key]) root.style.setProperty(key, saved[key]);
+    else root.style.removeProperty(key);
+  }
+  if(prev && prev!=='light') root.setAttribute('data-theme', prev);
+  else root.removeAttribute('data-theme');
+  const theme=validateCustomTheme({ v:1, id, name:t.name.replace(/<br\s*\/?>/gi,' ').trim(), vars });
+  if(!theme){ toast('Could not import that theme'); return; }
+  if(!saveCustomTheme(theme)){ toast('Could not save — this browser\u2019s storage may be full.'); return; }
+  document.querySelectorAll('.var-form').forEach(p=>p.remove());
+  toast(`Theme \u201c${theme.name}\u201d imported`);
+  applyCustomTheme();
+  try{ $('#themeBtn').click(); }catch(_){}   // reopen so the new theme shows as active
 }
 // "Look and feel" (Back to School, etc.) is font + chrome texture only —
 // entirely CSS-driven (see :root[data-look=...] rules), so unlike the old
@@ -9213,9 +9629,38 @@ $('#themeBtn').onclick=(e)=>{
   if(themePanel){ closeThemePanel(); return; }
   closeAllMenus();
   const curTheme  = document.documentElement.getAttribute('data-theme') || 'light';
+  const customTheme = loadCustomTheme();
+  // Colour-theme tiles: 10 built-ins fill the visible 3×4 grid's first two
+  // rows and the first two slots of the last row, with the Add theme tile
+  // always in the bottom-right corner — the last slot of the column-major
+  // fill. The imported theme (if any) fills the slot beside it; an empty
+  // spacer holds that slot when there is none, keeping Add pinned to the
+  // corner. The grid scrolls horizontally like the Layout and Map style
+  // rows; a CSS grid fills down before it fills across, so the tiles are
+  // emitted in column order — which keeps the visible rows reading
+  // left-to-right in theme order.
+  const ROWS=3, COLS=4;
+  const themeTiles = [
+    ...THEMES.slice(0, ROWS*COLS-2).map(theme=>({theme})),
+    ...(customTheme ? [{custom:true}] : [{spacer:true}]),
+    {add:true},
+  ];
+  const themeTilesOrdered = [];
+  for(let c=0; c*ROWS < themeTiles.length; c++){
+    for(let r=0; r<ROWS; r++){
+      // Columns past the first COLS hold any overflow beyond the visible
+      // 12 slots, continuing the same row-major sequence instead of
+      // wrapping to a 4th row.
+      const o = c < COLS ? r*COLS + c : ROWS*COLS + (c-COLS)*ROWS + r;
+      if(o < themeTiles.length) themeTilesOrdered.push(themeTiles[o]);
+    }
+  }
   const curLook   = document.documentElement.getAttribute('data-look')  || 'office';
   const curStyle  = (map && map.style)  || 'modern';
   const curLayout = (map && (map.layoutPreset || map.layout)) || 'balanced';
+  // The colour-theme picker shows only the top 10 built-ins (filling the
+  // 3×4 grid with the Add theme tile); everything beyond that lives in
+  // themes/ and is reached by importing via the Add theme tile below.
   themePanel=document.createElement('div');
   themePanel.className='theme-panel theme-panel-large';
   themePanel.innerHTML = `
@@ -9223,10 +9668,21 @@ $('#themeBtn').onclick=(e)=>{
       <div class="tp-label">Colour theme
         <button class="tp-cog" data-cog="theme" title="Colour theme settings (JSON)">\u2699</button>
       </div>
-      <div class="tp-grid">
-        ${THEMES.map(t=>`
-          <button class="theme-opt${t.id===curTheme?' active':''}" data-cat="theme" data-id="${t.id}">
-            ${buildSwatchHTML(t)}<span class="theme-name">${t.name}</span>
+      <div class="tp-grid tp-scroll-row tp-scroll-3row">
+        ${themeTilesOrdered.map(tile=>
+          tile.custom ? `
+          <button class="theme-opt custom-theme-opt${curTheme==='custom'?' active':''}" data-cat="theme" data-id="custom" title="${escapeHtml(customTheme.name)}">
+            ${buildSwatchHTML({id:'custom', name:customTheme.name, swatch:[customTheme.vars['--paper'], customTheme.vars['--chrome'], customTheme.vars['--accent']]})}<span class="theme-name">${escapeHtml(customTheme.name)}</span>
+          </button>`
+          : tile.add ? `
+          <button class="theme-opt add-theme-opt" data-cat="addtheme"
+            title="Add a theme from the themes/ folder">
+            <span class="add-theme-icon">+</span><span class="theme-name">Add theme</span>
+          </button>`
+          : tile.spacer ? `<span aria-hidden="true"></span>`
+          : `
+          <button class="theme-opt${tile.theme.id===curTheme?' active':''}" data-cat="theme" data-id="${tile.theme.id}">
+            ${buildSwatchHTML(tile.theme)}<span class="theme-name">${tile.theme.name}</span>
           </button>`).join('')}
       </div>
     </div>
@@ -9322,6 +9778,7 @@ $('#themeBtn').onclick=(e)=>{
       ev.stopPropagation();
       const cat=opt.dataset.cat, id=opt.dataset.id;
       if(cat==='theme') applyTheme(id);
+      else if(cat==='addtheme'){ closeThemePanel(); showThemeImportForm(); }
       else if(cat==='look') applyLook(id);
       else if(cat==='style') applyMapStyle(id);
       else if(cat==='layout') applyMapLayout(id);

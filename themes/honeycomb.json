@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "honeycomb",
+  "name": "Honeycomb",
+  "vars": {
+    "--toolbar-bg": "#2a1e0a",
+    "--toolbar-text": "#fffbeb",
+    "--paper": "#fffbeb",
+    "--paper-2": "#fef3c7",
+    "--ink": "#4a3a1a",
+    "--ink-soft": "#8a7a4a",
+    "--line": "#f5e6b0",
+    "--line-2": "#ebd98e",
+    "--accent": "#f59e0b",
+    "--accent-deep": "#cc8108",
+    "--teal": "#fbbf24",
+    "--chrome": "#fef3c7",
+    "--chrome-edge": "#f5e6b0",
+    "--node-bg": "#ffffff",
+    "--node-ink": "#4a3a1a",
+    "--canvas-dot": "#f5e6b0",
+    "--stage-glow": "rgba(245,158,11,.07)",
+    "--link": "#f59e0b",
+    "--shadow": "0 1px 3px rgba(74,58,26,.10),0 8px 24px rgba(74,58,26,.08)",
+    "--shadow-lg": "0 12px 40px rgba(74,58,26,.16)"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "deep-ocean",
+  "name": "Deep Ocean",
+  "vars": {
+    "--toolbar-bg": "#e6fffa",
+    "--toolbar-text": "#06181d",
+    "--paper": "#06181d",
+    "--paper-2": "#0d282e",
+    "--ink": "#a3e5d9",
+    "--ink-soft": "#3b7a70",
+    "--line": "#113836",
+    "--line-2": "#1a4a45",
+    "--accent": "#10b981",
+    "--accent-deep": "#0b8e61",
+    "--teal": "#5eead4",
+    "--chrome": "#0d282e",
+    "--chrome-edge": "#113836",
+    "--node-bg": "#0d282e",
+    "--node-ink": "#a3e5d9",
+    "--canvas-dot": "#113836",
+    "--stage-glow": "rgba(16,185,129,.06)",
+    "--link": "#10b981",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "dracula",
+  "name": "dracula",
+  "vars": {
+    "--toolbar-bg": "#f8f8f2",
+    "--toolbar-text": "#282a36",
+    "--paper": "#282a36",
+    "--paper-2": "#21222c",
+    "--ink": "#f8f8f2",
+    "--ink-soft": "#a3a8c0",
+    "--line": "#44475a",
+    "--line-2": "#6272a4",
+    "--accent": "#ff79c6",
+    "--accent-deep": "#e857af",
+    "--teal": "#8be9fd",
+    "--chrome": "#21222c",
+    "--chrome-edge": "#44475a",
+    "--node-bg": "#44475a",
+    "--node-ink": "#f8f8f2",
+    "--canvas-dot": "#44475a",
+    "--stage-glow": "rgba(189,147,249,.06)",
+    "--link": "#8be9fd",
+    "--shadow": "0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.55)"
+  }
+}

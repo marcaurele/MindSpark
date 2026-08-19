@@ -22,7 +22,7 @@ describe('validateThemeConfig — always returns something usable', () => {
     ['a number', 42], ['an array', [1, 2]], ['an empty object', {}],
     ['dracula as a string', { dracula: 'spooky' }],
     ['dracula as an array', { dracula: [] }],
-    ['an unknown theme', { synthwave: { ink: '#fff' } }],
+    ['an unknown theme', { 'no-such-theme': { ink: '#fff' } }],
   ];
   for (const [label, input] of junk) {
     test(`${label} yields the full defaults rather than throwing`, () => {

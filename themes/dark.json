@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "dark",
+  "name": "Dark",
+  "vars": {
+    "--toolbar-bg": "#f3f3f3",
+    "--toolbar-text": "#1e1e1e",
+    "--paper": "#1e1e1e",
+    "--paper-2": "#252526",
+    "--ink": "#d4d4d4",
+    "--ink-soft": "#9d9d9d",
+    "--line": "#3c3c3c",
+    "--line-2": "#4a4a4a",
+    "--accent": "#3794ff",
+    "--accent-deep": "#1f6fdc",
+    "--teal": "#4ec9b0",
+    "--chrome": "#252526",
+    "--chrome-edge": "#3c3c3c",
+    "--node-bg": "#2d2d2d",
+    "--node-ink": "#d4d4d4",
+    "--canvas-dot": "#3a3a3a",
+    "--stage-glow": "rgba(255,255,255,.04)",
+    "--link": "#79b8ff",
+    "--shadow": "0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.55)"
+  }
+}

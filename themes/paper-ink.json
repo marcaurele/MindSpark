@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "paper-ink",
+  "name": "Paper & Ink",
+  "vars": {
+    "--toolbar-bg": "#111111",
+    "--toolbar-text": "#fcfbf7",
+    "--paper": "#fcfbf7",
+    "--paper-2": "#f1efe9",
+    "--ink": "#343434",
+    "--ink-soft": "#77736b",
+    "--line": "#ddd9d0",
+    "--line-2": "#cec9bd",
+    "--accent": "#27364b",
+    "--accent-deep": "#1b2636",
+    "--teal": "#5c6b7a",
+    "--chrome": "#f1efe9",
+    "--chrome-edge": "#ddd9d0",
+    "--node-bg": "#ffffff",
+    "--node-ink": "#343434",
+    "--canvas-dot": "#ddd9d0",
+    "--stage-glow": "rgba(39,54,75,.05)",
+    "--link": "#27364b",
+    "--shadow": "0 1px 3px rgba(52,52,52,.10),0 8px 24px rgba(52,52,52,.08)",
+    "--shadow-lg": "0 12px 40px rgba(52,52,52,.16)"
+  }
+}

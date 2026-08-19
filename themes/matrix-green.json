@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "matrix-green",
+  "name": "Matrix",
+  "vars": {
+    "--toolbar-bg": "#d7ffe0",
+    "--toolbar-text": "#04140b",
+    "--paper": "#030705",
+    "--paper-2": "#07140b",
+    "--ink": "#9ef7b2",
+    "--ink-soft": "#347744",
+    "--line": "#123a1f",
+    "--line-2": "#1b4b2b",
+    "--accent": "#39ff88",
+    "--accent-deep": "#1fbf5f",
+    "--teal": "#a9ffc0",
+    "--chrome": "#07140b",
+    "--chrome-edge": "#123a1f",
+    "--node-bg": "#0b2414",
+    "--node-ink": "#9ef7b2",
+    "--canvas-dot": "#123a1f",
+    "--stage-glow": "rgba(57,255,136,.06)",
+    "--link": "#39ff88",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

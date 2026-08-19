@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "scholar-parchment",
+  "name": "Scholar",
+  "vars": {
+    "--toolbar-bg": "#053327",
+    "--toolbar-text": "#faf8f3",
+    "--paper": "#faf8f3",
+    "--paper-2": "#f1ece1",
+    "--ink": "#2c2c2a",
+    "--ink-soft": "#5a5a56",
+    "--line": "#e2ddd3",
+    "--line-2": "#d4cdbe",
+    "--accent": "#0a4d3c",
+    "--accent-deep": "#063a2e",
+    "--teal": "#c5a059",
+    "--chrome": "#f1ece1",
+    "--chrome-edge": "#e2ddd3",
+    "--node-bg": "#ffffff",
+    "--node-ink": "#2c2c2a",
+    "--canvas-dot": "#e2ddd3",
+    "--stage-glow": "rgba(197,160,89,.06)",
+    "--link": "#0a4d3c",
+    "--shadow": "0 1px 3px rgba(44,44,42,.10),0 8px 24px rgba(44,44,42,.08)",
+    "--shadow-lg": "0 12px 40px rgba(44,44,42,.16)"
+  }
+}

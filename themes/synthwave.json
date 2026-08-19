@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "synthwave",
+  "name": "synthwave",
+  "vars": {
+    "--toolbar-bg": "#e2d9f3",
+    "--toolbar-text": "#1a102f",
+    "--paper": "#1a102f",
+    "--paper-2": "#281b45",
+    "--ink": "#e2d9f3",
+    "--ink-soft": "#9a84b4",
+    "--line": "#483267",
+    "--line-2": "#5a4080",
+    "--accent": "#00f5d4",
+    "--accent-deep": "#00c4ac",
+    "--teal": "#ff71ce",
+    "--chrome": "#281b45",
+    "--chrome-edge": "#483267",
+    "--node-bg": "#281b45",
+    "--node-ink": "#e2d9f3",
+    "--canvas-dot": "#483267",
+    "--stage-glow": "rgba(255,113,206,.06)",
+    "--link": "#ff71ce",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

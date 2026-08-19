@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "ocean-depth",
+  "name": "Ocean Depth",
+  "vars": {
+    "--toolbar-bg": "#e8f4fa",
+    "--toolbar-text": "#06141c",
+    "--paper": "#06141c",
+    "--paper-2": "#0c1e28",
+    "--ink": "#b8d8e8",
+    "--ink-soft": "#4a7a90",
+    "--line": "#0e2a38",
+    "--line-2": "#163e52",
+    "--accent": "#22d3ee",
+    "--accent-deep": "#18aec7",
+    "--teal": "#67e8f9",
+    "--chrome": "#0c1e28",
+    "--chrome-edge": "#0e2a38",
+    "--node-bg": "#0c1e28",
+    "--node-ink": "#b8d8e8",
+    "--canvas-dot": "#0e2a38",
+    "--stage-glow": "rgba(34,211,238,.07)",
+    "--link": "#22d3ee",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

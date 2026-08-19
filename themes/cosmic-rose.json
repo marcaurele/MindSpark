@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "cosmic-rose",
+  "name": "Cosmic Rose",
+  "vars": {
+    "--toolbar-bg": "#ffd6ec",
+    "--toolbar-text": "#100c1b",
+    "--paper": "#100c1b",
+    "--paper-2": "#20142a",
+    "--ink": "#e4d9ea",
+    "--ink-soft": "#86708f",
+    "--line": "#38223f",
+    "--line-2": "#482c52",
+    "--accent": "#f472b6",
+    "--accent-deep": "#d44e97",
+    "--teal": "#f9a8d4",
+    "--chrome": "#20142a",
+    "--chrome-edge": "#38223f",
+    "--node-bg": "#20142a",
+    "--node-ink": "#e4d9ea",
+    "--canvas-dot": "#38223f",
+    "--stage-glow": "rgba(244,114,182,.07)",
+    "--link": "#f472b6",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

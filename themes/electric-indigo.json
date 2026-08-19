@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "electric-indigo",
+  "name": "Electric Indigo",
+  "vars": {
+    "--toolbar-bg": "#e9e2ff",
+    "--toolbar-text": "#0e0a22",
+    "--paper": "#0e0a22",
+    "--paper-2": "#191238",
+    "--ink": "#dcd7ff",
+    "--ink-soft": "#7770a5",
+    "--line": "#33255b",
+    "--line-2": "#42336f",
+    "--accent": "#8b5cf6",
+    "--accent-deep": "#6f3ed4",
+    "--teal": "#a78bfa",
+    "--chrome": "#191238",
+    "--chrome-edge": "#33255b",
+    "--node-bg": "#191238",
+    "--node-ink": "#dcd7ff",
+    "--canvas-dot": "#33255b",
+    "--stage-glow": "rgba(139,92,246,.07)",
+    "--link": "#8b5cf6",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

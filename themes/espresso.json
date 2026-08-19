@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "espresso",
+  "name": "Espresso",
+  "vars": {
+    "--toolbar-bg": "#faedcd",
+    "--toolbar-text": "#1a1412",
+    "--paper": "#1a1412",
+    "--paper-2": "#281e19",
+    "--ink": "#e3d5ca",
+    "--ink-soft": "#8c7a6b",
+    "--line": "#382b24",
+    "--line-2": "#473731",
+    "--accent": "#d4a373",
+    "--accent-deep": "#b08350",
+    "--teal": "#bc6c25",
+    "--chrome": "#281e19",
+    "--chrome-edge": "#382b24",
+    "--node-bg": "#281e19",
+    "--node-ink": "#e3d5ca",
+    "--canvas-dot": "#382b24",
+    "--stage-glow": "rgba(212,163,115,.06)",
+    "--link": "#d4a373",
+    "--shadow": "0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.65)"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "slate-steel",
+  "name": "Slate & Steel",
+  "vars": {
+    "--toolbar-bg": "#f8fafc",
+    "--toolbar-text": "#0f172a",
+    "--paper": "#0f172a",
+    "--paper-2": "#1e293b",
+    "--ink": "#cbd5e1",
+    "--ink-soft": "#64748b",
+    "--line": "#334155",
+    "--line-2": "#3e4c63",
+    "--accent": "#38bdf8",
+    "--accent-deep": "#0284c7",
+    "--teal": "#2dd4bf",
+    "--chrome": "#1e293b",
+    "--chrome-edge": "#334155",
+    "--node-bg": "#1e293b",
+    "--node-ink": "#cbd5e1",
+    "--canvas-dot": "#334155",
+    "--stage-glow": "rgba(56,189,248,.05)",
+    "--link": "#38bdf8",
+    "--shadow": "0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.55)"
+  }
+}

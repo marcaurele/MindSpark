@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "teal-paper",
+  "name": "Teal Paper",
+  "vars": {
+    "--toolbar-bg": "#12322f",
+    "--toolbar-text": "#f7fcfb",
+    "--paper": "#f7fcfb",
+    "--paper-2": "#e6f2f0",
+    "--ink": "#304744",
+    "--ink-soft": "#6f8581",
+    "--line": "#d4e7e3",
+    "--line-2": "#c2dcd6",
+    "--accent": "#0f766e",
+    "--accent-deep": "#0b5a54",
+    "--teal": "#2dd4bf",
+    "--chrome": "#e6f2f0",
+    "--chrome-edge": "#d4e7e3",
+    "--node-bg": "#ffffff",
+    "--node-ink": "#304744",
+    "--canvas-dot": "#d4e7e3",
+    "--stage-glow": "rgba(15,118,110,.05)",
+    "--link": "#0f766e",
+    "--shadow": "0 1px 3px rgba(48,71,68,.10),0 8px 24px rgba(48,71,68,.08)",
+    "--shadow-lg": "0 12px 40px rgba(48,71,68,.16)"
+  }
+}

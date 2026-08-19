@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "solarized",
+  "name": "Solarized",
+  "vars": {
+    "--toolbar-bg": "#073642",
+    "--toolbar-text": "#fdf6e3",
+    "--paper": "#fdf6e3",
+    "--paper-2": "#eee8d5",
+    "--ink": "#657b83",
+    "--ink-soft": "#93a1a1",
+    "--line": "#eee8d5",
+    "--line-2": "#d8d2be",
+    "--accent": "#268bd2",
+    "--accent-deep": "#206ea4",
+    "--teal": "#2aa198",
+    "--chrome": "#eee8d5",
+    "--chrome-edge": "#d8d2be",
+    "--node-bg": "#ffffff",
+    "--node-ink": "#657b83",
+    "--canvas-dot": "#d8d2be",
+    "--stage-glow": "rgba(38,139,210,.05)",
+    "--link": "#268bd2",
+    "--shadow": "0 1px 3px rgba(7,54,66,.12),0 8px 24px rgba(7,54,66,.10)",
+    "--shadow-lg": "0 12px 40px rgba(7,54,66,.18)"
+  }
+}

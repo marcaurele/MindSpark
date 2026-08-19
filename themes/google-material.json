@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "google-material",
+  "name": "Material You",
+  "vars": {
+    "--toolbar-bg": "#e3e2e6",
+    "--toolbar-text": "#1f1f1f",
+    "--paper": "#1f1f1f",
+    "--paper-2": "#2d2d2d",
+    "--ink": "#e3e2e6",
+    "--ink-soft": "#8e918f",
+    "--line": "#444746",
+    "--line-2": "#56595a",
+    "--accent": "#a8c7fa",
+    "--accent-deep": "#7fa8e8",
+    "--teal": "#81d4fa",
+    "--chrome": "#2d2d2d",
+    "--chrome-edge": "#444746",
+    "--node-bg": "#2d2d2d",
+    "--node-ink": "#e3e2e6",
+    "--canvas-dot": "#444746",
+    "--stage-glow": "rgba(168,199,250,.05)",
+    "--link": "#a8c7fa",
+    "--shadow": "0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.50)",
+    "--shadow-lg": "0 12px 40px rgba(0,0,0,.60)"
+  }
+}
