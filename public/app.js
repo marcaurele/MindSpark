@@ -5648,17 +5648,29 @@ function openRowMenu(btn, m){
   pop.innerHTML='<button data-a="pin"><span class="rp-ic">\uD83D\uDCCC</span>'+(m.pinned?'Unpin':'Pin')+'</button>'+
                 '<button data-a="dup"><span class="rp-ic">\u2398</span>Duplicate</button>'+
                 '<button data-a="del" class="danger"><span class="rp-ic">\uD83D\uDDD1</span>Delete</button>';
-  const row = btn.closest('.map-item') || btn.parentElement;
-  row.appendChild(pop);                 // anchored to the row via CSS (position:absolute) — zoom-proof
-  // flip above only if there isn't room below (ratio check; zoom cancels out)
+  // Portal to body with fixed positioning — escapes overflow clipping of .side-scroll
+  // (like Notion/VS Code context menus) and stays above .side-foot.
+  pop.style.visibility='hidden'; pop.style.left='-9999px'; pop.style.top='-9999px';
+  document.body.appendChild(pop);
   const rb = btn.getBoundingClientRect();
-  // Same raw-vs-logical mismatch class as elsewhere: rb (getBoundingClientRect) scales
-  // with UI-level zoom, offsetHeight's behaviour under it is unverified, and
-  // window.innerHeight does not scale with it — measuring the popup via the same API as
-  // rb and dividing the raw side by _uiZ() keeps this an apples-to-apples comparison
-  // regardless of Display Size.
+  const pr = pop.getBoundingClientRect();
   const _z=_uiZ();
-  if((rb.bottom + pop.getBoundingClientRect().height)/_z + 10 > window.innerHeight){ pop.classList.add('flip-up'); }
+  // Position below button, right-aligned to the row's right edge (4px inset like before)
+  const row = btn.closest('.map-item') || btn.parentElement;
+  const rowRect = row.getBoundingClientRect();
+  let left = rowRect.right - pr.width - 4;
+  let top = rb.bottom + 2;
+  // flip above if not enough room below
+  if((rb.bottom + pr.height)/_z + 10 > window.innerHeight){ top = rb.top - pr.height - 2; pop.classList.add('flip-up'); }
+  // clamp to viewport (8px margin) — handles zoom scaling
+  const margin=8;
+  if(left < margin) left = margin;
+  if(left + pr.width > window.innerWidth - margin) left = window.innerWidth - pr.width - margin;
+  if(top < margin) top = margin;
+  if(top + pr.height > window.innerHeight - margin) top = window.innerHeight - pr.height - margin;
+  pop.style.left = (left/_z)+'px';
+  pop.style.top = (top/_z)+'px';
+  pop.style.visibility='';
   pop.querySelector('[data-a="pin"]').onclick=ev=>{ ev.stopPropagation(); closeRowMenu(); togglePin(m.id); };
   pop.querySelector('[data-a="dup"]').onclick=ev=>{ ev.stopPropagation(); closeRowMenu(); duplicateMap(m.id); };
   pop.querySelector('[data-a="del"]').onclick=async ev=>{ ev.stopPropagation(); closeRowMenu();
@@ -9634,9 +9646,9 @@ function showThemeImportForm(){
         <textarea class="vf-input vf-json" rows="14" spellcheck="false">${escapeHtml(sample)}</textarea>
       </div>
       <div class="vf-err" hidden></div>
-      <div class="vf-hint" style="margin-top:12px">…or pick one of the ${THEMES.length-11} library themes — one click, no JSON</div>
+      <div class="vf-hint" style="margin-top:12px">…or pick one of the ${THEMES.length-20} library themes — one click, no JSON</div>
       <div class="lib-grid">
-        ${THEMES.slice(11).map(t=>`
+        ${THEMES.slice(20).map(t=>`
           <button class="lib-card" data-lib="${t.id}" title="Import \u201c${escapeHtml(t.name.replace(/<br\s*\/?>/gi,' '))}\u201d">
             ${buildSwatchHTML(t)}<span class="lib-name">${t.name}</span>
           </button>`).join('')}
@@ -9685,8 +9697,8 @@ function showThemeImportForm(){
     importLibraryTheme(b.dataset.lib);
   });
 }
-// Import one of the shipped library themes (the ones beyond the panel's top
-// three rows) straight from the Add-a-theme dialog. The theme's palette is
+// Import one of the shipped library themes (the ones beyond the panel's
+// visible 20) straight from the Add-a-theme dialog. The theme's palette is
 // read from its own live CSS block, so the imported result is exactly what
 // the user sees — no server round-trip, no embedded copy of the JSON.
 function importLibraryTheme(id){
@@ -10656,13 +10668,15 @@ $('#themeBtn').onclick=(e)=>{
   const curTheme  = document.documentElement.getAttribute('data-theme') || 'light';
   const customTheme = loadCustomTheme();
   // Colour-theme tiles: 2-row horizontally scrollable grid, like Layout/Map
-  // style. All built-ins are shown (no slicing), plus the Add theme tile
-  // always in the final slot — column-major fill so the visible rows read
-  // left-to-right in theme order. The imported theme (if any) sits before
-  // Add; an empty spacer holds that slot when there is none.
+  // style. 20 curated built-ins are shown (no slicing beyond 20), plus the
+  // Add theme tile always in the final slot — column-major fill so the
+  // visible rows read left-to-right in theme order. The imported theme (if
+  // any) sits before Add; an empty spacer holds that slot when there is none.
+  // Rest of the 65 themes are reachable via Add theme → library grid.
+  const VISIBLE_THEMES = 20;
   const ROWS=2, COLS=4;
   const themeTiles = [
-    ...THEMES.map(theme=>({theme})),
+    ...THEMES.slice(0, VISIBLE_THEMES).map(theme=>({theme})),
     ...(customTheme ? [{custom:true}] : [{spacer:true}]),
     {add:true},
   ];
@@ -10687,9 +10701,9 @@ $('#themeBtn').onclick=(e)=>{
                   : (document.body.classList.contains('ui-classic') ? 'classic'
                   : (document.body.classList.contains('ui-outline') ? 'outline'
                   : (document.body.classList.contains('ui-minimal') ? 'minimal' : 'modern')))))));
-  // The colour-theme picker shows all built-ins in a 2-row
+  // The colour-theme picker shows 20 curated built-ins in a 2-row
   // horizontally scrollable grid (like Layout), with the Add theme tile
-  // at the end; overflow scrolls horizontally.
+  // at the end; remaining 45 themes via Add theme → library grid.
   themePanel=document.createElement('div');
   themePanel.className='theme-panel theme-panel-large';
   themePanel.innerHTML = `
@@ -11899,16 +11913,24 @@ function openSharedByMeRowMenu(btn, sm){
     '<button data-a="copyedit"><span class="rp-ic">\u270F\uFE0F</span>Copy edit link</button>'+
     '<button data-a="access"><span class="rp-ic">\uD83D\uDD10</span>Manage access</button>'+
     '<button data-a="forget" class="danger"><span class="rp-ic">\u2715</span>Remove from list</button>';
-  const row = btn.closest('.map-item') || btn.parentElement;
-  row.appendChild(pop);
+  pop.style.visibility='hidden'; pop.style.left='-9999px'; pop.style.top='-9999px';
+  document.body.appendChild(pop);
   const rb = btn.getBoundingClientRect();
-  // Same raw-vs-logical mismatch class as elsewhere: rb (getBoundingClientRect) scales
-  // with UI-level zoom, offsetHeight's behaviour under it is unverified, and
-  // window.innerHeight does not scale with it — measuring the popup via the same API as
-  // rb and dividing the raw side by _uiZ() keeps this an apples-to-apples comparison
-  // regardless of Display Size.
+  const pr = pop.getBoundingClientRect();
+  const row = btn.closest('.map-item') || btn.parentElement;
+  const rowRect = row.getBoundingClientRect();
   const _z=_uiZ();
-  if((rb.bottom + pop.getBoundingClientRect().height)/_z + 10 > window.innerHeight){ pop.classList.add('flip-up'); }
+  let left = rowRect.right - pr.width - 4;
+  let top = rb.bottom + 2;
+  if((rb.bottom + pr.height)/_z + 10 > window.innerHeight){ top = rb.top - pr.height - 2; pop.classList.add('flip-up'); }
+  const margin=8;
+  if(left < margin) left = margin;
+  if(left + pr.width > window.innerWidth - margin) left = window.innerWidth - pr.width - margin;
+  if(top < margin) top = margin;
+  if(top + pr.height > window.innerHeight - margin) top = window.innerHeight - pr.height - margin;
+  pop.style.left = (left/_z)+'px';
+  pop.style.top = (top/_z)+'px';
+  pop.style.visibility='';
   const editLink=location.origin+location.pathname+'#shared='+sm.room+':'+sm.token;
   pop.querySelector('[data-a="open"]').onclick=ev=>{ ev.stopPropagation(); closeRowMenu(); openSharedInPlace(sm.room, sm.token); };
   pop.querySelector('[data-a="copyedit"]').onclick=async ev=>{ ev.stopPropagation(); closeRowMenu(); try{ await navigator.clipboard.writeText(editLink); toast('Edit link copied'); }catch(e){} };
@@ -11930,16 +11952,24 @@ function openSharedRowMenu(btn, sm){
     '<button data-a="copyview"><span class="rp-ic">\uD83D\uDD17</span>Copy view link</button>'+
     (sm.mine?'<button data-a="access"><span class="rp-ic">\uD83D\uDD10</span>Manage access</button>':'')+
     '<button data-a="forget" class="danger"><span class="rp-ic">\u2715</span>Remove from list</button>';
-  const row = btn.closest('.map-item') || btn.parentElement;
-  row.appendChild(pop);
+  pop.style.visibility='hidden'; pop.style.left='-9999px'; pop.style.top='-9999px';
+  document.body.appendChild(pop);
   const rb = btn.getBoundingClientRect();
-  // Same raw-vs-logical mismatch class as elsewhere: rb (getBoundingClientRect) scales
-  // with UI-level zoom, offsetHeight's behaviour under it is unverified, and
-  // window.innerHeight does not scale with it — measuring the popup via the same API as
-  // rb and dividing the raw side by _uiZ() keeps this an apples-to-apples comparison
-  // regardless of Display Size.
+  const pr = pop.getBoundingClientRect();
+  const row = btn.closest('.map-item') || btn.parentElement;
+  const rowRect = row.getBoundingClientRect();
   const _z=_uiZ();
-  if((rb.bottom + pop.getBoundingClientRect().height)/_z + 10 > window.innerHeight){ pop.classList.add('flip-up'); }
+  let left = rowRect.right - pr.width - 4;
+  let top = rb.bottom + 2;
+  if((rb.bottom + pr.height)/_z + 10 > window.innerHeight){ top = rb.top - pr.height - 2; pop.classList.add('flip-up'); }
+  const margin=8;
+  if(left < margin) left = margin;
+  if(left + pr.width > window.innerWidth - margin) left = window.innerWidth - pr.width - margin;
+  if(top < margin) top = margin;
+  if(top + pr.height > window.innerHeight - margin) top = window.innerHeight - pr.height - margin;
+  pop.style.left = (left/_z)+'px';
+  pop.style.top = (top/_z)+'px';
+  pop.style.visibility='';
   const base=location.origin+location.pathname+'#shared='+room;
   pop.querySelector('[data-a="open"]').onclick=ev=>{ ev.stopPropagation(); closeRowMenu(); openSharedInPlace(room, sm.token); };
   const ce=pop.querySelector('[data-a="copyedit"]'); if(ce) ce.onclick=async ev=>{ ev.stopPropagation(); closeRowMenu(); try{ await navigator.clipboard.writeText(base+':'+sm.token); toast('Edit link copied'); }catch(e){} };
