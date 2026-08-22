@@ -726,11 +726,10 @@ function render(){
     el.style.left=n.x+'px'; el.style.top=n.y+'px';
     if(id===map.rootId){
       el.style.background = colorFor(map.color||'#e0613a');
-      el.style.color = '#fff';
+      el.style.color = pickContrast(colorFor(map.color||'#e0613a'));
     } else if(n.color && n.color!=='#fff' && n.color!=='#ffffff'){
-      // User-picked card colour — always pair with dark text for legibility
       el.style.background = n.color;
-      el.style.color = '#23201b';
+      el.style.color = pickContrast(n.color);
     } else {
       // No explicit colour — let CSS theme variables handle it
       el.style.background = '';
@@ -8236,6 +8235,12 @@ async function exportPNG(){
   const themeNodeBg = css('--node-bg')   || '#ffffff';
   const themeLine   = css('--line')      || '#d8cfbf';
   const accent      = css('--accent')    || '#e0613a';
+  const toolbarBg   = css('--toolbar-bg') || '#fbf8f2';
+  const toolbarText = css('--toolbar-text') || '#23201b';
+  const line2       = css('--line-2') || themeEdge;
+  const stickyBg    = css('--sticky') || '#fff7b0';
+  const stickyEdge  = css('--sticky-edge') || '#f2e27a';
+  const stickyInk   = css('--sticky-ink') || '#4a431f';
   // Zebra tints for uncoloured nodes — same 93/7 split as the CSS striping.
   const zebraA = mixHex(themeNodeBg, accent, 0.07);
   const zebraB = mixHex(themeNodeBg, css('--teal') || '#2f6f6a', 0.07);
@@ -8295,23 +8300,103 @@ async function exportPNG(){
   const W=(maxx-minx+pad*2),H=(maxy-miny+pad*2);
   const cv=document.createElement('canvas');cv.width=W*scale;cv.height=H*scale;
   const ctx=cv.getContext('2d');ctx.scale(scale,scale);
-  ctx.fillStyle=themeBg; ctx.fillRect(0,0,W,H);
-  // Dot-grid texture — matches .stage's CSS exactly (26px spacing, 1px radius,
-  // var(--canvas-dot)). The solid fill above was the only background the
-  // export drew; the live canvas always has this texture, so without it the
-  // export looks visibly flatter/emptier than what's actually on screen.
-  const dotColor = css('--canvas-dot');
-  if(dotColor){
-    ctx.fillStyle = dotColor;
-    ctx.beginPath();
-    for(let dx=0; dx<=W; dx+=26){
-      for(let dy=0; dy<=H; dy+=26){
-        ctx.moveTo(dx+1, dy);
-        ctx.arc(dx, dy, 1, 0, Math.PI*2);
+  // Exact background — matches .stage for any Colour Theme + I am look.
+  // Uses live CSS vars so theme/look changes are reflected without hardcoding.
+  const look = document.documentElement.getAttribute('data-look') || 'office';
+  const stageBg = css('--paper') || themeBg;
+  ctx.fillStyle=stageBg; ctx.fillRect(0,0,W,H);
+  // stage background-image per look — replicate CSS gradients/patterns
+  const lineColor = css('--line') || themeLine;
+  const paperColor = stageBg;
+  const canvasDot = css('--canvas-dot');
+  const tealColor = css('--teal') || '#2f6f6a';
+  const accentColor = accent;
+  const drawLookBg = ()=>{
+    if(look==='handwritten'){
+      // repeating-linear-gradient(var(--paper) 0, var(--paper) 27px, var(--line) 28px) 100% 28px
+      ctx.strokeStyle=lineColor; ctx.lineWidth=1;
+      for(let y=28; y<H; y+=28){ ctx.beginPath(); ctx.moveTo(0,y+0.5); ctx.lineTo(W,y+0.5); ctx.stroke(); }
+    } else if(look==='coffee-shop'){
+      // 135deg diagonal hatch 22px paper + 1px line, 32px tile
+      ctx.strokeStyle=lineColor; ctx.lineWidth=1;
+      for(let d=-H; d<W+H; d+=32){
+        ctx.beginPath(); ctx.moveTo(d,0); ctx.lineTo(d+H, H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(d+22,0); ctx.lineTo(d+22+H, H); ctx.stroke();
+      }
+    } else if(look==='lab'){
+      // blueprint grid 26px both axes, 55% line
+      ctx.strokeStyle=lineColor; ctx.globalAlpha=0.55; ctx.lineWidth=1;
+      for(let x=0;x<=W;x+=26){ ctx.beginPath(); ctx.moveTo(x+0.5,0); ctx.lineTo(x+0.5,H); ctx.stroke(); }
+      for(let y=0;y<=H;y+=26){ ctx.beginPath(); ctx.moveTo(0,y+0.5); ctx.lineTo(W,y+0.5); ctx.stroke(); }
+      ctx.globalAlpha=1;
+    } else if(look==='forest'){
+      // 7 radial ellipses — approximate with filled ellipses at low alpha
+      const col=tealColor;
+      ctx.fillStyle=col; ctx.globalAlpha=0.08;
+      const spots=[[0.18,0.22,7,10],[0.68,0.18,5,7],[0.42,0.38,9,6],[0.82,0.52,6,8],[0.12,0.68,8,5],[0.55,0.78,5,9],[0.30,0.88,6,6]];
+      spots.forEach(([rx,ry,rw,rh])=>{ ctx.beginPath(); ctx.ellipse(W*rx,H*ry,rw,rh,0,0,Math.PI*2); ctx.fill(); });
+      ctx.globalAlpha=1;
+    } else if(look==='beach'){
+      ctx.strokeStyle=tealColor; ctx.globalAlpha=0.07; ctx.lineWidth=1;
+      for(let d=-H; d<W+H; d+=60){
+        ctx.beginPath(); ctx.moveTo(d,0); ctx.lineTo(d+H, H); ctx.stroke();
+      }
+      ctx.globalAlpha=1;
+    } else if(look==='studio'){
+      ctx.strokeStyle=css('--ink')||themeInk; ctx.globalAlpha=0.12; ctx.lineWidth=1;
+      for(let d=-H; d<W+H; d+=31){
+        ctx.beginPath(); ctx.moveTo(d,0); ctx.lineTo(d+H, H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(d+H,0); ctx.lineTo(d, H); ctx.stroke();
+      }
+      ctx.globalAlpha=1;
+    } else if(look==='mountain'){
+      ctx.strokeStyle=lineColor; ctx.globalAlpha=0.12; ctx.lineWidth=1;
+      for(let y=60; y<H; y+=120){ ctx.beginPath(); ctx.moveTo(0,y+0.5); ctx.lineTo(W,y+0.5); ctx.stroke(); }
+      for(let x=80; x<W; x+=80){ ctx.beginPath(); ctx.moveTo(x+0.5,0); ctx.lineTo(x+0.5,H); ctx.stroke(); }
+      ctx.globalAlpha=1;
+    } else if(look==='observatory'){
+      ctx.fillStyle=accentColor;
+      const stars=[[12,14,1.4],[44,38,1],[30,52,0.9],[56,12,0.7]];
+      stars.forEach(([x,y,r])=>{ ctx.globalAlpha=0.6; ctx.beginPath(); ctx.arc((x/70)*W,(y/70)*H,r,0,Math.PI*2); ctx.fill(); });
+      // nebula haze
+      ctx.globalAlpha=0.12; ctx.beginPath(); ctx.ellipse(W*0.28,H*0.26,W*0.12,H*0.08,0,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(W*0.74,H*0.68,W*0.12,H*0.08,0,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=1;
+    } else {
+      // office / default, sketchpad, etc. — dot grid
+      if(canvasDot){
+        ctx.fillStyle = canvasDot;
+        ctx.beginPath();
+        for(let dx=0; dx<=W; dx+=26){
+          for(let dy=0; dy<=H; dy+=26){
+            ctx.moveTo(dx+1, dy);
+            ctx.arc(dx, dy, 1, 0, Math.PI*2);
+          }
+        }
+        ctx.fill();
       }
     }
-    ctx.fill();
-  }
+    // stage glow wash — ellipse at 50% 0% (top centre) — matches .stage:before
+    const glow = css('--stage-glow');
+    if(glow && glow!=='transparent' && glow!=='none' && glow.includes('rgba')){
+      const m=glow.match(/rgba?\([^)]+\)/);
+      if(m){
+        // Use elliptical gradient via scaled circle to match CSS ellipse
+        ctx.save();
+        // CSS ellipse at top: scale Y to 0.6 to get wide ellipse
+        ctx.scale(1, 0.6);
+        const r = Math.max(W, H/0.6) * 0.85;
+        const g = ctx.createRadialGradient(W/2, 0, 0, W/2, 0, r);
+        g.addColorStop(0, m[0]);
+        g.addColorStop(0.6, 'transparent');
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle=g;
+        ctx.fillRect(0, 0, W, H/0.6);
+        ctx.restore();
+      }
+    }
+  };
+  drawLookBg();
   ctx.translate(-minx+pad,-miny+pad);
 
   // Edges — match map style: bezier (modern/bubble/dashed/minimal),
@@ -8430,10 +8515,27 @@ async function exportPNG(){
       ctx.stroke();
       ctx.shadowBlur = 0;
     }
-    // Text — pick a color that contrasts with the node background
+    // Reference node — distinct left border + italic, like live .node.ref-node
+    if(n.ref){
+      ctx.save();
+      // clip to node shape then draw 4px left border in accent
+      roundRect(ctx, n.x, n.y, w, h, r);
+      ctx.clip();
+      ctx.fillStyle = accent;
+      ctx.fillRect(n.x, n.y, 4, h);
+      ctx.restore();
+    }
+    // Text — pick a color that contrasts with the node background, and exact font
+    // matching the live look (I am) — --sans/--serif + handwritten/sketchpad scale + lookConfig nodeSize
     const bg = isRoot ? (map.color || accent) : (n.color || themeNodeBg);
     const textFill = n.textColor || (isRoot ? pickContrast(bg) : (n.color ? pickContrast(n.color) : themeInk));
-    const fontPx = n.fontSize || (isRoot ? 19 : 15);
+    const sans = css('--sans') || '"Bricolage Grotesque",system-ui,sans-serif';
+    const serif = css('--serif') || sans;
+    let fontPx = n.fontSize || (isRoot ? 19 : 15);
+    // look font-size scaling (handwritten 1.2em, sketchpad 1.15em) + lookConfig nodeSize
+    const lookScale = (look==='handwritten' ? 1.2 : look==='sketchpad' ? 1.15 : 1) * (parseFloat(css('--look-node-size')) || 1);
+    if(!n.fontSize) fontPx = Math.round(fontPx * lookScale);
+    const fontFamily = isRoot ? serif : sans;
     ctx.textBaseline='middle';
     const insetX = isRoot ? 22 : 15;
     // Node image — drawn first, at the top, so text/checkbox center in the space below it
@@ -8472,7 +8574,7 @@ async function exportPNG(){
       roundRect(ctx, boxX, boxY, boxSize, boxSize, 5);
       ctx.fillStyle = n.task==='done' ? '#4a9d5b' : themeNodeBg;
       ctx.fill();
-      ctx.strokeStyle = n.task==='doing' ? '#c98a1a' : (n.task==='done' ? '#4a9d5b' : themeLine);
+      ctx.strokeStyle = n.task==='doing' ? '#c98a1a' : (n.task==='done' ? '#4a9d5b' : line2);
       ctx.lineWidth=2; ctx.stroke();
       if(n.task==='done'||n.task==='doing'){
         ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -8482,63 +8584,81 @@ async function exportPNG(){
       }
       textX = boxX+boxSize+7; textMaxWidth -= boxSize+7;
     }
-    // Render with inline B/I/U/S support, list bullets, line wrapping.
-    // Nodes with $...$ math go through the canvas math renderer so equations
-    // export as laid-out math instead of raw LaTeX source.
-    if(containsMath(n.text||'')){
-      drawNodeMath(ctx, n.text||'', {
-        x: textX, y: textCenterY, maxWidth: textMaxWidth,
-        fontPx, color: textFill, family: '"Bricolage Grotesque", sans-serif',
-        bold: !!n.bold || isRoot, align: n.align || 'center', listType: n.listType || null
-      });
+    // Clip text to node bounds so it never leaks outside rounded rect (like live CSS overflow)
+    ctx.save();
+    roundRect(ctx, n.x, n.y, w, h, r);
+    ctx.clip();
+    // Special node types: hr (horizontal rule) and html block (code/table)
+    let htmlForExport = n.text||'';
+    if(n.hr){
+      // hr-node: 54px line centered, like live .node.hr-node .node-hr
+      ctx.strokeStyle = textFill; ctx.globalAlpha=0.6; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(n.x + w/2 - 27, textCenterY); ctx.lineTo(n.x + w/2 + 27, textCenterY); ctx.stroke();
+      ctx.globalAlpha=1;
+      ctx.restore();
+      // still draw badges below (notes, progress etc.) outside clip
+      // fall through to badge drawing after restore, so skip text
     } else {
-    drawFormattedText(ctx, n.text||'', {
+      if(n.html){
+        // block node: use html content, strip outer wrapper but keep inner
+        htmlForExport = n.html;
+        // frontmatter badge already handled via live, but text is html
+      }
+      if(containsMath(htmlForExport)){
+        drawNodeMath(ctx, htmlForExport, {
+          x: textX, y: textCenterY, maxWidth: textMaxWidth,
+          fontPx, color: textFill, family: fontFamily,
+          bold: !!n.bold || isRoot, align: n.align || 'center', listType: n.listType || null
+        });
+      } else {
+        drawFormattedText(ctx, htmlForExport, {
       favicons,
       x: textX,
       y: textCenterY,
       maxWidth: textMaxWidth,
       fontPx,
       color: textFill,
-      family: '"Bricolage Grotesque", sans-serif',
+      family: fontFamily,
       baseBold: !!n.bold || isRoot,
-      baseItalic: !!n.italic,
+      baseItalic: !!n.italic || !!n.ref,
       baseUnderline: !!n.underline,
       baseStrike: !!n.strike,
       align: n.align || 'center',
       listType: n.listType || null
     });
+      }
+      ctx.restore();
     }
-    // Notes indicator — small white-circle dot with a 📝 glyph (top-right)
+    // Notes indicator — sticky note, like live .notes-mark
     const noteText = (n.notes||'').replace(/<[^>]*>/g,'').trim();
     if(noteText){
       const cx = (n.side==='left') ? n.x + 4 : n.x + w - 4;
       const cy = n.y + 4;
       ctx.beginPath();
       ctx.arc(cx, cy, 10, 0, Math.PI*2);
-      ctx.fillStyle = themeNodeBg;
+      ctx.fillStyle = stickyBg;
       ctx.fill();
       ctx.lineWidth = 1.4;
-      ctx.strokeStyle = themeLine;
+      ctx.strokeStyle = stickyEdge;
       ctx.stroke();
       ctx.font = '10px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = themeInk;
+      ctx.fillStyle = stickyInk;
       ctx.fillText('📝', cx, cy);
       ctx.textAlign = 'start';   // restore
       ctx.textBaseline = 'middle';
     }
-    // Task-progress roll-up badge — top-left pill, shown on nodes with task-bearing
-    // descendants (but that aren't themselves a task)
+    // Task-progress roll-up badge — top-left pill, like live .task-progress
     const prog = {done:roll.tdone[i], total:roll.ttot[i]};
     if(prog.total>0 && !n.task){
       const complete = prog.done===prog.total;
-      drawPillBadge(`\u2713 ${prog.done}/${prog.total}`, n.x-6, n.y-9, complete?'#4a9d5b':themeInk, '#fff');
+      drawPillBadge(`\u2713 ${prog.done}/${prog.total}`, n.x-6, n.y-9, complete?'#4a9d5b':toolbarBg, complete?'#fff':toolbarText);
     }
     // Token-count badge — bottom-left pill, same threshold as the on-screen version
     const tokens = estimateTokens(n.text, n.notes);
     if(tokens>=25){
-      drawPillBadge(`~${tokens}t`, n.x-6, n.y+h-6, themeInk, '#fff');
+      drawPillBadge(`~${tokens}t`, n.x-6, n.y+h-6, toolbarBg, toolbarText);
     }
     // Reference/citation mark — top-left circle with a 📖 glyph
     if(n.ref){
@@ -8662,8 +8782,39 @@ function drawFormattedText(ctx, html, opts){
       setFont(run);
       // Only the first visible chunk of a link run carries the icon — a
       // wrapped URL must not repeat it on every line.
-      const fav = (firstChunk && run.favHost && favicons[run.favHost]) ? favicons[run.favHost] : null;
-      const w = ctx.measureText(part).width + (fav ? iconW : 0);
+      let fav = (firstChunk && run.favHost && favicons[run.favHost]) ? favicons[run.favHost] : null;
+      let w = ctx.measureText(part).width + (fav ? iconW : 0);
+      // Handle long words without spaces that exceed maxWidth — break anywhere
+      // like CSS `overflow-wrap:anywhere` (live DOM does). Split into fitting chunks.
+      if(part.trim() && w > maxWidth){
+        let remaining = part;
+        let isFirstSub = true;
+        while(remaining){
+          // binary search longest prefix that fits
+          let low=1, high=remaining.length, best=1;
+          while(low<=high){
+            const mid=Math.floor((low+high)/2);
+            const prefix=remaining.slice(0,mid);
+            setFont(run);
+            const pw=ctx.measureText(prefix).width + (isFirstSub && fav ? iconW : 0);
+            if(pw <= maxWidth){ best=mid; low=mid+1; } else high=mid-1;
+          }
+          const chunk=remaining.slice(0,best);
+          setFont(run);
+          const cw=ctx.measureText(chunk).width + (isFirstSub && fav ? iconW : 0);
+          if(curW + cw > maxWidth && lines[lines.length-1].length>0){
+            lines.push([]); curW=0;
+          }
+          const chunkFav = isFirstSub ? fav : null;
+          lines[lines.length-1].push({ text:chunk, w:cw, bold:run.bold, italic:run.italic, underline:run.underline, strike:run.strike, link:run.link, fav:chunkFav });
+          curW += cw;
+          if(cw >= maxWidth - 1){ lines.push([]); curW=0; }
+          remaining=remaining.slice(best);
+          isFirstSub=false; fav=null;
+          firstChunk=false;
+        }
+        return;
+      }
       if(curW + w > maxWidth && lines[lines.length-1].length > 0 && part.trim()){
         lines.push([]); curW = 0;
       }
