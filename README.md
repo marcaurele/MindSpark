@@ -160,7 +160,7 @@ All optional, set as environment variables:
 |-----------|--------------------------|----------------------------|
 | `PORT`    | `3000`                   | HTTP port                  |
 | `DB_PATH` | `./data/mindspark.db`    | SQLite database file path  |
-| `PUBLIC`  | `./public`               | Static frontend directory  |
+| `MS_PUBLIC` | `./public`               | Static frontend directory (legacy `PUBLIC` also honoured unless it's the Windows OS default)  |
 
 ```bash
 PORT=8080 DB_PATH=/var/lib/mindspark/db.sqlite node server.js

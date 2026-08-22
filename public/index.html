@@ -13,7 +13,7 @@
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700&family=Caveat:wght@500;700&family=Nunito:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700&family=Caveat:wght@500;700&family=Nunito:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;700&family=Fredoka:wght@400;600&family=Oswald:wght@400;600&family=Playfair+Display:wght@400;700&family=Roboto+Condensed:wght@400;600&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
 <script>
   // Apply the interface scale before paint (no flash). Saved choice wins;
@@ -33,6 +33,47 @@
 </head>
 <body>
 <div class="app">
+  <div id="tabStrip" class="hidden">
+    <div class="tab-row" id="tabRow"></div>
+    <button class="tab-new" id="tabNew" title="New map">＋</button>
+  </div>
+  <div class="topbar">
+    <input class="title-edit" id="mapTitle" placeholder="Untitled map" />
+    <div class="tb-group">
+      <button class="tb" id="undo" title="Undo (Ctrl+Z)">↶</button>
+      <button class="tb" id="redo" title="Redo (Ctrl+Y)">↷</button>
+    </div>
+    <span class="tb-sep"></span>
+    <div class="tb-group">
+      <button class="tb wide primary" id="addChild" title="Add child (Tab)">＋ Topic</button>
+      <button class="tb" id="layout" title="Tidy layout (rearrange topics into a balanced tree)">⟐</button>
+      <button class="tb" id="collapseAll" title="Collapse / expand all branches, one level per click">⊟</button>
+      <button class="tb" id="mdToggle" title="Markdown mode — edit as text with live preview">&lt;/&gt;</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="search-wrap" id="searchWrap">
+      <input id="search" placeholder="Find in nodes…" autocomplete="off" />
+      <span class="search-count" id="searchCount"></span>
+      <button class="search-toggle" id="allMapsToggle" title="Search across all maps">🌐</button>
+      <button class="search-toggle" id="replaceToggle" title="Toggle replace (Ctrl/⌘+H)">⇄</button>
+      <input id="replace" placeholder="Replace with…" autocomplete="off" />
+      <button class="search-act" id="replaceOne" title="Replace next match">Replace</button>
+      <button class="search-act" id="replaceAll" title="Replace all matches">All</button>
+    </div>
+    <span class="tb-sep"></span>
+    <div class="tb-group">
+      <button class="tb" id="searchBtn" title="Search">⌕</button>
+      <button class="tb" id="varsBtn" title="Map variables — set {{placeholder}} defaults">{ }</button>
+      <button class="tb" id="themeBtn" title="Theme">🎨</button>
+      <button class="tb" id="menuExport" title="Export">⤓</button>
+      <button class="tb" id="focusBtn" title="Focus mode (Esc to exit)">⛶</button>
+      <button class="tb" id="presentBtn" title="Present the map — walk through the topics">▶</button>
+      <button class="tb" id="outlineBtn" title="Show the map outline (tree panel)">▤</button>
+      <button class="tb" id="tabsBtn" title="Tabbed workspace — open several maps at once">▭</button>
+      <button class="tb donate-btn" id="donateBtn" title="Support MindSpark">♥</button>
+    </div>
+  </div>
+
   <aside class="side" id="side">
     <div class="brand">
       <svg class="mark" viewBox="0 0 64 64" width="30" height="30" aria-hidden="true">
@@ -41,14 +82,21 @@
         <path d="M32 16 L36 28 L48 32 L36 36 L32 48 L28 36 L16 32 L28 28 Z" fill="#fff" opacity=".95"/>
       </svg>
       <h1>Mind<span>Spark</span></h1>
+      <button class="tb" id="newMap" title="New mind map" aria-label="New mind map">＋</button>
+      <button class="tb" id="toggleSide" title="Toggle sidebar" aria-label="Toggle sidebar">☰</button>
     </div>
-    <div class="new-map-row">
-      <button class="new-map" id="newMap">＋ New mind map</button>
-      <button class="new-map-caret" id="newMapMenu" title="Start from a template">▾</button>
+    <div class="side-tabs">
+      <button class="side-tab active" id="sideTabMaps" title="Your maps">🗺 Maps</button>
+      <button class="side-tab" id="sideTabTpls" title="Start from a template">✦ Templates</button>
     </div>
-    <div class="side-scroll">
-      <div class="side-label">Your maps</div>
-      <div id="mapList"></div>
+    <div class="side-pane active" id="sidePaneMaps">
+      <div class="side-scroll">
+        <div class="side-label">Your maps</div>
+        <div id="mapList"></div>
+      </div>
+    </div>
+    <div class="side-pane" id="sidePaneTpls">
+      <div class="side-scroll" id="tplList"></div>
     </div>
     <div class="side-foot">
       Open source · <b>no limits</b>
@@ -56,6 +104,7 @@
         <a id="ghRepoLink" href="#" target="_blank" rel="noopener" title="View source on GitHub">
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.55v-2.08c-3.2.69-3.87-1.36-3.87-1.36-.52-1.34-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18a11.04 11.04 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.24 2.75.12 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.26 5.68.41.36.78 1.05.78 2.12v3.14c0 .31.21.66.79.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5Z"/></svg>
           <span>GitHub</span>
+          <span id="ghStars" class="gh-stars" hidden title="GitHub stars">☆ --</span>
         </a>
         <a id="ghIssueLink" href="#" target="_blank" rel="noopener" title="Report an issue">
           <span class="li-ic">🐞</span><span>Report bug</span>
@@ -64,54 +113,20 @@
           <span class="li-ic">🧠</span><span>MindSpark GPT</span>
         </a>
       </div>
+      <div class="qotd-sep" role="separator" aria-hidden="true"></div>
+      <div id="qotd" class="qotd" aria-live="polite" hidden>
+        <div class="qotd-text"></div>
+        <div class="qotd-author"></div>
+        <button class="qotd-refresh" id="qotdRefresh" title="New quote" aria-label="New quote">↻</button>
+      </div>
     </div>
+    <div class="side-rail"><button class="tb" id="railToggle" title="Open sidebar">☰</button></div>
+    <div class="side-resize" id="sideResize" title="Drag to resize"></div>
   </aside>
 
   <div class="stage" id="stage">
     <div id="viewport">
       <svg id="edges"></svg>
-    </div>
-
-    <div class="topbar">
-      <div class="tb-group">
-        <button class="tb" id="toggleSide" title="Toggle sidebar">☰</button>
-      </div>
-      <input class="title-edit" id="mapTitle" placeholder="Untitled map" />
-      <div class="tb-group">
-        <button class="tb" id="undo" title="Undo (Ctrl+Z)">↶</button>
-        <button class="tb" id="redo" title="Redo (Ctrl+Y)">↷</button>
-      </div>
-      <div class="tb-group">
-        <button class="tb wide primary" id="addChild" title="Add child (Tab)">＋ Topic</button>
-        <button class="tb" id="layout" title="Tidy layout (rearrange topics into a balanced tree)">⟐</button>
-        <button class="tb" id="collapseAll" title="Collapse / expand all branches, one level per click">⊟</button>
-        <button class="tb" id="mdToggle" title="Markdown mode — edit as text with live preview">&lt;/&gt;</button>
-      </div>
-      <div class="spacer"></div>
-      <div class="search-wrap" id="searchWrap">
-        <input id="search" placeholder="Find in nodes…" autocomplete="off" />
-        <span class="search-count" id="searchCount"></span>
-        <button class="search-toggle" id="allMapsToggle" title="Search across all maps">🌐</button>
-        <button class="search-toggle" id="replaceToggle" title="Toggle replace (Ctrl/⌘+H)">⇄</button>
-        <input id="replace" placeholder="Replace with…" autocomplete="off" />
-        <button class="search-act" id="replaceOne" title="Replace next match">Replace</button>
-        <button class="search-act" id="replaceAll" title="Replace all matches">All</button>
-      </div>
-      <div class="tb-group">
-        <button class="tb" id="searchBtn" title="Search">⌕</button>
-        <button class="tb" id="varsBtn" title="Map variables — set {{placeholder}} defaults">{ }</button>
-        <button class="tb" id="themeBtn" title="Theme">🎨</button>
-        <button class="tb" id="menuExport" title="Export">⤓</button>
-        <button class="tb" id="focusBtn" title="Focus mode (Esc to exit)">⛶</button>
-        <button class="tb donate-btn" id="donateBtn" title="Support MindSpark">♥</button>
-      </div>
-      <div class="user-pill" id="userPill" style="display:none">
-        <img id="userAvatar" alt="" />
-        <span id="userName"></span>
-        <button id="userSignOut" title="Sign out">⏻</button>
-      </div>
-      <div class="token-total" id="tokenTotal" title="Rough estimate of total tokens across all nodes (~4 chars/token)"></div>
-      <div class="save-pill" id="savePill"><span class="ring"></span><span id="saveText">Saved</span></div>
     </div>
 
     <div class="empty" id="empty" style="display:none">
@@ -122,22 +137,36 @@
       </div>
     </div>
 
-    <div class="zoombar">
-      <button id="zoomIn">＋</button>
-      <div class="zoom-val" id="zoomVal" title="Click to set custom zoom %">100%</div>
-      <button id="zoomOut">－</button>
-      <button id="zoomFit" title="Fit all topics to screen (camera only)">⊡</button>
-    </div>
-
     <div class="breadcrumb" id="breadcrumb"></div>
-    <div class="minimap" id="minimap" title="Overview — click to jump"></div>
-
-    <div class="hint" id="hint">
-      <button class="close" id="hintClose">×</button>
-      <b>Tab</b> child · <b>Enter</b> sibling · <b>↑↓←→</b> navigate · <b>F2</b>/dbl-click edit · <b>L</b> link · <b>Del</b> remove · <b>?</b> all shortcuts
-    </div>
 
     <div class="toast" id="toast"></div>
+  </div>
+
+  <div class="statusbar" id="statusBar">
+    <div class="hint" id="hint">
+      <button class="close" id="hintClose">×</button>
+      <span class="hint-text"><b>Tab</b> child · <b>Enter</b> sibling · <b>↑↓←→</b> navigate · <b>F2</b>/dbl-click edit · <b>L</b> link · <b>Del</b> remove · <b>?</b> all shortcuts</span>
+    </div>
+    <div class="sb-right">
+      <div class="save-pill" id="savePill"><span class="ring"></span><span id="saveText">Saved</span></div>
+      <div class="token-total" id="tokenTotal" title="Rough estimate of total tokens across all nodes (~4 chars/token)"></div>
+      <div class="user-pill" id="userPill" style="display:none">
+        <img id="userAvatar" alt="" />
+        <span id="userName"></span>
+        <button id="userSignOut" title="Sign out">⏻</button>
+      </div>
+    </div>
+    <div class="overview" id="overview">
+      <div class="minimap" id="minimap" title="Overview — click to jump"></div>
+      <div class="zoom-row">
+        <button id="zoomOut" title="Zoom out">－</button>
+        <input type="range" id="zoomSlider" min="10" max="300" step="1" value="100" aria-label="Zoom level" />
+        <button id="zoomIn" title="Zoom in">＋</button>
+        <div class="zoom-val" id="zoomVal" title="Click to set custom zoom %">100%</div>
+        <button id="zoomFit" title="Fit all topics to screen (camera only)">⊡</button>
+      </div>
+      <button class="overview-toggle" id="overviewToggle" title="Collapse overview" aria-label="Collapse overview">▾</button>
+    </div>
   </div>
 </div>
 

@@ -404,7 +404,10 @@ function positionPopup(pop, anchor, opts){
   const align = opts.align || 'left';   // 'left': left edge under the anchor's left edge; 'right': right edge under the anchor's right edge
   pop.style.position='fixed';
   const prevVis=pop.style.visibility;
-  pop.style.visibility='hidden'; pop.style.maxHeight='';
+  // Disable any CSS max-height (e.g. export-pop's calc(100vh - 72px)) while
+  // measuring the natural height — otherwise a tall menu would be capped and
+  // we'd think it fits when it actually overflows.
+  pop.style.visibility='hidden'; pop.style.maxHeight='none'; pop.style.overflowY='';
   // Self-calibrate the CSS-px <-> getBoundingClientRect-px factor using the popup
   // itself — set a KNOWN CSS left and measure where it actually renders — instead
   // of trusting a separate, always-off-screen probe element (_uiZ()) to behave
@@ -429,18 +432,91 @@ function positionPopup(pop, anchor, opts){
   const vp = document.documentElement.getBoundingClientRect();
   const viewW = vp.width>1 ? vp.width : window.innerWidth*z;
   const viewH = vp.height>1 ? vp.height : window.innerHeight*z;
+  // ── Side placement (vertical toolbar flyout) ──────────────────────────────
+  // Used by the side-toolbar layout (ui-rail) where the toolbar is a narrow
+  // vertical rail: the popup should appear *beside* the rail, not below the
+  // button. Mirrors VS Code / Figma / Slack: flyout 8px to the right of the
+  // anchor, top-aligned with the anchor, flipping to the left or clamping if
+  // there is no room. If opts.side is set, take this path instead of the
+  // classic below/above dropdown path.
+  if(opts.side==='right' || opts.side==='left'){
+    const side = opts.side;
+    const wantRight = side==='right';
+    // Desired position beside the anchor
+    let leftRight = rr.right + gap;
+    let leftLeft  = rr.left - gap - pw;
+    let left;
+    if(wantRight){
+      if(leftRight + pw <= viewW - margin) left = leftRight;
+      else if(leftLeft >= margin) left = leftLeft;
+      else {
+        // Neither side fits cleanly — pick the side with more space and clamp
+        const spaceRight = viewW - rr.right - gap - margin;
+        const spaceLeft  = rr.left - gap - margin;
+        if(spaceRight >= spaceLeft) left = Math.min(leftRight, viewW - pw - margin);
+        else left = Math.max(margin, leftLeft);
+      }
+    } else {
+      if(leftLeft >= margin) left = leftLeft;
+      else if(leftRight + pw <= viewW - margin) left = leftRight;
+      else {
+        const spaceRight = viewW - rr.right - gap - margin;
+        const spaceLeft  = rr.left - gap - margin;
+        if(spaceLeft >= spaceRight) left = Math.max(margin, leftLeft);
+        else left = Math.min(leftRight, viewW - pw - margin);
+      }
+    }
+    if(left < margin) left = margin;
+    if(left + pw > viewW - margin) left = Math.max(margin, viewW - pw - margin);
+    // Vertical: align popup's top with anchor's top; nudge up if it would
+    // overflow the viewport bottom, or clamp to top margin. Only constrain
+    // height / enable scrolling when the content would actually overflow the
+    // available space — otherwise leave it auto-sized with no scrollbar.
+    let top = rr.top;
+    let available;
+    if(ph > viewH - 2*margin){
+      top = margin;
+      available = viewH - 2*margin;
+    } else {
+      if(top + ph > viewH - margin) top = viewH - ph - margin;
+      if(top < margin) top = margin;
+      available = viewH - top - margin;
+    }
+    if(ph > available){
+      pop.style.maxHeight = Math.max(120, available/z) + 'px';
+      pop.style.overflowY = 'auto';
+    } else {
+      // No overflow — let the content size naturally with no scroll container.
+      // Use 'none' to override any CSS max-height (e.g. export-pop's
+      // calc(100vh - 72px)) that would otherwise create an unnecessary
+      // scrollbar when the content actually fits in the available space.
+      pop.style.maxHeight = 'none';
+      pop.style.overflowY = 'visible';
+    }
+    pop.style.left=(left/z)+'px'; pop.style.top=(top/z)+'px';
+    pop.style.visibility=prevVis;
+    return {left:left/z, top:top/z};
+  }
   let left = align==='right' ? (rr.right-pw) : rr.left;
   if(left+pw > viewW-margin) left = viewW-pw-margin;
   if(left < margin) left = margin;
   const spaceBelow = viewH-(rr.bottom+gap)-margin;
   const spaceAbove = rr.top-gap-margin;
   let top;
+  let availableDrop;
   if(ph<=spaceBelow || spaceBelow>=spaceAbove){
     top = rr.bottom+gap;
-    pop.style.maxHeight = Math.max(120, (viewH-top-margin)/z)+'px';
+    availableDrop = viewH - top - margin;
   } else {
-    pop.style.maxHeight = Math.max(120, spaceAbove/z)+'px';
+    availableDrop = spaceAbove;
     top = Math.max(margin, rr.top-gap-Math.min(ph,spaceAbove));
+  }
+  if(ph > availableDrop){
+    pop.style.maxHeight = Math.max(120, availableDrop/z)+'px';
+    pop.style.overflowY = 'auto';
+  } else {
+    pop.style.maxHeight = 'none';
+    pop.style.overflowY = 'visible';
   }
   pop.style.left=(left/z)+'px'; pop.style.top=(top/z)+'px';
   pop.style.visibility=prevVis;
@@ -584,6 +660,9 @@ let history=[],hpos=-1;       // undo stack
 let saveTimer=null, _pendingSaveMap=null;
 
 const viewport=$('#viewport'), edges=$('#edges'), stage=$('#stage'), zoomVal=$('#zoomVal');
+// Static chrome elements queried on hot paths (every render / every pan-zoom
+// frame) — cache once at load instead of re-querying by id each time.
+const _zoomSliderEl=$('#zoomSlider'), _mmEl=$('#minimap'), _breadcrumbEl=$('#breadcrumb');
 
 /* ============================================================
    RENDER
@@ -591,6 +670,7 @@ const viewport=$('#viewport'), edges=$('#edges'), stage=$('#stage'), zoomVal=$('
 function applyView(){
   viewport.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.k})`;
   if(zoomVal) zoomVal.textContent=Math.round(view.k*100)+'%';
+  if(_zoomSliderEl) _zoomSliderEl.value=Math.round(Math.min(300,Math.max(10,view.k*100)));
   // Keep the (in-viewport) node toolbar at a constant on-screen size AND a
   // constant ~12px gap below the node as zoom changes (so it never overlaps).
   const bar=$('#nodebar');
@@ -618,6 +698,7 @@ function render(){
     sel=null;
     updateBreadcrumb();                   // hides (no map)
     updateMinimap();                      // clears + hides the overview box
+    renderOutline();                      // clears the outline dock
     return;
   }
   $('#empty').style.display='none';
@@ -628,6 +709,7 @@ function render(){
   applyLookConfigVars();
   applyThemeConfigVars();
   const _prevCI=_ci; _ci=buildChildIndex();   // O(1) childrenOf for this whole pass
+  const zd=zebraDepth();                       // zebra tint levels (root = 0)
   try{
   const roll=computeRollups();                // O(n) descendant + task totals
   const hidden=hiddenSet();
@@ -640,6 +722,7 @@ function render(){
     const el=document.createElement('div');
     el.className='node'+(id===map.rootId?' root':'')+(id===sel?' sel':'')+(hasKids&&n.collapsed?' collapsed':'')+(n.side==='left'?' left':'');
     el.dataset.id=id;
+    if(zd[id]) el.setAttribute('data-depth', zd[id]);   // zebra parity for uncoloured nodes
     el.style.left=n.x+'px'; el.style.top=n.y+'px';
     if(id===map.rootId){
       el.style.background = colorFor(map.color||'#e0613a');
@@ -841,6 +924,7 @@ function render(){
   scheduleTokenTotal();
   updateMinimap();
   updateBreadcrumb();
+  renderOutline();                  // keep the outline dock in sync with the canvas
   // Re-apply multi-selection outlines (render rebuilds node elements)
   if(typeof multiSel !== 'undefined' && multiSel.size){
     multiSel.forEach(id=>document.querySelector(`.node[data-id="${id}"]`)?.classList.add('multi-sel'));
@@ -994,10 +1078,17 @@ const ENTITY_RE = /&(#\d+|#x[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]+);/;
 const hasInlineMarkup = t => INLINE_HTML_RE.test(t||'') || ENTITY_RE.test(t||'');
 // Sanitize HTML: keep only a small inline-formatting whitelist; strip everything else
 const SAFE_TAGS = new Set(['b','i','u','s','strong','em','br','a','span','font','div','ul','ol','li','p','sub','sup','code','kbd','mark','ins','del','small','abbr']);
+// Memoized: render() re-sanitizes the same node HTML on every pass. Sanitizing
+// is a pure function of (html, extraTags), so a bounded cache keyed on both is
+// exact. Cleared wholesale at the cap — a miss just re-sanitizes.
+const _sanCache=new Map();
 function sanitizeInlineHTML(html, extraTags){
   // Parse INERTLY via <template>: its contents live in a document with no
   // browsing context, so smuggled resource-loaders like <img src=x onerror=…>
   // never fetch/fire during parsing. (A detached <div>.innerHTML still would.)
+  const key = html + '\u0000' + (extraTags ? extraTags.join(',') : '');
+  const hit = _sanCache.get(key);
+  if(hit !== undefined) return hit;
   const tpl = document.createElement('template');
   tpl.innerHTML = html || '';
   const allow = extraTags ? new Set([...SAFE_TAGS, ...extraTags]) : SAFE_TAGS;
@@ -1041,7 +1132,10 @@ function sanitizeInlineHTML(html, extraTags){
   // Serialize the now-sanitized fragment (no re-parse of untrusted input).
   const out = document.createElement('div');
   out.appendChild(tpl.content);
-  return out.innerHTML;
+  const result = out.innerHTML;
+  if(_sanCache.size>=500) _sanCache.clear();
+  _sanCache.set(key, result);
+  return result;
 }
 // Notes allow a few block tags on top of the inline set (headings, quotes).
 const NOTES_TAGS = ['h1','h2','h3','blockquote','pre','code','table','thead','tbody','tr','th','td'];
@@ -1300,6 +1394,15 @@ function shade(hex,amt){
   r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
   return '#'+((r<<16)|(g<<8)|b).toString(16).padStart(6,'0');
 }
+// sRGB lerp between two #rrggbb hexes by t (0..1) — mirrors the zebra tint's
+// color-mix(in srgb, ...) so the PNG export matches the on-screen striping.
+function mixHex(a,b,t){
+  const pa=parseInt(a.slice(1),16), pb=parseInt(b.slice(1),16);
+  const r=Math.round(((pa>>16)&255)*(1-t)+((pb>>16)&255)*t);
+  const g=Math.round(((pa>>8)&255)*(1-t)+((pb>>8)&255)*t);
+  const bl=Math.round((pa&255)*(1-t)+(pb&255)*t);
+  return '#'+((r<<16)|(g<<8)|bl).toString(16).padStart(6,'0');
+}
 function drawEdges(hidden){
   const style=map.style||'modern';
   const layout=map.layout||'balanced';
@@ -1479,6 +1582,22 @@ function withChildIndex(fn){
 const childrenOf=id => _ci
   ? (_ci[id] ? _ci[id].slice() : EMPTY_KIDS)
   : Object.values(map.nodes).filter(n=>n.parent===id).map(n=>n.id);
+// Zebra depth map — BFS from the root so level parity is stable even though
+// render() iterates map.nodes in arbitrary (insertion) order. Depth 0 = root;
+// depths >= 1 feed the alternating tint in styles.css ([data-depth] rules).
+function zebraDepth(){
+  const d={}; if(!map) return d;
+  const rid=map.rootId; if(!rid || !map.nodes[rid]) return d;
+  d[rid]=0; const q=[rid];
+  while(q.length){
+    const id=q.shift();
+    for(const c of childrenOf(id)){
+      if(d[c]!==undefined) continue;     // guard against cyclic parents
+      d[c]=d[id]+1; q.push(c);
+    }
+  }
+  return d;
+}
 function countDesc(id){let c=0;const walk=i=>childrenOf(i).forEach(k=>{c++;walk(k)});walk(id);return c;}
 // One O(n) post-order pass computing, for every node: descendant count (desc),
 // and task done/total among descendants (tdone/ttot). render() uses these instead
@@ -2365,7 +2484,14 @@ let mdMode=false, _mdSyncing=false, _mdTimer=0, _mdLines=[], _mdSelSync=false, _
 // folded range); indices are kept in sync across edits in mdCommitVisibleEdit().
 let _mdFullText='', _mdFolds=new Set(), _mdView=null, _mdPrevVisible='';
 function ensureMdPane(){
-  if(document.getElementById('mdPane')) return;
+  const existing = document.getElementById('mdPane');
+  if(existing){
+    document.body.classList.add('md-ready');
+    // Re-insert at correct grid position for current layout (modern vs classic/rail)
+    const app=document.querySelector('.app'), stage=document.querySelector('.stage');
+    if(app && stage && existing.parentElement===app && existing.nextElementSibling!==stage) app.insertBefore(existing, stage);
+    return;
+  }
   const app=document.querySelector('.app'), stage=document.querySelector('.stage'); if(!app||!stage) return;
   const pane=document.createElement('div'); pane.id='mdPane';
   pane.innerHTML='<div class="md-head"><span class="md-ttl">Markdown</span><span class="md-pos"></span><button class="md-pdf-btn" title="Download the rendered preview as a PDF">Download PDF</button><button class="md-wrap-btn" title="Toggle word wrap">Wrap</button><button class="md-prev-btn" title="Toggle rendered preview">Preview</button><button class="md-close" title="Exit Markdown mode (Esc)">\u2715</button></div>'
@@ -2419,7 +2545,11 @@ function ensureMdPane(){
     // CSS var they feed is read as logical px, so the whole sum needs the same /z
     // correction _stageSize()/_stagePoint() already apply, or the pane resizes at the
     // wrong rate relative to the mouse at any non-100% Display Size.
-    const mv=ev=>{ const w=Math.max(240, Math.min(window.innerWidth*0.72, (w0+(ev.clientX-x0))/z)); app.style.setProperty('--md-w', w+'px'); };
+    // Dock and Minimal have the pane on the right side (stage left, pane right) with the
+    // handle on the left edge, so dragging left should grow the pane — invert delta.
+    // Generic check: if pane is to the right of stage, invert.
+    const isRight = pane.getBoundingClientRect().left > (document.querySelector('.stage')?.getBoundingClientRect().left ?? 0);
+    const mv=ev=>{ const delta = isRight ? (x0 - ev.clientX) : (ev.clientX - x0); const w=Math.max(240, Math.min(window.innerWidth*0.72, (w0+delta)/z)); app.style.setProperty('--md-w', w+'px'); };
     const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); document.body.classList.remove('md-resizing'); try{ animateViewTo(computeFitView(), 220); }catch(_){} mdSyncGutterRowHeights(); };
     window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
   });
@@ -4329,6 +4459,9 @@ function startEdit(id){
         map.title = titleText;
         $('#mapTitle').value = titleText;
         refreshList();
+        // keep the tab label live too (mirrors the #mapTitle input handler)
+        if(_tabActive>=0 && _tabs[_tabActive]) _tabs[_tabActive].title=titleText;
+        const _tabLbl=document.querySelector('#tabRow .tab.active .tab-title'); if(_tabLbl) _tabLbl.textContent=titleText||'Untitled';
       }
       pushHistory();
     }
@@ -4374,7 +4507,7 @@ function showPicker(anchor, kind, current, onPick){
     activePicker.remove(); activePicker=null; return;
   }
   if(activePicker){ activePicker.remove(); activePicker=null; }
-  document.querySelectorAll('.tpl-pop, .export-pop').forEach(p=>{ try{p.remove();}catch(_){} });
+  document.querySelectorAll('.export-pop').forEach(p=>{ try{p.remove();}catch(_){} });
   try{ if(typeof closeThemePanel==='function') closeThemePanel(); }catch(_){}
   const p=document.createElement('div');
   p.className='picker '+kind; p._anchor=anchor;
@@ -4775,7 +4908,7 @@ function placeReparentedSubtree(childId, parentId){
 
 stage.addEventListener('mousedown',e=>{
   // Don't intercept clicks on the chrome / overlay UI.
-  if(e.target.closest('.topbar, .zoombar, .hint, .toast, .nodebar, .empty, .search-wrap, .save-pill, .tb-group, .side, .picker, .minimap, .breadcrumb')) return;
+  if(e.target.closest('.topbar, .overview, .hint, .toast, .nodebar, .empty, .search-wrap, .save-pill, .tb-group, .side, .picker, .minimap, .breadcrumb')) return;
   const nodeEl=e.target.closest('.node');
   // If the click lands inside a node that's currently being edited, let
   // contentEditable handle it natively (text selection, cursor placement).
@@ -4933,7 +5066,7 @@ stage.addEventListener('touchstart', e=>{
   if(e.touches.length!==1) return;
   const t=e.touches[0];
   // Don't intercept taps on the chrome / overlay UI
-  if(t.target && t.target.closest && t.target.closest('.topbar, .zoombar, .hint, .toast, .nodebar, .empty, .search-wrap, .save-pill, .tb-group, .side, .picker, .notes-popup, .donate-modal, .theme-panel, .login-overlay, .user-pill, .minimap, .breadcrumb')) return;
+  if(t.target && t.target.closest && t.target.closest('.topbar, .overview, .hint, .toast, .nodebar, .empty, .search-wrap, .save-pill, .tb-group, .side, .picker, .notes-popup, .donate-modal, .theme-panel, .login-overlay, .user-pill, .minimap, .breadcrumb')) return;
   const nodeEl=t.target.closest?.('.node');
   // Don't pan / drag when tapping inside a node that's being edited —
   // contentEditable needs to handle the touch for caret placement and selection.
@@ -5229,11 +5362,26 @@ function openSearch(withReplace){
   const w=$('#searchWrap');
   w.classList.add('open');
   if(withReplace) w.classList.add('replace-mode');
+  if(document.body.classList.contains('ui-rail')){
+    const btn=$('#searchBtn');
+    if(btn){
+      // Position directly to the right of the ⌕ button, vertically centered.
+      // Use offsetLeft/Top (relative to the rail's padding box) so padding/border
+      // and --ui-zoom are handled correctly; getBoundingClientRect would need
+      // manual padding correction and is zoom-sensitive.
+      const left = btn.offsetLeft + btn.offsetWidth + 6;
+      const top = btn.offsetTop + (btn.offsetHeight - w.offsetHeight) / 2;
+      w.style.left = left + 'px';
+      w.style.top = Math.max(4, Math.min(top, window.innerHeight - 60)) + 'px';
+      w.style.right='auto';
+    }
+  } else { w.style.top=''; w.style.left=''; w.style.right=''; }
   $('#search').focus(); $('#search').select();
 }
 function closeSearch(){
   const w=$('#searchWrap');
   w.classList.remove('open','replace-mode','all-mode');
+  w.style.top=''; w.style.left=''; w.style.right='';
   $('#search').value=''; $('#replace').value='';
   $('#searchCount').textContent='';
   $('#allMapsToggle')?.classList.remove('on');
@@ -5366,12 +5514,13 @@ function centreOn(id){
    ============================================================ */
 const MM_W=168, MM_H=120;
 function updateMinimap(){
-  const mm=$('#minimap'); if(!mm) return;
-  if(!map){ mm.innerHTML=''; mm._t=null; mm.style.display='none'; return; }
+  const mm=_mmEl; if(!mm) return;
+  if(!map){ mm.innerHTML=''; mm._t=null; mm.style.display='none'; mm._prevRects=''; return; }
   const hidden=hiddenSet();
   const ids=Object.keys(map.nodes).filter(id=>!hidden.has(id));
-  if(!ids.length){ mm.innerHTML=''; mm._t=null; mm.style.display='none'; return; }
+  if(!ids.length){ mm.innerHTML=''; mm._t=null; mm.style.display='none'; mm._prevRects=''; return; }
   mm.style.display='';
+  const zd=withChildIndex(zebraDepth);   // zebra tint levels, mirrors the on-canvas striping
   let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
   ids.forEach(id=>{ const n=map.nodes[id];
     minx=Math.min(minx,n.x); miny=Math.min(miny,n.y);
@@ -5387,14 +5536,22 @@ function updateMinimap(){
     const x=ox+(n.x-minx)*scale, y=oy+(n.y-miny)*scale;
     const w=Math.max(2,(n.w||120)*scale), h=Math.max(2,(n.h||40)*scale);
     const col = id===map.rootId ? (map.color||'#e0613a')
-      : (n.color && n.color!=='#fff' && n.color!=='#ffffff') ? n.color : 'var(--line-2)';
+      : (n.color && n.color!=='#fff' && n.color!=='#ffffff') ? n.color
+      : (zd[id] && zd[id]%2===1) ? 'var(--zebra-1)' : (zd[id] ? 'var(--zebra-2)' : 'var(--line-2)');
     return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" fill="${col}" ${id===sel?'class="mm-sel"':''}/>`;
   }).join('');
+  // The rects string encodes EVERYTHING the minimap shows (positions, sizes,
+  // colours, root/selection, visible set — even node insertion order), so an
+  // exact string match means the overview is already up to date. Skipping the
+  // innerHTML write avoids re-parsing and re-rendering the whole SVG on renders
+  // that didn't move nodes (selection changes, style tweaks, …).
+  if(rects === mm._prevRects){ updateMinimapViewport(); return; }
+  mm._prevRects=rects;
   mm.innerHTML=`<svg viewBox="0 0 ${MM_W} ${MM_H}" width="${MM_W}" height="${MM_H}">${rects}<rect id="mmView" fill="none"/></svg>`;
   updateMinimapViewport();
 }
 function updateMinimapViewport(){
-  const mm=$('#minimap'); if(!mm||!mm._t) return;
+  const mm=_mmEl; if(!mm||!mm._t) return;
   const v=mm.querySelector('#mmView'); if(!v) return;
   const {minx,miny,scale,ox,oy}=mm._t;
   // _prevStage is kept fresh by _markStage() at gesture-settle points (resize, sidebar
@@ -5409,7 +5566,7 @@ function updateMinimapViewport(){
   v.setAttribute('height',Math.max(4,wh*scale).toFixed(1));
 }
 function minimapJump(clientX, clientY){
-  const mm=$('#minimap'); if(!mm||!mm._t) return;
+  const mm=_mmEl; if(!mm||!mm._t) return;
   const rect=mm.getBoundingClientRect();
   const z=_uiZ();
   const {minx,miny,scale,ox,oy}=mm._t;
@@ -5422,23 +5579,51 @@ function minimapJump(clientX, clientY){
 }
 
 /* ============================================================
-   BREADCRUMB — clickable path from root to the selected node
+   BREADCRUMB — clickable path from root to the selected node.
+   Hidden by default; expands while hovering the overview chip
+   in the status bar (visibility handled by syncBreadcrumb).
    ============================================================ */
 function updateBreadcrumb(){
-  const bc=$('#breadcrumb'); if(!bc) return;
-  if(!map || !sel || !map.nodes[sel]){ bc.style.display='none'; return; }
+  const bc=_breadcrumbEl; if(!bc) return;
+  if(!map || !sel || !map.nodes[sel]){ if(bc._prevHtml){ bc.innerHTML=''; bc._prevHtml=''; } bc._has=false; syncBreadcrumb(); return; }
   const path=[]; let cur=sel, guard=0;
   while(cur && guard++<200){ path.unshift(cur); cur=map.nodes[cur]?.parent; }
-  if(path.length<=1){ bc.style.display='none'; return; }   // nothing to show at the root
-  bc.style.display='flex';
-  bc.innerHTML=path.map((id,i)=>{
+  if(path.length<=1){ if(bc._prevHtml){ bc.innerHTML=''; bc._prevHtml=''; } bc._has=false; syncBreadcrumb(); return; }   // nothing to show at the root
+  bc._has=true;
+  const html=path.map((id,i)=>{
     const label=nodeTextPlain(map.nodes[id].text||'')||'(untitled)';
     const short=label.length>22 ? label.slice(0,22)+'…' : label;
     const crumb=`<button class="bc-crumb${id===sel?' current':''}" data-id="${id}" title="${escapeHtml(label)}">${escapeHtml(short)}</button>`;
     return crumb + (i<path.length-1 ? '<span class="bc-sep">›</span>' : '');
   }).join('');
-  bc.querySelectorAll('.bc-crumb').forEach(b=>b.onclick=()=>{ select(b.dataset.id,false); centreOn(b.dataset.id); });
+  // render() runs on every interaction; skip the innerHTML write (and the
+  // per-crumb listener re-attach) when the path hasn't changed.
+  if(html!==bc._prevHtml){
+    bc._prevHtml=html;
+    bc.innerHTML=html;
+    bc.querySelectorAll('.bc-crumb').forEach(b=>b.onclick=()=>{ select(b.dataset.id,false); centreOn(b.dataset.id); });
+  }
+  syncBreadcrumb();
 }
+function syncBreadcrumb(){
+  const bc=_breadcrumbEl; if(!bc) return;
+  // Classic shell (as upstream): the breadcrumb is always visible once the
+  // selection has a path; the modern shell expands it only while hovering
+  // the overview chip in the status bar, and focus mode hides the overview
+  // so it stays tucked away there too.
+  const classic = document.body.classList.contains('ui-classic') || document.body.classList.contains('ui-rail') || document.body.classList.contains('ui-zen');
+  const show = !!bc._has && (classic ? !document.body.classList.contains('focus-mode') : !!bc._ov);
+  bc.classList.toggle('shown', show);
+}
+// Overview chip: hovering it (or tabbing into its controls) expands the breadcrumb.
+(function(){
+  const ov=$('#overview'); if(!ov) return;
+  const set=v=>{ const bc=_breadcrumbEl; if(bc) bc._ov=v; syncBreadcrumb(); };
+  ov.addEventListener('mouseenter',()=>set(true));
+  ov.addEventListener('mouseleave',()=>set(false));
+  ov.addEventListener('focusin',()=>set(true));
+  ov.addEventListener('focusout',()=>set(false));
+})();
 
 /* ============================================================
    MAPS — list / create / load / delete
@@ -5660,7 +5845,7 @@ async function createMapFromTemplate(templateId){
   // Optional per-node fields a template may set to showcase features.
   const OPT = ['notes','image','ref','citation','fontSize','bold','italic',
     'underline','strike','textColor','highlight','align','listType','collapsed','width','height',
-    'html','frontmatter','raw','lang'];
+    'html','frontmatter','raw','lang','marker'];
   tpl.nodes.forEach(n => {
     const nid = keyToId[n.k];
     const node = {
@@ -5686,6 +5871,7 @@ async function createMapFromTemplate(templateId){
   pushHistory();
   $('#mapTitle').value = map.title;
   autoLayout(); fit();
+  if(tabsEnabled){ openMapInTab(map); scheduleSave(); return; }   // new map opens as a tab
   scheduleSave(); refreshList();
 }
 
@@ -5764,7 +5950,7 @@ function showTemplatesMenu(){
   document.body.appendChild(pop);
   pop.addEventListener('mousedown', e => e.stopPropagation());
   // Stop clicks inside the popover from reaching the document-level
-  // outside-click handler — otherwise drilling into a category (which
+  // outside-click handler - otherwise drilling into a category (which
   // rebuilds innerHTML and detaches the clicked button) would be seen as
   // an "outside" click and close the menu.
   pop.addEventListener('click', e => e.stopPropagation());
@@ -5781,7 +5967,7 @@ function showTemplatesMenu(){
     pop.innerHTML = `
       <div class="tpl-head">Start from a template</div>
       <button class="tpl-item" data-act="blank">
-        <span class="tpl-ic" style="background:#e0613a">⊕</span>
+        <span class="tpl-ic" style="background:#e0613a">✕</span>
         <span><b>Blank map</b><i>Just a root node</i></span>
       </button>
       <div class="tpl-divider"></div>
@@ -5807,9 +5993,9 @@ function showTemplatesMenu(){
       <div class="tpl-head" style="padding-top:2px">${escapeHtml(cat.label)}</div>
       ${entries.map(([id,t])=>`
         <button class="tpl-item" data-id="${id}">
-          <span class="tpl-ic" style="background:${t.color}">${t.icon || '⊟'}</span>
+          <span class="tpl-ic" style="background:${t.color}">${t.icon || '?'}</span>
           <span><b>${escapeHtml(t.name)}</b><i>${escapeHtml(t.desc)}</i></span>
-          ${t._user?`<span class="tpl-del" data-del="${id}" title="Delete template">✕</span>`:''}
+          ${t._user?`<span class="tpl-del" data-del="${id}" title="Delete template">×</span>`:''}
         </button>`).join('')}`;
     pop.querySelector('[data-act="back"]').onclick = renderRoot;
     pop.querySelectorAll('.tpl-item[data-id]').forEach(b => b.onclick = (e) => {
@@ -5830,7 +6016,6 @@ function showTemplatesMenu(){
     if(!pop.contains(e.target)){ close(); document.removeEventListener('click', cl); }
   }), 0);
 }
-
 function createMap(){
   if(!leaveLiveForSwitch()) return;
   exitSharedMode();
@@ -5843,6 +6028,7 @@ function createMap(){
   map=m; sel=rid; history=[]; hpos=-1; pushHistory();
   $('#mapTitle').value=map.title;
   autoLayout();
+  if(tabsEnabled){ openMapInTab(map); scheduleSave(); return; }   // tabbed workspace: new map opens as its own tab
   // Default new maps to 100% zoom, centred on the root
   view.k=1;
   const {w:sw,h:sh}=_stageSize();
@@ -5868,6 +6054,7 @@ async function loadMap(id){
     }
   }
   flushPendingSave();          // persist the outgoing map's pending edit to itself
+  if(tabsEnabled){ openMapInTab(m); return true; }   // tabbed workspace: open (or switch to) a tab
   map=m; sel=map.rootId;
   const _imported = !!map._import; if(_imported) delete map._import;
   // Initialise history WITHOUT triggering a save — loading is not a change,
@@ -5893,6 +6080,8 @@ $('#mapTitle').addEventListener('input',e=>{
   if(!map) return;
   map.title=e.target.value;
   map.titleAuto=false;          // user took control — stop mirroring the root text
+  if(_tabActive>=0 && _tabs[_tabActive]) _tabs[_tabActive].title=e.target.value;   // keep the tab label live
+  const tt=document.querySelector('#tabRow .tab.active .tab-title'); if(tt) tt.textContent=e.target.value||'Untitled';
   scheduleSave(); refreshList();
 });
 
@@ -5957,7 +6146,6 @@ function exportMenu(){
     <button data-a="buildprompt"><span class="ex-ic">✨</span><span><b>Compile subtree → prompt</b><i>Assemble the selected branch into a prompt</i></span></button>
     <div class="ex-grp">Export</div>
     <button data-a="png"   ><span class="ex-ic">🖼</span><span><b>PNG image</b><i>Themed export, honors map style</i></span></button>
-    <button data-a="svg"   ><span class="ex-ic">🖊</span><span><b>SVG vector</b><i>Editable in Inkscape, Illustrator, Figma</i></span></button>
     <button data-a="prompt"><span class="ex-ic">⚡</span><span><b>Export as prompt</b><i>Fill variables, then copy clean text</i></span></button>
     <button data-a="mdrich"><span class="ex-ic">📝</span><span><b>Markdown</b><i>Formatting, tasks, tables, code</i></span></button>
     <button data-a="copy"  ><span class="ex-ic">⎘</span><span><b>Copy as text (clipboard)</b><i>Plain outline, no download</i></span></button>
@@ -5969,9 +6157,13 @@ function exportMenu(){
     <button data-a="astemplate"><span class="ex-ic">⭐</span><span><b>Save as template</b><i>Reuse this structure for new maps</i></span></button>
     <button data-a="json"  ><span class="ex-ic">{}</span><span><b>JSON file</b><i>Full backup, re-importable</i></span></button>
     <div class="ex-grp">Import</div>
-    <button data-a="import"><span class="ex-ic">↑</span><span><b>Import file</b><i>JSON, OPML, Markdown, FreeMind (.mm), GitMind, MindMeister</i></span></button>`;
+    <button data-a="import"><span class="ex-ic">↑</span><span><b>Import file</b><i>JSON, OPML, or Markdown outline</i></span></button>`;
   document.body.appendChild(pop);
-  positionPopup(pop, $('#menuExport'), {align:'right'});
+  // Side-toolbar layout: fly out to the right of the vertical rail (VS Code / Figma
+  // pattern) rather than dropping below the narrow 46px bar, which would be
+  // clamped to the viewport edge and appear detached.
+  const _isRail = document.body.classList.contains('ui-rail') && !window.matchMedia('(max-width: 720px)').matches;
+  positionPopup(pop, $('#menuExport'), _isRail ? {side:'right'} : {align:'right'});
   pop.addEventListener('mousedown',e=>e.stopPropagation());
   const close=()=>pop.remove();
   setTimeout(()=>document.addEventListener('click', function cl(e){
@@ -5987,7 +6179,6 @@ function exportMenu(){
     else if(a==='present') startPresentation();
     else if(a==='buildprompt') showBuildPrompt(sel || (map&&map.rootId));
     else if(a==='png') exportPNG();
-    else if(a==='svg') exportSVG();
     else if(a==='prompt') exportAsPrompt();
     else if(a==='mdrich') exportMarkdown(false, true);
     else if(a==='copy') exportMarkdown(true);
@@ -6483,12 +6674,6 @@ async function parseMind(buf, filename){
   let d; try{ d=JSON.parse(jsonText); }catch(e){ throw new Error('.mind map.json is not valid JSON'); }
   return convertMindToMap(d, filename);
 }
-
-// ---- FreeMind (.mm) import ------------------------------------------------
-// A .mm file is plain XML: <map><node TEXT="..." ...><node .../></node></map>.
-// Attributes: TEXT, POSITION (left/right on root children), COLOR (text),
-// BACKGROUND_COLOR (card), FOLDED, LINK, plus <font> and <richcontent>
-// (TYPE="NODE" for rich text, TYPE="NOTE" for notes).
 function fmAttr(el, name){
   // FreeMind attributes are all-caps in the wild (TEXT, FOLDED, COLOR,
   // POSITION, LINK...) but a few exporters write them lowercase; match either.
@@ -7312,12 +7497,23 @@ function formatFormulaResult(v){
 }
 
 // Strip HTML to plain text but keep newlines from <br> and block elements
+// Memoized: render()/updateTokenTotal() call this for every node on every pass,
+// and parsing a <template> per call dominates those passes on maps with many
+// formatted nodes. The result is a pure function of `text`, so a bounded cache
+// keyed on the string is exact. Cleared wholesale at the cap — correctness
+// never depends on the cache (a miss just re-parses).
+let _ntpCache=new Map();
 function nodeTextPlain(text){
   if(!text) return '';
   if(!hasInlineMarkup(text)) return text;
+  const hit=_ntpCache.get(text);
+  if(hit!==undefined) return hit;
   const tpl=document.createElement('template'); tpl.innerHTML=text;   // inert parse
   tpl.content.querySelectorAll('br').forEach(br=>br.replaceWith(document.createTextNode('\n')));
-  return (tpl.content.textContent||'').replace(/\u00A0/g,' ').trim();
+  const out=(tpl.content.textContent||'').replace(/\u00A0/g,' ').trim();
+  if(_ntpCache.size>=2000) _ntpCache.clear();
+  _ntpCache.set(text, out);
+  return out;
 }
 // Rough token count: ~4 chars per token (English avg for GPT/Claude tokenizers).
 // Adds notes content to the total so the badge reflects what would actually be
@@ -8018,344 +8214,339 @@ function drawNodeMath(ctx, text, o){
 
 async function exportPNG(){
   render();
-  const hidden=hiddenSet();
-  const ids=Object.keys(map.nodes).filter(i=>!hidden.has(i));
-  if(ids.length===0){ toast('Nothing to export — the map is empty'); return; }
-  let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
-  ids.forEach(i=>{const n=map.nodes[i];minx=Math.min(minx,n.x);miny=Math.min(miny,n.y);maxx=Math.max(maxx,n.x+(n.w||120));maxy=Math.max(maxy,n.y+(n.h||40));});
-  const pad=50;
-  const W=(maxx-minx+pad*2), H=(maxy-miny+pad*2);
-  // Canvas has hard size limits (~16k px per side); shrink the scale rather
-  // than throw, so giant maps still export.
-  let scale=2;
-  const MAX=16384;
-  if(W*scale>MAX || H*scale>MAX) scale=Math.min(scale, MAX/W, MAX/H);
-  const cv=document.createElement('canvas'); cv.width=Math.round(W*scale); cv.height=Math.round(H*scale);
-  const ctx=cv.getContext('2d');
-  ctx.scale(scale,scale);
-  drawExportBackground(ctx,W,H,minx-pad,miny-pad);
-  try{
-    const svgXML=await buildMapSnapshot(minx-pad, miny-pad, W, H);
-    const svgUrl='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svgXML);
-    const img=await new Promise((res,rej)=>{
-      const im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error('snapshot failed to decode'));
-      im.src=svgUrl;
-    });
-    ctx.drawImage(img,0,0,W,H);
-  }catch(e){
-    console.warn('PNG export failed:', e.message);
-    toast('Could not export the PNG');
-    return;
-  }
-  window.__lastExportCanvas=cv;   // test hook: the final raster, pre-download
-  cv.toBlob(b=>{ download(b,(map.title||'mindmap')+'.png'); toast('PNG exported'); });
-}
+  // Read live theme colors from CSS custom properties so the export matches
+  // whatever theme/map style the user has selected.
+  const cs = getComputedStyle(document.documentElement);
+  const css = name => cs.getPropertyValue(name).trim();
+  const themeBg     = css('--paper')     || '#f4efe6';
+  const themeEdge   = css('--line-2')    || '#c8bda8';
+  const themeInk    = css('--ink')       || '#23201b';
+  const themeNodeBg = css('--node-bg')   || '#ffffff';
+  const themeLine   = css('--line')      || '#d8cfbf';
+  const accent      = css('--accent')    || '#e0613a';
+  // Zebra tints for uncoloured nodes — same 93/7 split as the CSS striping.
+  const zebraA = mixHex(themeNodeBg, accent, 0.07);
+  const zebraB = mixHex(themeNodeBg, css('--teal') || '#2f6f6a', 0.07);
+  const zd = withChildIndex(zebraDepth);   // depth parity for the tint choice
+  const mapStyle  = map.style  || 'modern';
+  const mapLayout = map.layout || 'balanced';
 
-// SVG export: the PNG path already builds a faithful DOM snapshot as an <svg>
-// with a <foreignObject> (buildMapSnapshot) purely to rasterize it. A vector
-// export is that same snapshot, downloaded as-is — the map stays real SVG
-// (editable shapes in Inkscape/Illustrator/Figma), with the paper background
-// painted as a plain <rect> the way the PNG path paints it on the canvas.
-async function exportSVG(){
-  render();
-  const hidden=hiddenSet();
-  const ids=Object.keys(map.nodes).filter(i=>!hidden.has(i));
-  if(ids.length===0){ toast('Nothing to export — the map is empty'); return; }
-  let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
-  ids.forEach(i=>{const n=map.nodes[i];minx=Math.min(minx,n.x);miny=Math.min(miny,n.y);maxx=Math.max(maxx,n.x+(n.w||120));maxy=Math.max(maxy,n.y+(n.h||40));});
-  const pad=50;
-  const W=(maxx-minx+pad*2), H=(maxy-miny+pad*2);
-  try{
-    let svgXML=await buildMapSnapshot(minx-pad, miny-pad, W, H);
-    const paper=getComputedStyle(document.documentElement).getPropertyValue('--paper').trim()||'#f4efe6';
-    // buildMapSnapshot serializes <svg ...><foreignObject ...>; slide the
-    // background rect in between so the file opens with the theme's paper.
-    svgXML=svgXML.replace('><foreignObject', '><rect width="'+W+'" height="'+H+'" fill="'+paper+'"/><foreignObject');
-    download(new Blob([svgXML], {type:'image/svg+xml;charset=utf-8'}), (map.title||'mindmap')+'.svg');
-    toast('SVG exported');
-  }catch(e){
-    console.warn('SVG export failed:', e.message);
-    toast('Could not export the SVG');
-  }
-}
-
-/* ============================================================
-   PNG export internals — a faithful DOM snapshot, not a re-painter.
-
-   The previous export re-drew every node with canvas primitives: its own text
-   wrapper and line-breaker, its own badges and pill counters, its own image
-   handling. Every CSS tweak on the live map (padding, glow, looks, fonts)
-   silently drifted out of the export. This version rasterizes the actual
-   #viewport DOM instead: clone it, inline every computed style so no
-   stylesheet is needed, synthesize ::before/::after pseudo-elements, embed
-   fonts and images as data: URLs (an SVG used as an <img> is sandboxed and
-   cannot fetch anything), and let the browser's own compositor paint it.
-   "Exactly the same as the canvas" by construction rather than by
-   maintenance.
-   ============================================================ */
-
-// The export's backdrop: just the --paper fill. The stage's texture and glow
-// wash are painted by the compositor via the stage div injected into the
-// snapshot (buildMapSnapshot), which reproduces the live .stage exactly.
-function drawExportBackground(ctx,W,H,x0,y0){
-  const cs=getComputedStyle(document.documentElement);
-  const css=n=>cs.getPropertyValue(n).trim();
-  const paper=css('--paper')||'#f4efe6';
-  ctx.fillStyle=paper;
-  ctx.fillRect(0,0,W,H);
-}
-
-// Clone #viewport, strip transient selection chrome, and return a tree with
-// every computed style (including custom properties) inlined, pseudo-elements
-// materialized, and the view transform overridden so the export rectangle
-// lands at the origin.
-async function buildMapSnapshot(x0,y0,W,H){
-  const live=viewport;
-  const clone=live.cloneNode(true);
-  // The node toolbar lives inside #viewport (so it pans/zooms with the map),
-  // but it is editing chrome, not map content — strip it or an export taken
-  // with a node selected would bake the toolbar into the PNG.
-  clone.querySelector('#nodebar')?.remove();
-  clone.querySelectorAll('.node').forEach(el=>{
-    el.classList.remove(
-      'sel','editing','dim','match','match-current','multi-sel',
-      'drop-before','drop-after','drop-target','link-source','file-drop','pres-current'
-    );
+  const hidden=hiddenSet(); const ids=Object.keys(map.nodes).filter(i=>!hidden.has(i));
+  // Pre-load every node's image — ctx.drawImage() needs an actual loaded Image
+  // object, not the data-URL string, so this has to finish before the drawing
+  // pass below runs. A per-image timeout means one slow/corrupt image can't hang
+  // the whole export; that node just falls back to no image, like before.
+  const loadImg = src => new Promise(resolve=>{
+    const img=new Image();
+    let done=false; const finish=v=>{ if(!done){ done=true; resolve(v); } };
+    img.onload=()=>finish(img);
+    img.onerror=()=>finish(null);
+    setTimeout(()=>finish(null), 4000);
+    img.src=src;
   });
-  inlineComputedStyles(live, clone);
-  // The live map sits at fractional screen offsets (the pan/zoom transform),
-  // so its pixel rasterization is sampled at those sub-pixel positions. The
-  // export must sample at the same offsets or every glyph, card edge and dot
-  // rasterizes one fractional step away and the whole content region differs.
-  // Shift the clone by the fractional parts of (tx+stage.left) and
-  // (ty+stage.top): the diff's round() mapping then lands the same pixels on
-  // the same windows as the live compositor.
-  const vt=getComputedStyle(viewport).transform;
-  let vtx=0, vty=0;
-  if(vt && vt!=='none'){
-    const m=vt.match(/matrix\(([^)]+)\)/);
-    if(m){ const vv=m[1].split(',').map(parseFloat); vtx=vv[4]||0; vty=vv[5]||0; }
-  }
-  const fmod=n=>((n%1)+1)%1;
-  const srect2=document.querySelector('.stage').getBoundingClientRect();
-  const dx=fmod(vtx+srect2.left+x0), dy=fmod(vty+srect2.top+y0);
-  clone.style.transform='translate('+(-x0+dx)+'px,'+(-y0+dy)+'px)';
-  clone.style.width=W+'px'; clone.style.height=H+'px';
-  // The stage backdrop (the dots/lines texture and the --stage-glow wash)
-  // lives on a sibling box behind the map, not inside #viewport, so the clone
-  // never carries it. Inject a stage-sized div carrying the live stage's own
-  // background layers: the compositor then paints the tiles and the glow
-  // exactly like the live page — same gradients, same interpolation, same
-  // rasterization — instead of a canvas approximation. (Injected after the
-  // lockstep style walk so the parallel traversal stays in sync.)
-  const stage=document.querySelector('.stage');
-  if(stage){
-    const st=getComputedStyle(viewport).transform;
-    let s=1,tx=0,ty=0;
-    if(st && st!=='none'){
-      const m=st.match(/matrix\(([^)]+)\)/);
-      if(m){ const v=m[1].split(',').map(parseFloat); s=v[0]||1; tx=v[4]||0; ty=v[5]||0; }
-    }
-    const stx=-tx/s-x0, sty=-ty/s-y0;
-    const srect=stage.getBoundingClientRect();
-    const scs=getComputedStyle(stage);
-    const glow=scs.getPropertyValue('--stage-glow')||getComputedStyle(document.documentElement).getPropertyValue('--stage-glow');
-    let img=scs.backgroundImage, size=scs.backgroundSize, rep=scs.backgroundRepeat, pos=scs.backgroundPosition;
-    if(glow && glow!=='transparent' && glow!=='none'){
-      img='radial-gradient(ellipse at 50% 0%, '+glow+', transparent 60%), '+img;
-      size='auto, '+size; rep='no-repeat, '+rep; pos='0 0, '+pos;
-    }
-    const div=document.createElement('div');
-    // The div lives inside the transformed clone (map space), so offset by
-    // (x0,y0): the clone's translate(-x0,-y0) then lands it at the stage's
-    // export-space position (stx,sty).
-    div.style.cssText='position:absolute;left:'+(stx+x0)+'px;top:'+(sty+y0)+'px;width:'+srect.width+'px;height:'+srect.height+'px;'+
-      'background-color:transparent;background-image:'+img+';background-size:'+size+';background-repeat:'+rep+';'+
-      'background-position:'+pos+';transform:none;';
-    clone.insertBefore(div, clone.firstChild);
-  }
-  // The clone's ancestors don't exist in the SVG image, so nothing inherits
-  // the theme's custom properties from them. Edge paths reference --edge-color
-  // etc. through presentation-attribute var(), node backgrounds reference
-  // --node-bg, color-mix() shadows reference --accent — all of it needs the
-  // :root values on the clone itself.
-  const rootCS=getComputedStyle(document.documentElement);
-  for(const p of rootCS){
-    if(p.startsWith('--')) clone.style.setProperty(p, rootCS.getPropertyValue(p));
-  }
-  await inlineImagesAsDataURLs(clone);
-  const fontCSS=await snapshotFontCSS();
-  const NS='http://www.w3.org/2000/svg', XHTML='http://www.w3.org/1999/xhtml';
-  const svg=document.createElementNS(NS,'svg');
-  svg.setAttribute('xmlns',NS);
-  svg.setAttribute('width',W); svg.setAttribute('height',H);
-  svg.setAttribute('viewBox','0 0 '+W+' '+H);
-  const fo=document.createElementNS(NS,'foreignObject');
-  fo.setAttribute('width',W); fo.setAttribute('height',H);
-  const wrap=document.createElementNS(XHTML,'div');
-  wrap.style.width=W+'px'; wrap.style.height=H+'px';
-  wrap.style.position='relative'; wrap.style.overflow='hidden';
-  const st=document.createElementNS(XHTML,'style');
-  st.textContent=fontCSS;
-  wrap.appendChild(st);
-  wrap.appendChild(clone);
-  fo.appendChild(wrap);
-  svg.appendChild(fo);
-  return new XMLSerializer().serializeToString(svg);
-}
+  const imgMap={};
+  await Promise.all(ids.filter(i=>map.nodes[i].image).map(async i=>{ imgMap[i]=await loadImg(map.nodes[i].image); }));
 
-// Walk the live tree and the clone in lockstep, copying the live element's
-// computed style onto the clone as inline styles. Also materialize ::before /
-// ::after pseudo-elements as real children, because the SVG image document
-// has no stylesheet to generate them from. Children are walked first so the
-// inserted pseudo spans can't desync the parallel traversal.
-function inlineComputedStyles(liveRoot, cloneRoot){
-  const apply=(liveEl, cloneEl)=>{
-    const lc=liveEl.children, cc=cloneEl.children;
-    const n=Math.min(lc.length, cc.length);
-    for(let i=0;i<n;i++) apply(lc[i], cc[i]);
-    const cs=getComputedStyle(liveEl);
-    const st=cloneEl.style;
-    for(const p of cs) st.setProperty(p, cs.getPropertyValue(p));
-    for(const pseudo of ['::before','::after']){
-      const pc=getComputedStyle(liveEl, pseudo);
-      const content=pc.getPropertyValue('content');
-      if(content && content!=='none' && content!=='normal' && content!=='""' && content!=="''"){
-        const s=document.createElement('span');
-        s.textContent=decodeCSSContent(content);
-        const pst=s.style;
-        for(const p of pc) pst.setProperty(p, pc.getPropertyValue(p));
-        if(pseudo==='::before') cloneEl.insertBefore(s, cloneEl.firstChild);
-        else cloneEl.appendChild(s);
+  // Favicons for link nodes, so the export matches what the live canvas shows.
+  // crossOrigin='anonymous' is the whole safety story here: favicons come from
+  // a third-party host, and drawing a cross-origin image WITHOUT it taints the
+  // canvas, which makes the final toBlob() throw and kills the entire export.
+  // With it, the browser either gets CORS headers and the icon is safe to
+  // draw, or the load fails outright and we simply skip that icon. A missing
+  // favicon is a cosmetic loss; a tainted canvas is a broken feature.
+  const loadFavicon = src => new Promise(resolve=>{
+    const img=new Image();
+    let done=false; const finish=v=>{ if(!done){ done=true; resolve(v); } };
+    img.crossOrigin='anonymous';
+    img.onload=()=>finish(img);
+    img.onerror=()=>finish(null);
+    setTimeout(()=>finish(null), 3000);   // never let a slow icon host stall the export
+    img.src=src;
+  });
+  const favicons={};
+  {
+    const hosts=new Set();
+    ids.forEach(i=>{
+      const t=map.nodes[i].text||'';
+      URL_RE.lastIndex=0; let m;
+      while((m=URL_RE.exec(t))!==null){
+        try{ hosts.add(new URL(m[0]).hostname.replace(/^www\./,'')); }catch(_){}
+      }
+    });
+    await Promise.all([...hosts].map(async h=>{
+      favicons[h]=await loadFavicon('https://icons.duckduckgo.com/ip3/'+h+'.ico');
+    }));
+  }
+  let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+  ids.forEach(i=>{const n=map.nodes[i];minx=Math.min(minx,n.x);miny=Math.min(miny,n.y);maxx=Math.max(maxx,n.x+(n.w||120));maxy=Math.max(maxy,n.y+(n.h||40));});
+  const pad=50,scale=2;
+  const W=(maxx-minx+pad*2),H=(maxy-miny+pad*2);
+  const cv=document.createElement('canvas');cv.width=W*scale;cv.height=H*scale;
+  const ctx=cv.getContext('2d');ctx.scale(scale,scale);
+  ctx.fillStyle=themeBg; ctx.fillRect(0,0,W,H);
+  // Dot-grid texture — matches .stage's CSS exactly (26px spacing, 1px radius,
+  // var(--canvas-dot)). The solid fill above was the only background the
+  // export drew; the live canvas always has this texture, so without it the
+  // export looks visibly flatter/emptier than what's actually on screen.
+  const dotColor = css('--canvas-dot');
+  if(dotColor){
+    ctx.fillStyle = dotColor;
+    ctx.beginPath();
+    for(let dx=0; dx<=W; dx+=26){
+      for(let dy=0; dy<=H; dy+=26){
+        ctx.moveTo(dx+1, dy);
+        ctx.arc(dx, dy, 1, 0, Math.PI*2);
       }
     }
+    ctx.fill();
+  }
+  ctx.translate(-minx+pad,-miny+pad);
+
+  // Edges — match map style: bezier (modern/bubble/dashed/minimal),
+  // step (classic), straight (sketch), jagged (zigzag)
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  ids.forEach(i=>{
+    const n=map.nodes[i]; if(!n.parent||hidden.has(n.parent)) return;
+    const p=map.nodes[n.parent]; if(!p) return;
+    let x1,y1,x2,y2,leftSide=(n.side==='left'),horizontal=true;
+    if(mapLayout==='down'){
+      horizontal=false;
+      x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
+      x2=n.x+(n.w||0)/2; y2=n.y;
+    } else if(mapLayout==='matrix'){
+      horizontal=false;
+      x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
+      x2=n.x+(n.w||0)/2; y2=n.y;
+    } else {
+      x1=leftSide ? p.x : p.x+(p.w||0); y1=p.y+(p.h||0)/2;
+      x2=leftSide ? n.x+(n.w||0) : n.x;  y2=n.y+(n.h||0)/2;
+    }
+    let col=themeEdge, wid=2.2;
+    if(mapStyle==='bubble'){ col=accent; wid=3; }
+    else if(mapStyle==='sketch'){ col=themeInk; wid=1.6; }
+    else if(mapStyle==='classic'){ wid=1.6; }
+    else if(mapStyle==='minimal'){ wid=1.1; }
+    else if(mapStyle==='neon'){ col=accent; wid=2.4; }
+    ctx.strokeStyle=col; ctx.lineWidth=wid;
+    ctx.setLineDash(mapStyle==='dashed' ? [7,5] : []);
+    if(mapStyle==='neon'){ ctx.shadowColor=col; ctx.shadowBlur=8; }
+    ctx.beginPath();
+    if(mapStyle==='classic'){
+      if(horizontal){ const mid=(x1+x2)/2; ctx.moveTo(x1,y1); ctx.lineTo(mid,y1); ctx.lineTo(mid,y2); ctx.lineTo(x2,y2); }
+      else { const mid=(y1+y2)/2; ctx.moveTo(x1,y1); ctx.lineTo(x1,mid); ctx.lineTo(x2,mid); ctx.lineTo(x2,y2); }
+    } else if(mapStyle==='sketch'){
+      ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+    } else if(mapStyle==='zigzag'){
+      const amp=Math.min(12, Math.max(3, (horizontal?Math.abs(x2-x1):Math.abs(y2-y1))/8));
+      ctx.moveTo(x1,y1);
+      for(let zi=1;zi<=3;zi++){
+        const along = horizontal ? (x1+(x2-x1)*zi/3) : (y1+(y2-y1)*zi/3);
+        const off   = (zi%2 ? -amp : amp);
+        horizontal ? ctx.lineTo(along, y1+off) : ctx.lineTo(x1+off, along);
+      }
+      ctx.lineTo(x2,y2);
+    } else if(mapLayout==='matrix'){
+      ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+    } else {
+      if(horizontal){
+        const dx=Math.abs(x2-x1)*0.5;
+        ctx.moveTo(x1,y1);
+        ctx.bezierCurveTo(x1+(leftSide?-dx:dx),y1, x2+(leftSide?dx:-dx),y2, x2,y2);
+      } else {
+        const dy=Math.abs(y2-y1)*0.5;
+        ctx.moveTo(x1,y1);
+        ctx.bezierCurveTo(x1,y1+dy, x2,y2-dy, x2,y2);
+      }
+    }
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  ctx.shadowBlur = 0;
+
+  // Cross-links — dotted accent curves (match the on-screen rendering)
+  if(map.links && map.links.length){
+    ctx.save();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([2, 6]);
+    ctx.globalAlpha = 0.85;
+    map.links.forEach(lk=>{
+      const a=map.nodes[lk.from], b=map.nodes[lk.to];
+      if(!a||!b||hidden.has(lk.from)||hidden.has(lk.to)) return;   // a folded-away endpoint still has coordinates but isn't in the exported bounds — drawing to it sends the curve off-canvas
+      const ax=a.x+(a.w||120)/2, ay=a.y+(a.h||40)/2;
+      const bx=b.x+(b.w||120)/2, by=b.y+(b.h||40)/2;
+      const mx=(ax+bx)/2, my=(ay+by)/2;
+      const dx=bx-ax, dy=by-ay; const len=Math.hypot(dx,dy)||1;
+      const off=Math.min(60, len*0.18);
+      const cx=mx-(dy/len)*off, cy=my+(dx/len)*off;
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.quadraticCurveTo(cx,cy,bx,by); ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  // Nodes — also match shape per style
+  const nodeRadius = (mapStyle==='bubble') ? 999 : (mapStyle==='classic' || mapStyle==='sketch') ? 4 : (mapStyle==='minimal' || mapStyle==='zigzag') ? 2 : 12;
+  const roll = computeRollups();
+  // Small pill badge (task-progress / token-count), matching the on-screen corner style.
+  const drawPillBadge = (text, x, yTop, bg, fg) => {
+    ctx.font = 'bold 10px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
+    const tw = ctx.measureText(text).width;
+    const padX=7, ph=15, pw=tw+padX*2;
+    roundRect(ctx, x, yTop, pw, ph, ph/2);
+    ctx.fillStyle = bg; ctx.fill();
+    ctx.lineWidth=1.5; ctx.strokeStyle=themeNodeBg; ctx.stroke();
+    ctx.fillStyle = fg; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(text, x+pw/2, yTop+ph/2+0.5);
+    ctx.textAlign='start';
   };
-  apply(liveRoot, cloneRoot);
-}
-
-// cssText content values come back quoted with CSS escapes, e.g. "\0192x".
-function decodeCSSContent(content){
-  let s=content.trim();
-  if(s.length>=2 && ((s[0]==='"'&&s[s.length-1]==='"')||(s[0]==="'"&&s[s.length-1]==="'"))){
-    s=s.slice(1,-1);
-  } else if(s==='none' || s==='normal' || !s){
-    return '';
-  }
-  return s
-    .replace(/\\([0-9a-fA-F]{1,6})(\s)?/g, (_,hex,ws)=>{
-      const ch=String.fromCodePoint(parseInt(hex,16));
-      return (ws===undefined||ws==='') ? ch : ch+' ';
-    })
-    .replace(/\\(.)/g,'$1');
-}
-
-// Node images and link favicons must become data: URLs — an SVG consumed as
-// an <img> cannot load external resources, so a remote src simply won't
-// paint. Same-origin and CORS-enabled URLs inline cleanly; a cross-origin
-// URL without CORS headers falls back to a plain drawImage capture (works
-// same-origin) and is otherwise left alone (that node just exports without
-// its picture, exactly as if the image itself had failed to load). Favicons
-// come from a host some sandboxes block for fetch() — they get a server-side
-// proxy fallback.
-async function inlineImagesAsDataURLs(root){
-  const imgs=[...root.querySelectorAll('img')];
-  await Promise.all(imgs.map(async img=>{
-    const src=img.getAttribute('src');
-    if(!src || src.startsWith('data:')) return;
-    const proxy = /^https:\/\/icons\.duckduckgo\.com\//i.test(src)
-      ? '/api/icon?host='+encodeURIComponent(new URL(src).hostname)
-      : null;
-    try{
-      const resp=await fetchWithProxy(src, proxy);
-      if(!resp.ok) throw new Error('http '+resp.status);
-      img.setAttribute('src', await readBlobAsDataURL(await resp.blob()));
-    }catch(_){
-      try{
-        const im=new Image();
-        await new Promise((res,rej)=>{ im.onload=res; im.onerror=rej; im.src=src; });
-        const c=document.createElement('canvas');
-        c.width=im.naturalWidth||1; c.height=im.naturalHeight||1;
-        c.getContext('2d').drawImage(im,0,0);
-        img.setAttribute('src', c.toDataURL('image/png'));
-      }catch(_){ /* cross-origin without CORS — keep the src; it just won't paint */ }
+  ids.forEach(i=>{
+    const n=map.nodes[i]; const isRoot=(i===map.rootId);
+    const w=n.w||120, h=n.h||40;
+    const r = Math.min(nodeRadius, h/2);
+    roundRect(ctx, n.x, n.y, w, h, r);
+    if(isRoot){
+      ctx.fillStyle = map.color || accent;
+    } else {
+      ctx.fillStyle = n.color
+        || (zd[i] && zd[i]%2===1 ? zebraA : (zd[i] ? zebraB : themeNodeBg));
     }
-  }));
-}
+    ctx.fill();
+    if(!isRoot && mapStyle !== 'bubble'){
+      if(mapStyle==='minimal'){ ctx.strokeStyle=themeLine; ctx.lineWidth=1; }
+      else if(mapStyle==='neon'){ ctx.strokeStyle=accent; ctx.lineWidth=1.2; ctx.shadowColor=accent; ctx.shadowBlur=10; }
+      else { ctx.strokeStyle = mapStyle==='sketch' ? themeInk : themeLine; ctx.lineWidth = mapStyle==='sketch' ? 2 : 1.5; }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+    // Text — pick a color that contrasts with the node background
+    const bg = isRoot ? (map.color || accent) : (n.color || themeNodeBg);
+    const textFill = n.textColor || (isRoot ? pickContrast(bg) : (n.color ? pickContrast(n.color) : themeInk));
+    const fontPx = n.fontSize || (isRoot ? 19 : 15);
+    ctx.textBaseline='middle';
+    const insetX = isRoot ? 22 : 15;
+    // Node image — drawn first, at the top, so text/checkbox center in the space below it
+    let imgDrawH = 0;
+    const img = imgMap[i];
+    if(img){
+      const contentW = w - insetX*2;
+      imgDrawH = Math.min(200, contentW * (img.naturalHeight/img.naturalWidth || 1));
+      const imgY = n.y + (isRoot?14:10);
+      ctx.save();
+      roundRect(ctx, n.x+insetX, imgY, contentW, imgDrawH, 8);
+      ctx.clip();
+      ctx.drawImage(img, n.x+insetX, imgY, contentW, imgDrawH);
+      ctx.restore();
+      imgDrawH += (isRoot?14:10)+6;   // top offset + the CSS's 6px margin-bottom, so text centers below it correctly
+    }
+    const textCenterY = n.y + imgDrawH + (h-imgDrawH)/2;
+    // Highlight (background per text) — node-wide for the canvas export
+    if(n.highlight){
+      ctx.fillStyle = n.highlight;
+      ctx.fillRect(n.x+insetX-2, n.y+imgDrawH+4, w-insetX*2+4, h-imgDrawH-8);
+    }
+    const baseX = n.x+insetX;
+    let textX = baseX, textMaxWidth = w-insetX*2;
+    // Marker badge — drawn before the task box so export order matches the DOM.
+    if(n.marker){
+      ctx.font='15px sans-serif'; ctx.textAlign='start'; ctx.textBaseline='middle';
+      ctx.fillStyle=textFill;
+      ctx.fillText(n.marker, textX, textCenterY);
+      const mw=ctx.measureText(n.marker).width+6;
+      textX += mw; textMaxWidth -= mw;
+    }
+    // Task checkbox — 18px box + 7px gap, matching .task-check's live CSS exactly
+    if(n.task){
+      const boxSize=18, boxY=textCenterY-boxSize/2, boxX=textX;
+      roundRect(ctx, boxX, boxY, boxSize, boxSize, 5);
+      ctx.fillStyle = n.task==='done' ? '#4a9d5b' : themeNodeBg;
+      ctx.fill();
+      ctx.strokeStyle = n.task==='doing' ? '#c98a1a' : (n.task==='done' ? '#4a9d5b' : themeLine);
+      ctx.lineWidth=2; ctx.stroke();
+      if(n.task==='done'||n.task==='doing'){
+        ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle = n.task==='done' ? '#fff' : '#c98a1a';
+        ctx.fillText(n.task==='done'?'\u2713':'\u25D0', boxX+boxSize/2, boxY+boxSize/2+1);
+        ctx.textAlign='start';
+      }
+      textX = boxX+boxSize+7; textMaxWidth -= boxSize+7;
+    }
+    // Render with inline B/I/U/S support, list bullets, line wrapping.
+    // Nodes with $...$ math go through the canvas math renderer so equations
+    // export as laid-out math instead of raw LaTeX source.
+    if(containsMath(n.text||'')){
+      drawNodeMath(ctx, n.text||'', {
+        x: textX, y: textCenterY, maxWidth: textMaxWidth,
+        fontPx, color: textFill, family: '"Bricolage Grotesque", sans-serif',
+        bold: !!n.bold || isRoot, align: n.align || 'center', listType: n.listType || null
+      });
+    } else {
+    drawFormattedText(ctx, n.text||'', {
+      favicons,
+      x: textX,
+      y: textCenterY,
+      maxWidth: textMaxWidth,
+      fontPx,
+      color: textFill,
+      family: '"Bricolage Grotesque", sans-serif',
+      baseBold: !!n.bold || isRoot,
+      baseItalic: !!n.italic,
+      baseUnderline: !!n.underline,
+      baseStrike: !!n.strike,
+      align: n.align || 'center',
+      listType: n.listType || null
+    });
+    }
+    // Notes indicator — small white-circle dot with a 📝 glyph (top-right)
+    const noteText = (n.notes||'').replace(/<[^>]*>/g,'').trim();
+    if(noteText){
+      const cx = (n.side==='left') ? n.x + 4 : n.x + w - 4;
+      const cy = n.y + 4;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 10, 0, Math.PI*2);
+      ctx.fillStyle = themeNodeBg;
+      ctx.fill();
+      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = themeLine;
+      ctx.stroke();
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = themeInk;
+      ctx.fillText('📝', cx, cy);
+      ctx.textAlign = 'start';   // restore
+      ctx.textBaseline = 'middle';
+    }
+    // Task-progress roll-up badge — top-left pill, shown on nodes with task-bearing
+    // descendants (but that aren't themselves a task)
+    const prog = {done:roll.tdone[i], total:roll.ttot[i]};
+    if(prog.total>0 && !n.task){
+      const complete = prog.done===prog.total;
+      drawPillBadge(`\u2713 ${prog.done}/${prog.total}`, n.x-6, n.y-9, complete?'#4a9d5b':themeInk, '#fff');
+    }
+    // Token-count badge — bottom-left pill, same threshold as the on-screen version
+    const tokens = estimateTokens(n.text, n.notes);
+    if(tokens>=25){
+      drawPillBadge(`~${tokens}t`, n.x-6, n.y+h-6, themeInk, '#fff');
+    }
+    // Reference/citation mark — top-left circle with a 📖 glyph
+    if(n.ref){
+      const cx=n.x-9+11, cy=n.y-9+11;
+      ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI*2);
+      ctx.fillStyle=themeNodeBg; ctx.fill();
+      ctx.lineWidth=1.5; ctx.strokeStyle=accent; ctx.stroke();
+      ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle=themeInk; ctx.fillText('📖', cx, cy);
+      ctx.textAlign='start';
+    }
+  });
 
-// fetch() with a same-origin proxy fallback, for hosts the page's CSP or the
-// sandbox lets <link>/<img> load but blocks for fetch() (Google Fonts,
-// DuckDuckGo favicons).
-async function fetchWithProxy(url, proxy){
   try{
-    const r=await fetch(url);
-    if(r.ok) return r;
-    throw new Error('http '+r.status);
+    cv.toBlob(b=>{download(b,(map.title||'mindmap')+'.png');toast('PNG exported');});
   }catch(e){
-    if(!proxy) throw e;
-    const r2=await fetch(proxy);
-    if(!r2.ok) throw new Error('proxy http '+r2.status);
-    return r2;
+    // Only reachable if the canvas got tainted despite the CORS guard above.
+    console.warn('PNG export failed:', e.message);
+    toast('Could not export the PNG');
   }
-}
-
-const readBlobAsDataURL = blob => new Promise((res,rej)=>{
-  const fr=new FileReader();
-  fr.onload=()=>res(fr.result);
-  fr.onerror=rej;
-  fr.readAsDataURL(blob);
-});
-
-// Collect every @font-face the page uses (same-origin stylesheets via CSSOM,
-// the Google Fonts stylesheet by fetching its text) and inline the font files
-// as data: URLs. Same sandbox reason as the images: the snapshot document has
-// no network access, and without the fonts the image silently falls back to
-// system fonts and stops matching the canvas. Google Fonts can be fetch-blocked
-// where the page's own <link> still loads them, so both fetches fall back to
-// the server's allowlisted proxies. Cached across exports. v2: the proxy now
-// fetches with a Chrome UA (woff2/variable-font responses) — bump the version
-// if the proxy's served bytes change so stale browser caches can't leak old
-// font files into exports.
-let _snapshotFontCSS=null;
-const _FONT_PROXY_VERSION='v2';
-async function snapshotFontCSS(){
-  if(_snapshotFontCSS) return _snapshotFontCSS;
-  const rules=[];
-  for(const sheet of document.styleSheets){
-    let cssRules;
-    try{ cssRules=sheet.cssRules; }catch(_){ continue; }
-    for(const r of cssRules){ if(r.type===CSSRule.FONT_FACE_RULE) rules.push(r.cssText); }
-  }
-  for(const link of document.querySelectorAll('link[rel="stylesheet"]')){
-    const href=link.href||'';
-    if(!/fonts\.(googleapis|gstatic)\.com/i.test(href)) continue;
-    try{
-      const resp=await fetchWithProxy(href, '/api/font-css?href='+encodeURIComponent(href)+'&v='+_FONT_PROXY_VERSION);
-      const text=await resp.text();
-      const re=/@font-face\s*{[^}]+}/g; let m;
-      while((m=re.exec(text))!==null) rules.push(m[0]);
-    }catch(_){ /* no fonts is better than a broken export */ }
-  }
-  const out=[];
-  for(const rule of rules){
-    let text=rule;
-    const urls=[...rule.matchAll(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g)];
-    for(const u of urls){
-      const url=u[2];
-      if(/^data:/i.test(url)) continue;
-      try{
-        const proxy = /^https:\/\/fonts\.gstatic\.com\//i.test(url)
-          ? '/api/font-file?url='+encodeURIComponent(url)
-          : null;
-        const resp=await fetchWithProxy(url, proxy);
-        if(!resp.ok) throw new Error('http '+resp.status);
-        const data=await readBlobAsDataURL(await resp.blob());
-        text=text.replace(u[0], 'url("'+data+'")');
-      }catch(_){ /* leave the external URL; the font just won't embed */ }
-    }
-    out.push(text);
-  }
-  _snapshotFontCSS=out.join('\n');
-  return _snapshotFontCSS;
 }
 
 // Render text (possibly containing inline <b>/<i>/<u>/<s>/<a>/<br>/<ul>/<ol>/<li>)
@@ -8531,7 +8722,6 @@ let toastT;function toast(msg){const t=$('#toast');t.textContent=msg;t.classList
    WIRE UP
    ============================================================ */
 $('#newMap').onclick=createMap;
-$('#newMapMenu')?.addEventListener('click', e => { e.stopPropagation(); showTemplatesMenu(); });
 $('#emptyNew').onclick=createMap;
 $('#addChild').onclick=()=>{ if(!map)return; addNode(sel||map.rootId,false); };
 // Before printing, fit the whole map into view so nothing is clipped on paper.
@@ -8648,27 +8838,130 @@ $('#minimap')?.addEventListener('click', e=>e.stopPropagation());
     if(e.key==='Escape'){ e.preventDefault(); applyView(); zv.blur(); }
   });
 })();
+// Zoom slider — drag maps straight to setZoom() (no animation so the slider
+// stays glued to the finger), same 10–300% bounds as the % readout.
+$('#zoomSlider')?.addEventListener('input', e=>{ setZoom(parseInt(e.target.value,10)); });
+// Overview card (minimap + zoom) collapse toggle, persisted per browser.
+const ovToggle=$('#overviewToggle');
+ovToggle?.addEventListener('click',()=>{
+  const ov=$('#overview');
+  const collapsed=ov.classList.toggle('collapsed');
+  ovToggle.title=collapsed?'Expand overview':'Collapse overview';
+  try{ localStorage.setItem('mindspark:overviewCollapsed', collapsed?'1':'0'); }catch(e){}
+});
+try{
+  const ov=$('#overview'), ovt=$('#overviewToggle');
+  if(ov && ovt && localStorage.getItem('mindspark:overviewCollapsed')==='1'){
+    ov.classList.add('collapsed'); ovt.title='Expand overview';
+  }
+}catch(e){}
 $('#menuExport').onclick=(e)=>{ e.stopPropagation(); exportMenu(); };
 let _sideExpandedW = 268;   // cached logical width of the expanded sidebar
-$('#toggleSide').onclick=()=>{
+// Collapsed desktop sidebar keeps a slim icon rail instead of vanishing, so
+// the reframe delta is (expanded width - rail width), not the whole width.
+const SIDE_RAIL_W = 36;
+function toggleSidePanel(){
+  // Zen write has no grid sidebar — it is a slide-over overlay toggled via side-open
+  if(document.body.classList.contains('ui-zen')){
+    document.body.classList.toggle('side-open');
+    return;
+  }
   const side=$('#side');
   // On phones the sidebar is a transform overlay (stage keeps full width), so no
   // reframe is needed there — let CSS slide it.
   const overlay = window.matchMedia('(max-width: 720px)').matches;
   const z=(typeof _uiZ==='function'?(_uiZ()||1):1);
-  const sbNow = side.getBoundingClientRect().width / z;
-  if(sbNow > 1) _sideExpandedW = sbNow;          // remember the expanded width
+  const wasCollapsed = side.classList.contains('collapsed');
+  if(!wasCollapsed){
+    const sbNow = side.getBoundingClientRect().width / z;
+    if(sbNow > 1) _sideExpandedW = sbNow;          // remember the expanded width
+  }
   // Capture the map-point at the viewport centre BEFORE the width changes.
   let cx,cy,has=false;
   if(map && !overlay){ const {w:SW,h:SH}=_stageSize(); cx=(SW/2-view.x)/view.k; cy=(SH/2-view.y)/view.k; has=isFinite(cx)&&isFinite(cy); }
   side.classList.toggle('collapsed');
+  // The drag handle writes an inline width, which beats the .side.collapsed
+  // CSS rule — clear it while collapsed (or in the mobile overlay) and
+  // restore the remembered width when expanding, so the toggle always works
+  // even right after a drag-resize.
+  if(overlay || side.classList.contains('collapsed')){
+    side.style.width='';
+  }else{
+    side.style.width=Math.max(_sideExpandedW, SIDE_RAIL_W+1)+'px';   // never restore a rail-sized width
+  }
   if(has){
     const collapsing = side.classList.contains('collapsed');
     const {w:W0, h:H0} = _stageSize();           // still the pre-animation size this frame
-    const W1 = collapsing ? (W0 + _sideExpandedW) : (W0 - _sideExpandedW);
+    const delta = Math.max(0, _sideExpandedW - SIDE_RAIL_W);
+    const W1 = collapsing ? (W0 + delta) : (W0 - delta);
     _reframeSmooth(cx, cy, W1, H0);
   }
-};
+}
+$('#toggleSide').onclick=toggleSidePanel;
+$('#railToggle')?.addEventListener('click',()=>{
+  const side=$('#side');
+  if(side.classList.contains('collapsed')) toggleSidePanel();   // reopen from the icon rail
+});
+// Sidebar tabs: Maps (default) and Templates. Templates renders the same
+// catalog as the caret popover, but inline — click an entry to build a map.
+function setSideTab(tab){
+  const maps=tab==='maps';
+  $('#sidePaneMaps').classList.toggle('active',maps);
+  $('#sidePaneTpls').classList.toggle('active',!maps);
+  $('#sideTabMaps').classList.toggle('active',maps);
+  $('#sideTabTpls').classList.toggle('active',!maps);
+  if(!maps) renderTplList();
+}
+function renderTplList(){
+  const el=$('#tplList'); if(!el) return;
+  el.innerHTML='';
+  TEMPLATE_CATEGORIES.forEach(c=>{
+    const entries=Object.entries(TEMPLATES).filter(([,t])=>(t.group||'prompt')===c.id);
+    if(!entries.length) return;
+    const hdr=document.createElement('div'); hdr.className='tpl-side-hdr'; hdr.textContent=c.label;
+    el.appendChild(hdr);
+    entries.forEach(([id,t])=>{
+      const item=document.createElement('button'); item.type='button'; item.className='tpl-side-item';
+      item.title=t.desc||t.name;
+      item.innerHTML='<span class="tpl-side-ic" style="background:'+(t.color||c.color)+'">'+(t.icon||'\u2726')+'</span>'+
+        '<span class="tpl-side-meta"><b>'+escapeHtml(t.name)+'</b><i>'+escapeHtml(t.desc||'')+'</i></span>';
+      item.addEventListener('click',()=>{ if(typeof createMapFromTemplate==='function') createMapFromTemplate(id); });
+      el.appendChild(item);
+    });
+  });
+}
+$('#sideTabMaps').onclick=()=>setSideTab('maps');
+$('#sideTabTpls').onclick=()=>setSideTab('tpls');
+// Draggable sidebar width (desktop). Clamped 180–420px, persisted, and the
+// zoom-proof measurement in toggleSidePanel picks up the new width naturally.
+(function(){
+  const side=$('#side'), h=$('#sideResize'); if(!h) return;
+  let dragging=false, startX=0, startW=0;
+  h.addEventListener('mousedown',e=>{
+    e.preventDefault();
+    dragging=true; startX=e.clientX; startW=side.getBoundingClientRect().width;
+    side.classList.add('resizing');
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!dragging) return;
+    const z=(typeof _uiZ==='function'?(_uiZ()||1):1);
+    const w=Math.round(Math.min(420,Math.max(180,(startW+(e.clientX-startX))/z)));
+    side.style.width=w+'px';
+  });
+  const done=()=>{
+    if(!dragging) return;
+    dragging=false; side.classList.remove('resizing');
+    try{ localStorage.setItem('mindspark:sideW', side.style.width); }catch(e){}
+  };
+  document.addEventListener('mouseup',done);
+  window.addEventListener('blur',done);
+  try{
+    if(!window.matchMedia('(max-width: 720px)').matches){
+      const w=localStorage.getItem('mindspark:sideW');
+      if(w) side.style.width=w;
+    }
+  }catch(e){}
+})();
 // On phones, default the sidebar to collapsed (slid off-screen overlay).
 // And tapping the dimmed canvas while it's open should close it.
 if(window.matchMedia('(max-width: 720px)').matches){
@@ -8824,13 +9117,88 @@ const LOOKS = [
   {id:'office',      name:'in the<br>Office',  font:'inherit'},
   {id:'coffee-shop', name:'at Coffee<br>Shop', font:'"Nunito",sans-serif'},
   {id:'handwritten', name:'back to<br>School', font:'"Caveat",cursive'},
-  {id:'lab',         name:'in the<br>Lab',     font:'"JetBrains Mono",monospace'}
+  {id:'lab',         name:'in the<br>Lab',     font:'"JetBrains Mono",monospace'},
+  {id:'forest',      name:'in the<br>Forest',   font:'"Fredoka",system-ui,sans-serif'},
+  {id:'beach',       name:'at the<br>Beach',    font:'"Oswald",system-ui,sans-serif'},
+  {id:'studio',      name:'in the<br>Studio',   font:'"Fraunces",serif'},
+  {id:'mountain',    name:'on the<br>Mountain',font:'"Roboto Condensed",system-ui,sans-serif'},
+  {id:'observatory', name:'in the<br>Observatory',font:'"Libre Baskerville",serif'}
 ];
-const DENSITIES = [
-  {id:'default', name:'Default', desc:'Today\'s spacing and size'},
-  {id:'comfy',   name:'Comfy',   desc:'Roomier nodes and larger chrome'},
-  {id:'compact', name:'Compact', desc:'Tighter nodes and chrome — more on screen'},
+const MAP_STYLES = [
+  {id:'modern',  name:'Modern',  desc:'Soft cards, curved branches'},
+  {id:'classic', name:'Classic', desc:'Rectangles, right-angle branches'},
+  {id:'bubble',  name:'Bubble',  desc:'Pill cards, thick curves'},
+  {id:'sketch',  name:'Sketch',  desc:'Outlined cards, straight lines'},
+  {id:'dashed',  name:'Dashed',  desc:'Curved branches drawn as dashes'},
+  {id:'minimal', name:'Minimal', desc:'Flat hairline cards, slim branches'},
+  {id:'zigzag',  name:'Zigzag',  desc:'Squared cards, jagged branch lines'},
+  {id:'neon',    name:'Neon',    desc:'Glowing cards, luminous branches'}
 ];
+// Per-style tunables, keyed by style id on the map as map.styleConfig — the
+// same pattern as layoutConfig. Defaults mirror what the CSS and the export
+// painter hardcode today, so an unconfigured map renders exactly as before.
+const STYLE_CONFIG_DEFAULTS = {
+  modern:  { edgeWidth:2.2, edgeColor:'', radius:12,  cardPad:0,  glow:0,  dash:0 },
+  classic: { edgeWidth:1.6, edgeColor:'', radius:4,   cardPad:0,  glow:0,  dash:0 },
+  bubble:  { edgeWidth:3,   edgeColor:'', radius:999, cardPad:22, glow:0,  dash:0 },
+  sketch:  { edgeWidth:1.6, edgeColor:'', radius:3,   cardPad:0,  glow:0,  dash:0 },
+  dashed:  { edgeWidth:2.2, edgeColor:'', radius:14,  cardPad:0,  glow:0,  dash:7 },
+  minimal: { edgeWidth:1.1, edgeColor:'', radius:6,   cardPad:0,  glow:0,  dash:0 },
+  zigzag:  { edgeWidth:2,   edgeColor:'', radius:2,   cardPad:0,  glow:0,  dash:0 },
+  neon:    { edgeWidth:2.4, edgeColor:'', radius:10,  cardPad:0,  glow:16, dash:0 },
+};
+const STYLE_CONFIG_BOUNDS = {
+  edgeWidth:[1,8], edgeColor:[0,40], radius:[0,999], cardPad:[0,80], glow:[0,80], dash:[0,60],
+};
+// Repairs rather than rejects, like validateLayoutConfig: numbers are clamped
+// to their bounds, edgeColor is kept as a short string ('' = theme default),
+// unknown keys and unknown styles are dropped, and every style gets its
+// defaults merged in so a section never comes back half-formed.
+function validateStyleConfig(raw){
+  const out = {};
+  for(const style of Object.keys(STYLE_CONFIG_DEFAULTS)){
+    out[style] = { ...STYLE_CONFIG_DEFAULTS[style] };
+  }
+  if(!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for(const style of Object.keys(out)){
+    const sec = raw[style];
+    if(!sec || typeof sec !== 'object' || Array.isArray(sec)) continue;
+    if(typeof sec.edgeColor === 'string' && sec.edgeColor.trim()){
+      out[style].edgeColor = sec.edgeColor.trim().slice(0, STYLE_CONFIG_BOUNDS.edgeColor[1]);
+    }
+    for(const key of ['edgeWidth','radius','cardPad','glow','dash']){
+      const v = sec[key];
+      if(typeof v !== 'number' || !isFinite(v)) continue;
+      const [lo,hi] = STYLE_CONFIG_BOUNDS[key];
+      out[style][key] = Math.min(hi, Math.max(lo, v));
+    }
+  }
+  return out;
+}
+// The knobs that apply to one style — what the settings dialog shows.
+function styleConfigFor(style, raw){
+  const all = validateStyleConfig(raw);
+  return all[style] ? { [style]: all[style] } : {};
+}
+// Push the active style's config onto #viewport as inline custom properties,
+// which override the per-style CSS rules (inline beats attribute selectors).
+// Called on every render so load, style switches and theme changes all agree.
+function applyStyleConfigVars(){
+  const vp = viewport;
+  if(!vp || !map) return;
+  const style = map.style || 'modern';
+  const cfg = { ...STYLE_CONFIG_DEFAULTS[style], ...((map.styleConfig || {})[style] || {}) };
+  vp.style.setProperty('--edge-width', cfg.edgeWidth);
+  vp.style.setProperty('--edge-color', cfg.edgeColor || null);
+  // Length vars need explicit units: a bare number is invalid for
+  // border-radius/padding, and an invalid var() makes the property fall back
+  // to its initial value (radius 0, padding 0) instead of the style's default.
+  vp.style.setProperty('--node-radius', cfg.radius + 'px');
+  vp.style.setProperty('--node-pad-x', cfg.cardPad ? cfg.cardPad + 'px' : null);
+  vp.style.setProperty('--node-pad-y', cfg.cardPad ? cfg.cardPad + 'px' : null);
+  vp.style.setProperty('--node-glow', cfg.glow + 'px');
+  vp.style.setProperty('--edge-glow', Math.max(2, Math.round(cfg.glow / 5)));
+}
 // Per-look tunables, keyed by look id on the map as map.lookConfig — the
 // same pattern as styleConfig/layoutConfig. font is the look's own font
 // family by default (mirroring the --sans/--serif each look's CSS declares,
@@ -8843,6 +9211,12 @@ const LOOK_CONFIG_DEFAULTS = {
   'coffee-shop':{ font:'"Nunito",sans-serif',                        nodeSize:1, radius:18 },
   handwritten:  { font:'"Caveat",cursive',                           nodeSize:1, radius:20 },
   lab:          { font:'"JetBrains Mono",monospace',                 nodeSize:1, radius:4  },
+  forest:       { font:'"Fredoka",system-ui,sans-serif',             nodeSize:1, radius:16 },
+  beach:        { font:'"Oswald",system-ui,sans-serif',              nodeSize:1, radius:24 },
+  studio:       { font:'"Fraunces",serif',                           nodeSize:1, radius:8  },
+  mountain:     { font:'"Roboto Condensed",system-ui,sans-serif',    nodeSize:1, radius:10 },
+  observatory:  { font:'"Libre Baskerville",serif',                  nodeSize:1, radius:6  },
+  sketchpad:    { font:'system-ui,sans-serif',                        nodeSize:1, radius:14 },
 };
 const LOOK_CONFIG_BOUNDS = { nodeSize:[0.8,1.6], radius:[0,60] };
 // Repairs rather than rejects, like validateStyleConfig: numbers are clamped
@@ -8886,20 +9260,15 @@ function applyLookConfigVars(){
   const root = document.documentElement;
   if(!root || !map) return;
   const look = root.getAttribute('data-look') || 'office';
-  const cfg = { ...LOOK_CONFIG_DEFAULTS[look], ...((map.lookConfig || {})[look] || {}) };
+  const defaults = LOOK_CONFIG_DEFAULTS[look] || LOOK_CONFIG_DEFAULTS.office;
+  const cfg = { ...defaults, ...((map.lookConfig || {})[look] || {}) };
   if(cfg.font){ root.style.setProperty('--sans', cfg.font); root.style.setProperty('--serif', cfg.font); }
   else { root.style.removeProperty('--sans'); root.style.removeProperty('--serif'); }
   if(cfg.nodeSize !== 1) root.style.setProperty('--look-node-size', cfg.nodeSize);
   else root.style.removeProperty('--look-node-size');
-  if(cfg.radius !== LOOK_CONFIG_DEFAULTS[look].radius) root.style.setProperty('--look-radius', cfg.radius + 'px');
+  if(cfg.radius !== defaults.radius) root.style.setProperty('--look-radius', cfg.radius + 'px');
   else root.style.removeProperty('--look-radius');
 }
-// Per-theme tunables, keyed by theme id on the map as map.themeConfig — the
-// same pattern as styleConfig/layoutConfig/lookConfig. Each colour defaults
-// to what the theme's own CSS block declares (the base :root for 'light',
-// the implicit default), so an unconfigured map renders exactly as before.
-// Only these six knobs are touched — everything else in a theme's palette
-// keeps its own colours.
 const THEME_CONFIG_DEFAULTS = {
   'light':            { paper:'#f4efe6',  ink:'#23201b', accent:'#e0613a', nodeBg:'#ffffff', line:'#d8cfbf', glow:'rgba(255,255,255,.5)' },
   'dark':             { paper:'#1e1e1e',  ink:'#d4d4d4', accent:'#3794ff', nodeBg:'#2d2d2d', line:'#3c3c3c', glow:'rgba(255,255,255,.04)' },
@@ -9021,81 +9390,7 @@ function applyThemeConfigVars(){
     else root.style.removeProperty(vars[key]);
   }
 }
-const MAP_STYLES = [
-  {id:'modern',  name:'Modern',  desc:'Soft cards, curved branches'},
-  {id:'classic', name:'Classic', desc:'Rectangles, right-angle branches'},
-  {id:'bubble',  name:'Bubble',  desc:'Pill cards, thick curves'},
-  {id:'sketch',  name:'Sketch',  desc:'Outlined cards, straight lines'},
-  {id:'dashed',  name:'Dashed',  desc:'Curved branches drawn as dashes'},
-  {id:'minimal', name:'Minimal', desc:'Flat hairline cards, slim branches'},
-  {id:'zigzag',  name:'Zigzag',  desc:'Squared cards, jagged branch lines'},
-  {id:'neon',    name:'Neon',    desc:'Glowing cards, luminous branches'}
-];
-// Per-style tunables, keyed by style id on the map as map.styleConfig — the
-// same pattern as layoutConfig. Defaults mirror what the CSS and the export
-// painter hardcode today, so an unconfigured map renders exactly as before.
-const STYLE_CONFIG_DEFAULTS = {
-  modern:  { edgeWidth:2.2, edgeColor:'', radius:12,  cardPad:0,  glow:0,  dash:0 },
-  classic: { edgeWidth:1.6, edgeColor:'', radius:4,   cardPad:0,  glow:0,  dash:0 },
-  bubble:  { edgeWidth:3,   edgeColor:'', radius:999, cardPad:22, glow:0,  dash:0 },
-  sketch:  { edgeWidth:1.6, edgeColor:'', radius:3,   cardPad:0,  glow:0,  dash:0 },
-  dashed:  { edgeWidth:2.2, edgeColor:'', radius:14,  cardPad:0,  glow:0,  dash:7 },
-  minimal: { edgeWidth:1.1, edgeColor:'', radius:6,   cardPad:0,  glow:0,  dash:0 },
-  zigzag:  { edgeWidth:2,   edgeColor:'', radius:2,   cardPad:0,  glow:0,  dash:0 },
-  neon:    { edgeWidth:2.4, edgeColor:'', radius:10,  cardPad:0,  glow:16, dash:0 },
-};
-const STYLE_CONFIG_BOUNDS = {
-  edgeWidth:[1,8], edgeColor:[0,40], radius:[0,999], cardPad:[0,80], glow:[0,80], dash:[0,60],
-};
-// Repairs rather than rejects, like validateLayoutConfig: numbers are clamped
-// to their bounds, edgeColor is kept as a short string ('' = theme default),
-// unknown keys and unknown styles are dropped, and every style gets its
-// defaults merged in so a section never comes back half-formed.
-function validateStyleConfig(raw){
-  const out = {};
-  for(const style of Object.keys(STYLE_CONFIG_DEFAULTS)){
-    out[style] = { ...STYLE_CONFIG_DEFAULTS[style] };
-  }
-  if(!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
-  for(const style of Object.keys(out)){
-    const sec = raw[style];
-    if(!sec || typeof sec !== 'object' || Array.isArray(sec)) continue;
-    if(typeof sec.edgeColor === 'string' && sec.edgeColor.trim()){
-      out[style].edgeColor = sec.edgeColor.trim().slice(0, STYLE_CONFIG_BOUNDS.edgeColor[1]);
-    }
-    for(const key of ['edgeWidth','radius','cardPad','glow','dash']){
-      const v = sec[key];
-      if(typeof v !== 'number' || !isFinite(v)) continue;
-      const [lo,hi] = STYLE_CONFIG_BOUNDS[key];
-      out[style][key] = Math.min(hi, Math.max(lo, v));
-    }
-  }
-  return out;
-}
-// The knobs that apply to one style — what the settings dialog shows.
-function styleConfigFor(style, raw){
-  const all = validateStyleConfig(raw);
-  return all[style] ? { [style]: all[style] } : {};
-}
-// Push the active style's config onto #viewport as inline custom properties,
-// which override the per-style CSS rules (inline beats attribute selectors).
-// Called on every render so load, style switches and theme changes all agree.
-function applyStyleConfigVars(){
-  const vp = viewport;
-  if(!vp || !map) return;
-  const style = map.style || 'modern';
-  const cfg = { ...STYLE_CONFIG_DEFAULTS[style], ...((map.styleConfig || {})[style] || {}) };
-  vp.style.setProperty('--edge-width', cfg.edgeWidth);
-  vp.style.setProperty('--edge-color', cfg.edgeColor || null);
-  // Length vars need explicit units: a bare number is invalid for
-  // border-radius/padding, and an invalid var() makes the property fall back
-  // to its initial value (radius 0, padding 0) instead of the style's default.
-  vp.style.setProperty('--node-radius', cfg.radius + 'px');
-  vp.style.setProperty('--node-pad-x', cfg.cardPad ? cfg.cardPad + 'px' : null);
-  vp.style.setProperty('--node-pad-y', cfg.cardPad ? cfg.cardPad + 'px' : null);
-  vp.style.setProperty('--node-glow', cfg.glow + 'px');
-  vp.style.setProperty('--edge-glow', Math.max(2, Math.round(cfg.glow / 5)));
-}
+
 /* ------------------------------------------------------------
    Layout presets.
 
@@ -9468,6 +9763,736 @@ function applyLook(id){
     document.fonts.load('1em '+fontName).then(()=>{ if(map){ render(); autoLayout(); } }).catch(()=>{});
   }
 }
+// Interface layout: how the chrome itself is arranged. 'modern' is the local
+// shell (full-width top bar + status bar with hint/overview); 'classic' is
+// the upstream repo's floating shell (toolbar floats over the canvas, zoom +
+// minimap float bottom-right, hint floats bottom-left, no status bar). The
+// switch is class + reparenting: the same DOM nodes are moved between their
+// modern and classic containers, so every listener stays wired.
+const UI_LAYOUTS = [
+  {id:'classic', name:'Classic<br>floating'},
+  {id:'modern',  name:'Modern<br>bars'},
+  {id:'rail',    name:'Side<br>toolbar'},
+  {id:'zen',     name:'Zen<br>write'},
+  {id:'dock',    name:'Bottom<br>dock'},
+  {id:'split',   name:'Split<br>editor'},
+  {id:'minimal', name:'Minimal<br>clean'},
+  {id:'mirror',  name:'Mirror<br>floating'},
+  {id:'outline', name:'Outline<br>dock'}
+];
+// ===== Outline dock — a live tree panel mirroring the map hierarchy =====
+// Only exists in the ui-outline layout; the ▤ button toggles it (body class
+// outline-open). Rows select + centre the node; the twist folds a branch in
+// the outline only — the map itself is never touched. Rebuilt by render()
+// alongside the breadcrumb, with a html-compare so steady state costs nothing.
+const _olCollapsed=new Set();
+let _olPrev='';
+function ensureOutlinePane(){
+  let pane=document.getElementById('outlinePane');
+  if(pane) return pane;
+  pane=document.createElement('div');
+  pane.id='outlinePane';
+  pane.innerHTML=`<div class="ol-head"><span>Outline</span>
+      <button type="button" class="ol-close" title="Hide outline">✕</button></div>
+    <div class="ol-body"></div>`;
+  pane.querySelector('.ol-close').onclick=()=>document.body.classList.remove('outline-open');
+  pane.addEventListener('click',e=>{
+    const tw=e.target.closest('.ol-twist');
+    if(tw){
+      const li=tw.closest('.ol-node');
+      const id=li.dataset.id;
+      if(_olCollapsed.has(id)) _olCollapsed.delete(id); else _olCollapsed.add(id);
+      li.classList.toggle('collapsed', _olCollapsed.has(id));
+      return;
+    }
+    const row=e.target.closest('.ol-row');
+    if(row){
+      const id=row.closest('.ol-node').dataset.id;
+      select(id,false); centreOn(id);
+    }
+  });
+  const app=document.querySelector('.app');
+  app.insertBefore(pane, app.querySelector('.stage'));
+  return pane;
+}
+function renderOutline(){
+  const pane=document.getElementById('outlinePane');
+  if(!pane || !document.body.classList.contains('ui-outline')) return;
+  const bodyEl=pane.querySelector('.ol-body'); if(!bodyEl) return;
+  let html='';
+  if(map){
+    const hidden=hiddenSet();
+    const buf=[];
+    const walk=(ids, sub)=>{
+      buf.push(sub?'<ul class="ol-sub">':'<ul class="ol-tree">');
+      for(const id of ids){
+        if(hidden.has(id)) continue;
+        const n=map.nodes[id];
+        const kids=childrenOf(id).filter(k=>!hidden.has(k));
+        buf.push(`<li class="ol-node${id===sel?' sel':''}${_olCollapsed.has(id)?' collapsed':''}" data-id="${id}">`);
+        buf.push(`<div class="ol-row"><span class="ol-twist${kids.length?'':' ol-leaf'}">▾</span>`);
+        buf.push(`<span class="ol-label">${escapeHtml(nodeTextPlain(n.text||'')||'(untitled)')}</span></div>`);
+        if(kids.length) walk(kids, true);
+        buf.push('</li>');
+      }
+      buf.push('</ul>');
+    };
+    walk([map.rootId], false);
+    html=buf.join('');
+  }
+  if(html!==_olPrev){
+    _olPrev=html;
+    const st=bodyEl.scrollTop;
+    bodyEl.innerHTML=html;
+    bodyEl.scrollTop=st;
+  }
+}
+$('#outlineBtn')?.addEventListener('click',()=>{
+  if(!document.body.classList.contains('ui-outline')) return;
+  document.body.classList.toggle('outline-open');
+});
+
+// ===== Tabs — browser-style strip for open maps =====
+// Opt-in via the ▭ toolbar button (persisted). Each open map lives in its own
+// tab as a deep clone; the active tab's map IS the global `map`. Switching tabs
+// flushes the outgoing map's pending save (bound to its own object), swaps the
+// global, rebuilds undo history and restores that map's saved camera.
+let tabsEnabled=false; try{ tabsEnabled=localStorage.getItem('mindspark:tabs')==='1'; }catch(e){}
+let _tabs=[];          // [{key, title, map}]
+let _tabActive=-1;
+function setTabsEnabled(on){
+  tabsEnabled=!!on;
+  try{ localStorage.setItem('mindspark:tabs', tabsEnabled?'1':'0'); }catch(e){}
+  document.body.classList.toggle('tabs-on', tabsEnabled);
+  const btn=document.getElementById('tabsBtn'); if(btn) btn.classList.toggle('on', tabsEnabled);
+  if(tabsEnabled){
+    if(_tabs.length===0 && map){ _tabs=[{key:map.id, title:map.title||'Untitled', map}]; _tabActive=0; }
+    renderTabs();
+  } else {
+    _tabs=[]; _tabActive=-1;
+    document.getElementById('tabStrip')?.classList.add('hidden');
+  }
+}
+function renderTabs(){
+  const strip=document.getElementById('tabStrip'); if(!strip) return;
+  strip.classList.toggle('hidden', !tabsEnabled);
+  const row=document.getElementById('tabRow'); if(!row) return;
+  row.innerHTML='';
+  _tabs.forEach((t,i)=>{
+    const b=document.createElement('button');
+    b.className='tab'+(i===_tabActive?' active':'');
+    b.title=t.title||'Untitled';
+    b.innerHTML=`<span class="tab-title"></span>${_tabs.length>1?`<span class="tab-close" title="Close">✕</span>`:''}`;
+    b.querySelector('.tab-title').textContent=t.title||'Untitled';
+    b.addEventListener('click',()=>_activateTab(i));
+    const cx=b.querySelector('.tab-close');
+    if(cx) cx.addEventListener('click',e=>{ e.stopPropagation(); closeTab(i); });
+    row.appendChild(b);
+  });
+}
+function openMapInTab(m){
+  const key=m.id;
+  const ex=_tabs.findIndex(t=>t.key===key);
+  if(ex>=0){ _activateTab(ex); return; }
+  _tabs.push({key, title:m.title||'Untitled', map: JSON.parse(JSON.stringify(m))});
+  _activateTab(_tabs.length-1);
+}
+function _activateTab(i){
+  const t=_tabs[i]; if(!t) return;
+  if(i===_tabActive){ renderTabs(); return; }
+  flushPendingSave();
+  map=t.map; sel=map.rootId;
+  const _imported=!!map._import; if(_imported) delete map._import;
+  history=[JSON.stringify({nodes:map.nodes,rootId:map.rootId,title:map.title,color:map.color})];
+  hpos=0; updateUndo();
+  $('#mapTitle').value=map.title;
+  _tabActive=i;
+  render();
+  if(_imported){ balanceRootSides(); autoLayout(); }
+  const saved=loadMapView(map.id);
+  if(saved) applyMapView(saved);
+  else if(userZoom!=null){ view.k=userZoom; recenter(); }
+  else fit();
+  if(mdMode) syncTextFromMap();
+  renderTabs(); refreshList();
+}
+function closeTab(i){
+  if(_tabs.length<=1) return;   // the last tab stays put
+  flushPendingSave();
+  const wasActive=(i===_tabActive);
+  _tabs.splice(i,1);
+  if(wasActive){
+    _tabActive=-1;              // force _activateTab to run (its guard skips same-index calls)
+    _activateTab(Math.max(0, i-1));
+  } else if(i<_tabActive) _tabActive--;
+  renderTabs();
+}
+$('#tabsBtn')?.addEventListener('click',()=>setTabsEnabled(!tabsEnabled));
+document.getElementById('tabNew')?.addEventListener('click',()=>{ if(!tabsEnabled) setTabsEnabled(true); createMap(); });
+
+// Stage size the current layout switch left behind. A switch that leaves the
+// stage the same size keeps the user's pan/zoom untouched; one that grows or
+// shrinks it re-fits the map to the new canvas (see the tail of applyUiLayout).
+let _prevLayoutStageKey='';
+function applyUiLayout(id){
+  const classic=(id==='classic'||id==='mirror'), rail=(id==='rail'), zen=(id==='zen'),
+        dock=(id==='dock'), split=(id==='split'), minimal=(id==='minimal'), mirror=(id==='mirror'),
+        outline=(id==='outline');
+  document.body.classList.toggle('ui-classic', classic);   // mirror reuses every classic rule
+  document.body.classList.toggle('ui-rail', rail);
+  document.body.classList.toggle('ui-zen', zen);
+  document.body.classList.toggle('ui-dock', dock);
+  document.body.classList.toggle('ui-split', split);
+  document.body.classList.toggle('ui-minimal', minimal);
+  document.body.classList.toggle('ui-mirror', mirror);
+  document.body.classList.toggle('ui-outline', outline);
+  document.body.classList.remove('outline-open');   // the outline dock starts folded
+  if(!outline){ document.getElementById('outlinePane')?.remove(); _olPrev=''; }   // a fresh pane must render, never hit the html-compare cache
+  document.body.classList.remove('zen-chrome');   // zen chrome is revealed on hover, never persisted
+  // Pin toolbar button is zen-only: remove it immediately when leaving zen
+  // (classic/rail branches bypass restoreShell, so they would otherwise leak
+  // the button when switching away from zen).
+  if (!zen) document.getElementById('zenPin')?.remove();
+  document.body.classList.remove('side-open');    // the dock slide-over is always closed on a switch
+  const _minMenu=document.getElementById('minimalMenu'); if(_minMenu) _minMenu.hidden=true;   // ditto the launcher menu
+  if(document.body.classList.contains('ui-deck')) exitDeck();   // presentation is transient
+  // Only the split editor keeps the markdown pane on; every other layout
+  // starts with it closed and the toggle reset.
+  document.body.classList.remove('md-mode','md-ready');
+  const mdt=document.getElementById('mdToggle'); if(mdt) mdt.classList.remove('on');
+  try{ localStorage.setItem('mindspark:uiLayout', id||'modern'); }catch(e){}
+  const app=document.querySelector('.app'), stage=$('#stage'),
+        topbar=document.querySelector('.topbar'), side=$('#side'),
+        brand=document.querySelector('.brand'), statusBar=$('#statusBar'),
+        hint=$('#hint'), sbRight=document.querySelector('.sb-right'),
+        overview=$('#overview'), toggleSide=$('#toggleSide'),
+        newMap=$('#newMap'), titleEdit=document.querySelector('.title-edit'),
+        zoomRow=document.querySelector('.zoom-row'), overviewToggle=$('#overviewToggle'),
+        sideTabs=document.querySelector('.side-tabs');
+  const rewireSide=()=>{               // non-dock layouts: tabs switch panes in place
+    toggleSide.onclick=toggleSidePanel;
+    const tm=document.getElementById('sideTabMaps'), tt=document.getElementById('sideTabTpls');
+    if(tm) tm.onclick=()=>setSideTab('maps');
+    if(tt) tt.onclick=()=>setSideTab('tpls');
+  };
+  const restoreShell=()=>{             // put every reparented piece back into the modern shell
+    app.insertBefore(topbar, side);              // restore grid order: topbar first
+    statusBar.insertBefore(hint, statusBar.firstChild);
+    statusBar.appendChild(overview);
+    overview.insertBefore(zoomRow, overviewToggle);   // back inside the chip, before the chevron
+    brand.appendChild(toggleSide);
+    brand.insertBefore(newMap, toggleSide);      // back into the brand row
+    newMap.textContent='＋';
+    topbar.insertBefore(titleEdit, topbar.firstChild);
+    $('#addChild').textContent='＋ Topic';
+    document.querySelector('.new-map-row')?.remove();
+    topbar.querySelectorAll('.tb-orphan').forEach(g=>g.remove());
+    document.getElementById('zenPin')?.remove();   // pin toggle is zen-only
+    [$('#savePill'),$('#tokenTotal'),$('#userPill')].forEach(p=>{ if(p) sbRight.appendChild(p); });
+    if(sideTabs && sideTabs.parentNode!==side) side.insertBefore(sideTabs, side.querySelector('.side-pane'));
+    side.classList.remove('collapsed','side-open'); side.style.width='';
+  };
+  rewireSide();   // every layout starts with the plain tab/toggle wiring; dock overrides below
+  if(classic){
+    // Toolbar floats inside the canvas (as upstream); pills already live in
+    // .topbar in classic order (user-pill, token-total, save-pill).
+    stage.appendChild(topbar);
+    stage.appendChild(overview);
+    // The zoom controls become the standalone vertical zoombar (as upstream),
+    // floating beside the minimap card instead of inside it.
+    stage.appendChild(zoomRow);
+    stage.appendChild(hint);
+    let grp=topbar.querySelector('.tb-orphan');
+    if(!grp){ grp=document.createElement('div'); grp.className='tb-group tb-orphan';
+      grp.appendChild(toggleSide); topbar.insertBefore(grp, topbar.firstChild); }
+    grp.after(titleEdit);                            // title sits beside the ☰ group, as upstream
+    [$('#userPill'),$('#tokenTotal'),$('#savePill')].forEach(p=>{ if(p) topbar.appendChild(p); });
+    $('#addChild').textContent='＋ Topic';
+    // The collapse chevron is hidden in classic, so never start collapsed there.
+    overview.classList.remove('collapsed');
+    // Sidebar shell (as upstream): brand keeps only the mark + title; the
+    // new-map row sits beneath with a wide "＋ New mind map" and a ▾ caret
+    // that opens the template dropdown (as in original MindSpark classic floating).
+    let nmRow=document.querySelector('.new-map-row');
+    if(!nmRow){
+      nmRow=document.createElement('div'); nmRow.className='new-map-row';
+      side.insertBefore(nmRow, document.querySelector('.side-tabs'));
+      nmRow.appendChild(newMap);
+      newMap.textContent='＋ New mind map';   // wide label, as upstream
+      const caret=document.createElement('button'); caret.type='button';
+      caret.className='new-map-caret'; caret.id='newMapMenu';
+      caret.title='Start from a template'; caret.textContent='\u25be';
+      caret.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        showTemplatesMenu();
+      });
+      nmRow.appendChild(caret);
+    }
+  }else if(rail){
+    // Side-toolbar layout: the toolbar becomes a vertical icon rail docked
+    // left of the canvas (side | rail | stage). Title, save feedback, minimap
+    // card, zoombar and hint float over the canvas, exactly like classic.
+    app.insertBefore(topbar, stage);             // grid order: side, rail, stage
+    let grp=topbar.querySelector('.tb-orphan');
+    if(!grp){ grp=document.createElement('div'); grp.className='tb-group tb-orphan';
+      grp.appendChild(toggleSide); topbar.insertBefore(grp, topbar.firstChild); }
+    $('#addChild').textContent='＋';            // icon-only in the narrow rail
+    stage.appendChild(titleEdit);                // floating title, top-left
+    stage.appendChild(overview);
+    stage.appendChild(zoomRow);
+    stage.appendChild(hint);
+    stage.appendChild($('#savePill'));           // floating save feedback, top-right
+    overview.classList.remove('collapsed');
+    // If coming from classic, the wide new-map row must go back to a compact
+    // brand button (toggleSide stays on the rail here, so no insertBefore).
+    const nmRow=document.querySelector('.new-map-row');
+    if(nmRow){ nmRow.remove(); brand.appendChild(newMap); newMap.textContent='＋'; }
+  }else if(zen){
+    // Zen / write layout: the whole shell disappears and the canvas takes
+    // everything. A slim floating toolbar (the same .topbar) slides in near
+    // the top edge on hover (wireZen) and holds the title, search, actions
+    // and save pill; minimap card, zoombar and hint stay floating as classic.
+    stage.appendChild(topbar);
+    stage.appendChild(overview);
+    stage.appendChild(zoomRow);
+    stage.appendChild(hint);
+    stage.appendChild($('#savePill'));
+    $('#addChild').textContent='＋ Topic';       // horizontal strip keeps the label
+    let grp=topbar.querySelector('.tb-orphan');
+    if(!grp){ grp=document.createElement('div'); grp.className='tb-group tb-orphan';
+      grp.appendChild(toggleSide); topbar.insertBefore(grp, topbar.firstChild); }
+    grp.after(titleEdit);                        // title beside the ☰ group, as classic
+    [$('#userPill'),$('#tokenTotal')].forEach(p=>{ if(p) topbar.appendChild(p); });
+    // Pin toggle: keeps the centered bar always visible (no top-edge hover needed).
+    // State persists in localStorage; restored at boot below.
+    let pin=document.getElementById('zenPin');
+    if(!pin){
+      pin=document.createElement('button'); pin.type='button'; pin.id='zenPin';
+      pin.className='tb'; pin.title='Pin toolbar (always visible)';
+      pin.textContent='\uD83D\uDCCC';   // 📌 round pushpin
+      pin.addEventListener('click',()=>{
+        const on=!document.body.classList.contains('zen-pinned');
+        document.body.classList.toggle('zen-pinned',on);
+        try{ localStorage.setItem('mindspark:zenPinned',on?'1':'0'); }catch(e){}
+        pin.classList.toggle('on',on);
+        pin.textContent='\uD83D\uDCCC';   // 📌 pin for both states — .on background shows pinned
+        pin.title=on?'Unpin toolbar':'Pin toolbar (always visible)';
+      });
+    }
+    topbar.appendChild(pin);
+    const _pinned=document.body.classList.contains('zen-pinned');
+    pin.classList.toggle('on',_pinned);
+    pin.textContent='\uD83D\uDCCC';   // 📌 pinned and unpinned — .on distinguishes
+    pin.title=_pinned?'Unpin toolbar':'Pin toolbar (always visible)';
+    overview.classList.remove('collapsed');
+    const nmRow=document.querySelector('.new-map-row');
+    if(nmRow){ nmRow.remove(); brand.appendChild(newMap); newMap.textContent='＋'; }
+  }else if(outline){
+    // Outline dock: the modern shell plus a live tree panel between the
+    // sidebar and the canvas (side | outline | canvas). The ▤ button in the
+    // toolbar folds it in and out; rows select + centre the node.
+    restoreShell();
+    rewireSide();
+    ensureOutlinePane();
+    renderOutline();
+    document.body.classList.add('outline-open');
+  }else if(minimal){
+    // Minimal: the plain modern shell with the sidebar removed entirely — no
+    // column, no slide-over. The compact ＋ stays in the brand row; the
+    // sidebar toggle is hidden since there is nothing to toggle. Instead the
+    // MindSpark logo at the top-left opens the launcher menu, whose Maps and
+    // Templates entries slide the sidebar in as an overlay so those panels
+    // stay reachable.
+    restoreShell();
+    rewireSide();
+    ensureMinimalMenu();
+  }else if(dock){
+    // Bottom-dock layout: the status bar becomes a full-width dock that owns
+    // the sidebar toggle, the Maps/Templates tabs, the hint and the overview
+    // chip; the sidebar turns into a slide-over panel opened from the dock.
+    restoreShell();
+    app.insertBefore(stage, statusBar);          // grid order: topbar, stage, dock, side
+    statusBar.insertBefore(toggleSide, statusBar.firstChild);
+    statusBar.insertBefore(sideTabs, toggleSide.nextSibling);
+    toggleSide.onclick=toggleDockSide;
+    const tm=document.getElementById('sideTabMaps'), tt=document.getElementById('sideTabTpls');
+    if(tm) tm.onclick=()=>{ setSideTab('maps'); document.body.classList.add('side-open'); };
+    if(tt) tt.onclick=()=>{ setSideTab('tpls'); document.body.classList.add('side-open'); };
+   }else if(split){
+    // Split editor: the modern shell plus the markdown pane pinned open as a
+    // permanent third column (side | editor | canvas). The pane stays resizable.
+    restoreShell();
+    rewireSide();
+    document.body.classList.add('md-ready');
+    mdMode=false; toggleMdMode(true);            // force the pane on; width comes from --md-w
+  }else{
+    restoreShell();
+    rewireSide();
+  }
+  // The stage just changed size, so re-measure and re-render the canvas.
+  renderTabs();   // tab strip visibility depends on the layout (hidden in floating shells)
+  if(map){
+    render();
+    // The switch moved the stage's edges — re-fit the map to the new canvas
+    // so it expands (or contracts) to use the space the switch freed up,
+    // computed from the map's current content. Layouts that leave the stage
+    // the same size keep the current pan/zoom untouched.
+    const _sz=_stageSize(), _key=_sz.w+'x'+_sz.h;
+    if(_key!==_prevLayoutStageKey){
+      _prevLayoutStageKey=_key;
+      animateViewTo(computeFitView(), 260);
+    }
+  }
+}
+// Minimal layout: a Raspberry-Pi-OS-style launcher. The MindSpark logo sits
+// beside the map title at the top-left; clicking it opens a menu whose items
+// cascade like a classic start menu: Maps lists every saved map (click to
+// load), Templates drills down through categories to individual templates
+// (click to create), and Open source links out to GitHub and the MindSpark GPT.
+let _minimalMenuWired=false;
+function ensureMinimalMenu(){
+  const topbar=document.querySelector('.topbar');
+  let btn=document.getElementById('minimalMenuBtn');
+  if(!btn){
+    btn=document.createElement('button');
+    btn.type='button'; btn.id='minimalMenuBtn'; btn.className='minimal-menu-btn';
+    btn.title='Menu';
+    btn.innerHTML='<svg viewBox="0 0 64 64"><defs><radialGradient id="minMenuGrad" cx="30%" cy="25%"><stop offset="0%" stop-color="#ff8a5b"/><stop offset="100%" stop-color="#e0613a"/></radialGradient></defs><rect x="4" y="4" width="56" height="56" rx="14" fill="url(#minMenuGrad)"/><path d="M32 14 L36.5 27.5 L50 32 L36.5 36.5 L32 50 L27.5 36.5 L14 32 L27.5 27.5 Z" fill="#fff" opacity=".95"/></svg>';
+  }
+  topbar.insertBefore(btn, topbar.firstChild);   // logo stays beside the map title (restoreShell re-inserts the title first)
+  if(_minimalMenuWired) return; _minimalMenuWired=true;
+  const menu=document.createElement('div');
+  menu.id='minimalMenu'; menu.className='minimal-menu'; menu.hidden=true;
+  const GH_SVG='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.57 9.57 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 22 12c0-5.52-4.48-10-10-10z"/></svg>';
+  const BRAIN_SVG='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 2a8 8 0 1 1-8 8 8 8 0 0 1 8-8zm-3.5 9.5l3-3 3 3-1.5 1.5-1.5-1.5-1.5 1.5z"/></svg>';
+  const BUG_SVG='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 2a8 8 0 1 1-8 8 8 8 0 0 1 8-8zm-1 4h2v6h-2zm0 8h2v2h-2z"/></svg>';
+  menu.innerHTML=
+    '<button type="button" class="mm-item mm-has-sub" data-sub="minimalMapsSub"><span class="mm-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3L3 5.5V21l6-2.5 6 2.5 6-2.5V3l-6 2.5L9 3zm0 2.2l6 2.4v11.2l-6-2.4V5.2z"/></svg></span><span class="mm-lbl">Maps</span><span class="mm-caret">▸</span></button>'+
+    '<button type="button" class="mm-item mm-has-sub" data-sub="minimalTplSub"><span class="mm-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg></span><span class="mm-lbl">Templates</span><span class="mm-caret">▸</span></button>'+
+    '<button type="button" class="mm-item mm-has-sub" data-sub="minimalGhSub"><span class="mm-ic">'+GH_SVG+'</span><span class="mm-lbl">Open source</span><span class="mm-caret">▸</span></button>';
+  document.body.appendChild(menu);
+  // Cascade panels live on <body> — NOT inside the animated menu — so their
+  // fixed positioning stays relative to the viewport (a transformed ancestor
+  // would otherwise become their containing block and misplace them).
+  const subs=new Set();
+  // Hide panels below a given cascade depth, keeping one panel (the one about
+  // to open) visible. Depth 1 = top-level cascades (Maps/Templates/Open source),
+  // depth 2 = category drills — opening a deeper panel must NOT hide the
+  // category list it hangs off, or its items lose their rects and the panel
+  // would be placed at the menu's spot.
+  const hideSubs=(keep, depth)=>subs.forEach(s=>{ if(s!==keep && (depth===undefined || +s.dataset.depth >= depth)) s.hidden=true; });
+  const makeSub=(id, innerHTML)=>{
+    let s=document.getElementById(id);
+    if(s) return s;
+    s=document.createElement('div');
+    s.id=id; s.className='minimal-sub'; s.hidden=true; s.dataset.depth='1';
+    if(innerHTML) s.innerHTML=innerHTML;
+    document.body.appendChild(s); subs.add(s);
+    return s;
+  };
+  // Pure placement decision for a cascade panel: given the anchor item rect, the
+// panel's size and the viewport/menu bounds, decide where the panel should sit.
+// Returns {top, left} in viewport coordinates. The main menu sits at the
+// top-left, so a panel must never cover it: it opens to the right of the item
+// (at least 4px past the menu's right edge) when that fits, otherwise flips to
+// the left only if it clears the menu, and otherwise drops below the item
+// (below the menu) so every level stays reachable.
+function minimalSubPlacement(rect, subW, subH, vw, vh, menuLeft, menuRight){
+  let top=rect.top, left=Math.max(rect.right+4, menuRight+4);   // clear the menu box
+  if(left+subW>vw-8){                       // too wide for the right
+    const flipLeft=rect.left-subW-4;
+    if(flipLeft>=menuRight){                // clears the menu on the left
+      left=flipLeft;
+    } else {                                // would cover the menu: cascade downward
+      top=rect.bottom+4; left=rect.left;
+    }
+  }
+  if(top+subH>vh-8) top=Math.max(8, vh-subH-8);
+  return { top, left };
+}
+// Position a cascade next to its anchor rect (captured before any panel is
+// hidden, so the anchor's coordinates are still valid) — see minimalSubPlacement.
+  const placeSub=(sub, r, anchor)=>{
+    const menuRect=menu.getBoundingClientRect();
+    const z = (typeof _uiZ==='function' ? _uiZ() : 1) || 1;
+    // r and menuRect are in visual pixels (zoom-scaled), while offsetWidth/
+    // window.innerWidth are in CSS pixels. Convert to a common space (CSS)
+    // so the 1080p (zoom 0.9) vs 2K (zoom 1.0) gap is consistent and submenus
+    // never overlap the main menu.
+    const rCss = {left:r.left/z, right:r.right/z, top:r.top/z, bottom:r.bottom/z};
+    const menuCss = {left:menuRect.left/z, right:menuRect.right/z};
+    // Measure natural size without the CSS max-height cap (min(70vh,420px))
+    // otherwise a tall Templates list would be capped at 420 and we'd think it
+    // fits when it actually needs viewport-aware scrolling.
+    const prevMaxH = sub.style.maxHeight;
+    const prevOver = sub.style.overflowY;
+    sub.style.maxHeight='none'; sub.style.overflowY='';
+    sub.style.visibility='hidden'; sub.hidden=false;
+    const w=sub.offsetWidth, h=sub.offsetHeight;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let p=minimalSubPlacement(rCss, w, h, vw, vh, menuCss.left, menuCss.right);
+    // Depth 2+ : anchor lives inside a minimal-sub. Ensure we also clear that
+    // parent panel, not just the main menu, otherwise the child slightly
+    // overlaps its parent (parent right 400, child left 398 = 2px overlap).
+    if(anchor){
+      const parentSub = anchor.closest('.minimal-sub');
+      if(parentSub){
+        const pr = parentSub.getBoundingClientRect();
+        const prCss = {left:pr.left/z, right:pr.right/z};
+        const need = prCss.right + 8; // 8px gap from parent edge
+        if(p.left < need) p.left = need;
+        // If that pushes it off-screen, let minimalSubPlacement's flip logic
+        // handle it, but re-check after.
+        if(p.left + w > vw - 8){
+          const flipLeft = rCss.left - w - 8;
+          if(flipLeft >= menuCss.right && flipLeft >= prCss.right) p.left = flipLeft;
+          else { p.top = rCss.bottom + 4; p.left = rCss.left; }
+          if(p.top + h > vh - 8) p.top = Math.max(8, vh - h - 8);
+        }
+      }
+    }
+    sub.style.top=p.top+'px'; sub.style.left=p.left+'px';
+    // Only constrain height / show scrollbar when content would overflow viewport
+    const available = vh - p.top - 8;
+    if(h > available){
+      sub.style.maxHeight = Math.max(120, available) + 'px';
+      sub.style.overflowY = 'auto';
+    } else {
+      sub.style.maxHeight = 'none';
+      sub.style.overflowY = '';
+    }
+    sub.style.visibility='';
+    // Restore if we are not constraining? Already set to none/''.
+  };
+  const showSub=(sub, anchor, depth)=>{
+    const r=anchor.getBoundingClientRect();   // capture BEFORE hideSubs hides the anchor's own panel
+    hideSubs(sub, depth);
+    if(!sub) return;
+    placeSub(sub, r, anchor);
+    if(sub.id==='minimalMapsSub') renderMaps(sub);
+    else if(sub.id==='minimalTplSub') renderTpl(sub);
+    else if(sub.dataset.cat) renderTplCat(sub);
+    sub.hidden=false;
+  };
+  const closeLauncher=()=>{ menu.hidden=true; hideSubs(); };
+  // Maps cascade — every saved map (dot + title, active map highlighted,
+  // pinned ones flagged) plus shared maps; clicking loads the map.
+  const renderMaps=async panel=>{
+    panel.innerHTML='';
+    let idx=[];
+    try{ idx=await Store.list(); }catch(e){ idx=[]; }
+    if(map && !map._cloudView){
+      const local={id:map.id,title:map.title,color:map.color,updated:map.updated||Date.now(),pinned:map.pinned||undefined};
+      const at=idx.findIndex(m=>m.id===map.id);
+      if(at>=0) idx[at]={...idx[at],...local}; else idx.unshift(local);
+    }
+    idx.sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||(b.updated||0)-(a.updated||0));
+    const add=item=>{
+      const el=document.createElement('button');
+      el.type='button'; el.className='mm-item'+(item.active?' active':'');
+      if(item.id!==undefined) el.dataset.mapId=item.id;
+      else{ el.dataset.room=item.room||''; el.dataset.token=item.token||''; }
+      el.innerHTML='<span class="mm-ic"><span class="dot" style="background:'+(item.color||'#e0613a')+'"></span></span><span class="mm-lbl">'+escapeHtml(item.title||'Untitled')+'</span>'+(item.pinned?'<span class="mm-pin">📌</span>':'');
+      panel.appendChild(el);
+    };
+    if(!idx.length) panel.innerHTML='<div class="mm-empty">No maps yet</div>';
+    else idx.forEach(m=>add({...m, active: map && m.id===map.id}));
+    const _byMe=_sharedByMeStore(), _withMe=_sharedStore();
+    const _seen=new Set(); const _unified=[];
+    _byMe.forEach(x=>{ const room=x.room||x.id; if(!room||_seen.has(room)) return; _seen.add(room); _unified.push({room,token:x.token,title:x.title,color:x.color}); });
+    _withMe.forEach(x=>{ const room=x.id; if(!room||_seen.has(room)) return; _seen.add(room); _unified.push({room,token:x.token,title:x.title,color:x.color}); });
+    if(_unified.length){
+      const hdr=document.createElement('div'); hdr.className='map-group-label'; hdr.textContent='Shared maps';
+      panel.appendChild(hdr);
+      _unified.sort((a,b)=>(b.addedAt||0)-(a.addedAt||0)).forEach(sm=>add({...sm, room:sm.room, token:sm.token, title:sm.title||'Shared map'}));
+    }
+  };
+  // Templates cascade — category list first; each category drills into its own
+  // sub-panel of templates.
+  const renderTpl=panel=>{
+    panel.innerHTML='';
+    let any=false;
+    for(const c of TEMPLATE_CATEGORIES){
+      const entries=Object.entries(TEMPLATES).filter(([,t])=>(t.group||'prompt')===c.id);
+      if(!entries.length) continue;
+      any=true;
+      const el=document.createElement('button');
+      el.type='button'; el.className='mm-item mm-has-sub'; el.dataset.cat=c.id;
+      el.innerHTML='<span class="mm-ic" style="color:'+c.color+'">'+escapeHtml(c.icon||'✦')+'</span><span class="mm-lbl">'+escapeHtml(c.label)+'</span><span class="mm-caret">▸</span>';
+      panel.appendChild(el);
+    }
+    if(!any) panel.innerHTML='<div class="mm-empty">No templates</div>';
+  };
+  const renderTplCat=panel=>{
+    const c=TEMPLATE_CATEGORIES.find(c=>c.id===panel.dataset.cat)||{label:'Templates',color:'#8c5da7'};
+    panel.innerHTML='';
+    const hdr=document.createElement('div'); hdr.className='map-group-label'; hdr.textContent=c.label; panel.appendChild(hdr);
+    const entries=Object.entries(TEMPLATES).filter(([,t])=>(t.group||'prompt')===c.id);
+    if(!entries.length){ panel.innerHTML='<div class="mm-empty">No templates</div>'; return; }
+    entries.forEach(([id,t])=>{
+      const el=document.createElement('button');
+      el.type='button'; el.className='mm-item'; el.dataset.tpl=id;
+      el.innerHTML='<span class="mm-ic" style="color:'+(t.color||c.color)+'">'+escapeHtml(t.icon||'✦')+'</span><span class="mm-lbl">'+escapeHtml(t.name)+'</span>';
+      panel.appendChild(el);
+    });
+  };
+  // Open-source cascade.
+  const ghSub=makeSub('minimalGhSub',
+    '<a class="mm-item" data-ref="ghRepoLink"><span class="mm-ic">'+GH_SVG+'</span><span class="mm-lbl">GitHub</span></a>'+
+    '<a class="mm-item" data-ref="gptLink"><span class="mm-ic">'+BRAIN_SVG+'</span><span class="mm-lbl">MindSpark GPT</span></a>'+
+    '<a class="mm-item" data-ref="ghIssueLink"><span class="mm-ic">'+BUG_SVG+'</span><span class="mm-lbl">Report bug</span></a>');
+  ghSub.addEventListener('click',e=>{
+    const it=e.target.closest('.mm-item'); if(!it) return;
+    const l=document.getElementById(it.dataset.ref);
+    if(l && l.href && l.href!=='#'){ closeLauncher(); window.open(l.href,'_blank','noopener'); }
+  });
+  // Maps cascade actions.
+  const mapsSub=makeSub('minimalMapsSub');
+  mapsSub.addEventListener('click',e=>{
+    const it=e.target.closest('.mm-item'); if(!it) return;
+    closeLauncher();
+    const id=it.dataset.mapId, room=it.dataset.room;
+    if(id){ if(!map || map.id!==id) loadMap(id); }
+    else if(room) openSharedInPlace(room, it.dataset.token);
+  });
+  // Templates cascade actions: category items drill in, template items create.
+  const tplSub=makeSub('minimalTplSub');
+  tplSub.addEventListener('click',e=>{
+    const it=e.target.closest('.mm-item'); if(!it) return;
+    if(it.dataset.cat){
+      const s=makeSub('minimalTplCat_'+it.dataset.cat); s.dataset.cat=it.dataset.cat; s.dataset.depth='2';
+      if(!s.hidden){ s.hidden=true; return; }
+      showSub(s, it, 2);
+      return;
+    }
+  });
+  // Hover opens the cascade; a short grace period lets the pointer travel into
+  // the sub-panel before it closes again. Re-entering the main menu always
+  // collapses every cascade so the top-level items are reachable again.
+  menu.addEventListener('mouseenter',()=>hideSubs());
+  menu.querySelectorAll('.mm-has-sub').forEach(item=>{
+    item.addEventListener('mouseenter',()=>showSub(document.getElementById(item.dataset.sub), item, 1));
+  });
+  tplSub.addEventListener('mouseover',e=>{
+    const it=e.target.closest('.mm-item[data-cat]');
+    if(it){ const s=makeSub('minimalTplCat_'+it.dataset.cat); s.dataset.cat=it.dataset.cat; s.dataset.depth='2'; showSub(s, it, 2); }
+  });
+  // Any template item click creates the map from that template.
+  document.addEventListener('click',e=>{
+    const it=e.target.closest('.minimal-sub .mm-item[data-tpl]');
+    if(it){
+      const id=it.dataset.tpl;
+      closeLauncher();
+      if(typeof createMapFromTemplate==='function') createMapFromTemplate(id);
+    }
+  });
+  // Close the cascade when the pointer leaves the menu and all open sub-panels.
+  let _mmLeaveTimer=null;
+  const scheduleHide=()=>{ clearTimeout(_mmLeaveTimer); _mmLeaveTimer=setTimeout(()=>{ if(!menu.matches(':hover') && ![...subs].some(s=>s.matches(':hover'))) hideSubs(); },120); };
+  menu.addEventListener('mouseleave',scheduleHide);
+  subs.forEach(s=>{ s.addEventListener('mouseenter',()=>clearTimeout(_mmLeaveTimer)); s.addEventListener('mouseleave',scheduleHide); });
+  btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(menu.hidden){ closeAllMenus(); hideSubs(); const r=btn.getBoundingClientRect(); const z=(typeof _uiZ==='function'?_uiZ():1)||1; menu.style.top=(r.bottom/z+6)+'px'; menu.style.left=(r.left/z)+'px'; menu.hidden=false; }
+    else closeLauncher();
+  });
+  menu.addEventListener('click',e=>{
+    const it=e.target.closest('.mm-item'); if(!it) return;
+    const sub=it.dataset.sub;
+    if(sub){   // toggle the cascade (touch users have no hover)
+      const s=document.getElementById(sub);
+      if(s && !s.hidden){ s.hidden=true; return; }
+      showSub(s, it);
+    }
+  });
+  document.addEventListener('click',e=>{ if(!e.target.closest('#minimalMenuBtn, #minimalMenu, .minimal-sub')) closeLauncher(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeLauncher(); });
+}
+// Zen chrome reveal: sliding the mouse near the top edge of the canvas shows
+// the floating toolbar (and hides it again once the pointer moves back into
+// the map). Wired once; a no-op in every other layout.
+let _zenWired=false;
+function wireZen(){
+  if(_zenWired) return; _zenWired=true;
+  const st=$('#stage'); if(!st) return;
+  st.addEventListener('mousemove',e=>{
+    if(!document.body.classList.contains('ui-zen')) return;
+    const r=st.getBoundingClientRect();
+    document.body.classList.toggle('zen-chrome', (e.clientY - r.top) < 90);
+  });
+}
+wireZen();
+function toggleDockSide(){ document.body.classList.toggle('side-open'); }
+// Dock/Minimal/Zen layouts: clicking anywhere outside the slide-over (or its
+// tabs/toggle) closes it again. Guarded so no other layout is affected.
+document.addEventListener('click',e=>{
+  if(document.body.classList.contains('side-open')
+     && (document.body.classList.contains('ui-dock') || document.body.classList.contains('ui-minimal') || document.body.classList.contains('ui-zen'))
+     && !e.target.closest('.side, #toggleSide, .side-tabs')) document.body.classList.remove('side-open');
+});
+function buildUiLayoutThumb(id){
+  if(id==='classic') return `<span class="style-thumb"><svg viewBox="0 0 70 40" width="70" height="40">
+    <rect x="2"  y="8"  width="11" height="26" rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="17" y="4"  width="50" height="9"  rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="22" y="26" width="11" height="6"  rx="1" fill="var(--paper-2,#ddd)" stroke="var(--line)"/>
+    <rect x="42" y="26" width="11" height="6"  rx="1" fill="var(--paper-2,#ddd)" stroke="var(--line)"/>
+  </svg></span>`;
+  if(id==='rail') return `<span class="style-thumb"><svg viewBox="0 0 70 40" width="70" height="40">
+    <rect x="2"  y="2"  width="11" height="36" rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="16" y="2"  width="6"  height="36" rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="25" y="2"  width="40" height="30" rx="2" fill="var(--paper-2,#ddd)" stroke="var(--line)"/>
+    <rect x="28" y="24" width="8"  height="4"  rx="1" fill="var(--chrome,#eee)"/>
+    <rect x="40" y="24" width="8"  height="4"  rx="1" fill="var(--chrome,#eee)"/>
+  </svg></span>`;
+  if(id==='zen') return `<span class="style-thumb"><svg viewBox="0 0 70 40" width="70" height="40">
+    <rect x="2"  y="2"  width="66" height="36" rx="2" fill="var(--paper-2,#ddd)" stroke="var(--line)"/>
+    <rect x="14" y="2"  width="42" height="8"  rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="52" y="26" width="10" height="7"  rx="1" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="8"  y="26" width="10" height="7"  rx="1" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+  </svg></span>`;
+  if(id==='outline') return `<span class="style-thumb"><svg viewBox="0 0 70 40" width="70" height="40">
+    <rect x="2"  y="2"  width="11" height="36" rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="17" y="2"  width="19" height="36" rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="40" y="2"  width="28" height="36" rx="2" fill="var(--paper-2,#ddd)" stroke="var(--line)"/>
+    <rect x="21" y="7"  width="11" height="2" rx="1" fill="var(--accent,#888)"/>
+    <rect x="21" y="12" width="8"  height="2" rx="1" fill="var(--ink-soft,#bbb)"/>
+    <rect x="25" y="17" width="8"  height="2" rx="1" fill="var(--ink-soft,#bbb)"/>
+    <rect x="25" y="22" width="8"  height="2" rx="1" fill="var(--ink-soft,#bbb)"/>
+  </svg></span>`;
+  if(id==='minimal') return `<span class="style-thumb"><svg viewBox="0 0 70 40" width="70" height="40">
+    <rect x="2"  y="2"  width="66" height="8"  rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="2"  y="13" width="66" height="21" rx="2" fill="var(--paper-2,#ddd)" stroke="var(--line)"/>
+    <rect x="2"  y="36" width="66" height="2"  rx="1" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+  </svg></span>`;
+  if(id==='mirror') return `<span class="style-thumb"><svg viewBox="0 0 70 40" width="70" height="40">
+    <rect x="2"  y="2"  width="11" height="36" rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="17" y="4"  width="50" height="9"  rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="58" y="6"  width="6"  height="5"  rx="1" fill="var(--accent,#888)"/>
+    <rect x="22" y="26" width="11" height="6"  rx="1" fill="var(--paper-2,#ddd)" stroke="var(--line)"/>
+    <rect x="57" y="26" width="11" height="6"  rx="1" fill="var(--paper-2,#ddd)" stroke="var(--line)"/>
+  </svg></span>`;
+  if(id==='dock') return `<span class="style-thumb"><svg viewBox="0 0 70 40" width="70" height="40">
+    <rect x="2"  y="2"  width="66" height="8"  rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="2"  y="13" width="66" height="20" rx="2" fill="var(--paper-2,#ddd)" stroke="var(--line)"/>
+    <rect x="8"  y="18" width="10" height="10" rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="2"  y="36" width="66" height="2"  rx="1" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="6"  y="36.5" width="8"  height="1" rx="0.5" fill="var(--accent,#888)"/>
+    <rect x="17" y="36.5" width="16" height="1" rx="0.5" fill="var(--accent,#888)"/>
+  </svg></span>`;
+  if(id==='split') return `<span class="style-thumb"><svg viewBox="0 0 70 40" width="70" height="40">
+    <rect x="2"  y="2"  width="11" height="36" rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="17" y="2"  width="50" height="6"  rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="17" y="11" width="24" height="27" rx="2" fill="var(--paper-2,#ddd)" stroke="var(--line)"/>
+    <rect x="45" y="11" width="22" height="27" rx="2" fill="var(--paper-2,#ddd)" stroke="var(--line)"/>
+    <rect x="19" y="15" width="10" height="2"  rx="1" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+  </svg></span>`;
+  return `<span class="style-thumb"><svg viewBox="0 0 70 40" width="70" height="40">
+    <rect x="2"  y="2"  width="11" height="36" rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="17" y="2"  width="51" height="8"  rx="2" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+    <rect x="17" y="13" width="51" height="21" rx="2" fill="var(--paper-2,#ddd)" stroke="var(--line)"/>
+    <rect x="17" y="36" width="51" height="2"  rx="1" fill="var(--chrome,#eee)" stroke="var(--line)"/>
+  </svg></span>`;
+}
 function applyMapStyle(id){
   if(!map) return;
   map.style = id;
@@ -9630,18 +10655,14 @@ $('#themeBtn').onclick=(e)=>{
   closeAllMenus();
   const curTheme  = document.documentElement.getAttribute('data-theme') || 'light';
   const customTheme = loadCustomTheme();
-  // Colour-theme tiles: 10 built-ins fill the visible 3×4 grid's first two
-  // rows and the first two slots of the last row, with the Add theme tile
-  // always in the bottom-right corner — the last slot of the column-major
-  // fill. The imported theme (if any) fills the slot beside it; an empty
-  // spacer holds that slot when there is none, keeping Add pinned to the
-  // corner. The grid scrolls horizontally like the Layout and Map style
-  // rows; a CSS grid fills down before it fills across, so the tiles are
-  // emitted in column order — which keeps the visible rows reading
-  // left-to-right in theme order.
-  const ROWS=3, COLS=4;
+  // Colour-theme tiles: 2-row horizontally scrollable grid, like Layout/Map
+  // style. All built-ins are shown (no slicing), plus the Add theme tile
+  // always in the final slot — column-major fill so the visible rows read
+  // left-to-right in theme order. The imported theme (if any) sits before
+  // Add; an empty spacer holds that slot when there is none.
+  const ROWS=2, COLS=4;
   const themeTiles = [
-    ...THEMES.slice(0, ROWS*COLS-2).map(theme=>({theme})),
+    ...THEMES.map(theme=>({theme})),
     ...(customTheme ? [{custom:true}] : [{spacer:true}]),
     {add:true},
   ];
@@ -9649,8 +10670,8 @@ $('#themeBtn').onclick=(e)=>{
   for(let c=0; c*ROWS < themeTiles.length; c++){
     for(let r=0; r<ROWS; r++){
       // Columns past the first COLS hold any overflow beyond the visible
-      // 12 slots, continuing the same row-major sequence instead of
-      // wrapping to a 4th row.
+      // 8 slots, continuing the same row-major sequence instead of
+      // wrapping to a 3rd row.
       const o = c < COLS ? r*COLS + c : ROWS*COLS + (c-COLS)*ROWS + r;
       if(o < themeTiles.length) themeTilesOrdered.push(themeTiles[o]);
     }
@@ -9658,9 +10679,17 @@ $('#themeBtn').onclick=(e)=>{
   const curLook   = document.documentElement.getAttribute('data-look')  || 'office';
   const curStyle  = (map && map.style)  || 'modern';
   const curLayout = (map && (map.layoutPreset || map.layout)) || 'balanced';
-  // The colour-theme picker shows only the top 10 built-ins (filling the
-  // 3×4 grid with the Add theme tile); everything beyond that lives in
-  // themes/ and is reached by importing via the Add theme tile below.
+  const curUi     = document.body.classList.contains('ui-zen') ? 'zen'
+                  : (document.body.classList.contains('ui-dock') ? 'dock'
+                  : (document.body.classList.contains('ui-split') ? 'split'
+                  : (document.body.classList.contains('ui-rail') ? 'rail'
+                  : (document.body.classList.contains('ui-mirror') ? 'mirror'
+                  : (document.body.classList.contains('ui-classic') ? 'classic'
+                  : (document.body.classList.contains('ui-outline') ? 'outline'
+                  : (document.body.classList.contains('ui-minimal') ? 'minimal' : 'modern')))))));
+  // The colour-theme picker shows all built-ins in a 2-row
+  // horizontally scrollable grid (like Layout), with the Add theme tile
+  // at the end; overflow scrolls horizontally.
   themePanel=document.createElement('div');
   themePanel.className='theme-panel theme-panel-large';
   themePanel.innerHTML = `
@@ -9668,7 +10697,7 @@ $('#themeBtn').onclick=(e)=>{
       <div class="tp-label">Colour theme
         <button class="tp-cog" data-cog="theme" title="Colour theme settings (JSON)">\u2699</button>
       </div>
-      <div class="tp-grid tp-scroll-row tp-scroll-3row">
+      <div class="tp-grid tp-scroll-row tp-scroll-2rows">
         ${themeTilesOrdered.map(tile=>
           tile.custom ? `
           <button class="theme-opt custom-theme-opt${curTheme==='custom'?' active':''}" data-cat="theme" data-id="custom" title="${escapeHtml(customTheme.name)}">
@@ -9690,7 +10719,7 @@ $('#themeBtn').onclick=(e)=>{
       <div class="tp-label">I am
         <button class="tp-cog" data-cog="look" title="Look settings (JSON)">\u2699</button>
       </div>
-      <div class="tp-grid">
+      <div class="tp-grid tp-scroll-row">
         ${LOOKS.map(l=>`
           <button class="theme-opt${l.id===curLook?' active':''}" data-cat="look" data-id="${l.id}">
             ${buildLookThumb(l)}<span class="theme-name">${l.name}</span>
@@ -9709,13 +10738,22 @@ $('#themeBtn').onclick=(e)=>{
       </div>
     </div>
     <div class="tp-section">
-      <div class="tp-label">Layout
-        <button class="tp-cog" data-cog="layout" title="Layout settings (JSON)">\u2699</button>
+      <div class="tp-label">Map layout
+        <button class="tp-cog" data-cog="layout" title="Map layout settings (JSON)">\u2699</button>
       </div>
       <div class="tp-grid tp-scroll-row">
         ${allLayouts().map(l=>`
           <button class="theme-opt${l.id===curLayout?' active':''}" data-cat="layout" data-id="${l.id}" title="${l.desc}">
             ${buildLayoutThumb(l.id)}<span class="theme-name">${l.name}</span>
+          </button>`).join('')}
+      </div>
+    </div>
+    <div class="tp-section">
+      <div class="tp-label">App layout <span class="tp-hint">shell of bars, sidebar & status bar</span></div>
+      <div class="tp-grid tp-scroll-row">
+        ${UI_LAYOUTS.map(l=>`
+          <button class="theme-opt${l.id===curUi?' active':''}" data-cat="ui" data-id="${l.id}">
+            ${buildUiLayoutThumb(l.id)}<span class="theme-name">${l.name}</span>
           </button>`).join('')}
       </div>
     </div>
@@ -9728,7 +10766,10 @@ $('#themeBtn').onclick=(e)=>{
       </div>
     </div>`;
   document.body.appendChild(themePanel);
-  positionPopup(themePanel, $('#themeBtn'), {align:'right'});
+  // Side-toolbar layout: same flyout treatment as the export menu — keep the
+  // large theme panel clear of the rail and aligned to the triggering icon.
+  const _isRailTheme = document.body.classList.contains('ui-rail') && !window.matchMedia('(max-width: 720px)').matches;
+  positionPopup(themePanel, $('#themeBtn'), _isRailTheme ? {side:'right'} : {align:'right'});
   themePanel.addEventListener('mousedown',ev=>ev.stopPropagation());
 
   // A horizontally scrolling row keeps the panel from growing a whole extra
@@ -9782,6 +10823,17 @@ $('#themeBtn').onclick=(e)=>{
       else if(cat==='look') applyLook(id);
       else if(cat==='style') applyMapStyle(id);
       else if(cat==='layout') applyMapLayout(id);
+      else if(cat==='ui'){
+        applyUiLayout(id);
+        const repositionUi=()=>{
+          if(!themePanel || !document.body.contains(themePanel)) return;
+          _rzCache=null;
+          const _isRailNow = document.body.classList.contains('ui-rail') && !window.matchMedia('(max-width: 720px)').matches;
+          positionPopup(themePanel, $('#themeBtn'), _isRailNow ? {side:'right'} : {align:'right'});
+        };
+        repositionUi();
+        requestAnimationFrame(()=>requestAnimationFrame(repositionUi));
+      }
       // Clear active state across every section sharing this category, not
       // just the clicked button's own section (opt.closest('.tp-section')).
       // Each category lives in exactly one section again now that 'look' is
@@ -9842,6 +10894,8 @@ try{
   else applyTheme(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 }catch(e){}
 try{ applyLook(localStorage.getItem('mindspark:look') || 'office'); }catch(e){}
+try{ if(localStorage.getItem('mindspark:zenPinned')==='1') document.body.classList.add('zen-pinned'); }catch(e){}
+try{ applyUiLayout(localStorage.getItem('mindspark:uiLayout') || 'modern'); }catch(e){}   // app shell layout (Modern bars / Classic floating)
 
 applyView();
 
@@ -9988,6 +11042,91 @@ function toggleFocusMode(){
 }
 $('#focusBtn')?.addEventListener('click', toggleFocusMode);
 
+// ===== Presentation — canvas-only walkthrough of the map =====
+// Walks the map breadth-first (root, its children, then each level below) and
+// steps the viewport from node to node. Chrome is hidden by body.ui-deck; the
+// current node gets an accent ring, the rest of the map dims. ←/→ move, Esc
+// leaves; clicking the canvas also advances. Works from every app layout.
+let _deck=null;   // { list:[nodeIds], idx }
+function deckBuildList(){
+  const list=[], hidden=hiddenSet();
+  const walk=(ids)=>{
+    const next=[];
+    for(const id of ids){
+      if(hidden.has(id)) continue;
+      list.push(id);
+      next.push(...childrenOf(id));
+    }
+    if(next.length) walk(next);
+  };
+  if(map) walk([map.rootId]);
+  return list;
+}
+function enterDeck(){
+  if(!map || _deck) return;
+  const list=deckBuildList();
+  if(!list.length) return;
+  _deck={list, idx:0};
+  document.body.classList.add('ui-deck');
+  const bar=document.createElement('div');
+  bar.id='deckBar';
+  bar.innerHTML=`<span class="deck-title"></span>
+    <span class="deck-pos"></span>
+    <span class="deck-nav">
+      <button type="button" id="deckPrev" title="Previous (←)">◀</button>
+      <button type="button" id="deckNext" title="Next (→)">▶</button>
+      <button type="button" id="deckExit" title="Exit (Esc)">✕</button>
+    </span>`;
+  bar.querySelector('#deckPrev').onclick=()=>deckStep(-1);
+  bar.querySelector('#deckNext').onclick=()=>deckStep(1);
+  bar.querySelector('#deckExit').onclick=exitDeck;
+  document.body.appendChild(bar);
+  deckGo(0);
+  toast('Presentation — ← → to move, Esc to exit');
+}
+function exitDeck(){
+  if(!_deck) return;
+  _deck=null;
+  document.body.classList.remove('ui-deck');
+  document.getElementById('deckBar')?.remove();
+  document.querySelectorAll('.node.deck-current').forEach(n=>n.classList.remove('deck-current'));
+}
+function deckStep(d){ if(_deck) deckGo(_deck.idx + d); }
+function deckGo(i){
+  if(!_deck) return;
+  const n=_deck.list.length;
+  i=((i%n)+n)%n;
+  _deck.idx=i;
+  const id=_deck.list[i], node=map.nodes[id];
+  if(!node) return;
+  document.querySelectorAll('.node.deck-current').forEach(x=>x.classList.remove('deck-current'));
+  document.querySelector(`.node[data-id="${id}"]`)?.classList.add('deck-current');
+  const {w:SW,h:SH}=_stageSize();
+  animateViewTo({x: SW/2-(node.x+(node.w||120)/2)*view.k,
+                 y: SH/2-(node.y+(node.h||40)/2)*view.k,
+                 k: view.k}, 260);
+  const bar=document.getElementById('deckBar');
+  if(bar){
+    bar.querySelector('.deck-title').textContent=nodeTextPlain(node.text||'')||'(untitled)';
+    bar.querySelector('.deck-pos').textContent=(i+1)+' / '+n;
+  }
+}
+$('#presentBtn')?.addEventListener('click', enterDeck);
+// Deck keys are captured (phase 1) so the map's own arrow/Esc handlers don't
+// also fire while presenting.
+document.addEventListener('keydown',e=>{
+  if(!document.body.classList.contains('ui-deck')) return;
+  if(e.key==='ArrowRight'){ e.preventDefault(); e.stopPropagation(); deckStep(1); }
+  else if(e.key==='ArrowLeft'){ e.preventDefault(); e.stopPropagation(); deckStep(-1); }
+  else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); exitDeck(); }
+}, true);
+// Clicking anywhere on the canvas advances to the next node.
+$('#stage')?.addEventListener('click',e=>{
+  if(!document.body.classList.contains('ui-deck')) return;
+  if(e.target.closest('#deckBar')) return;
+  deckStep(1);
+});
+
 // ===== Keyboard shortcuts help — press '?' to open =====
 function showKeyboardHelp(){
   document.querySelectorAll('.kb-help').forEach(m=>m.remove());
@@ -10079,6 +11218,35 @@ const GITHUB_URL = 'https://github.com/prasadpatil25/mindspark';
   }
 })();
 
+// GitHub stars badge — sidebar footer (cached, 6h TTL, offline-first)
+(function loadGhStars(){
+  const el=$('#ghStars'); if(!el) return;
+  const repoPath=(GITHUB_URL||'').replace(/^https:\/\/github\.com\//,'').replace(/\/$/,'');
+  if(!repoPath || repoPath.includes('YOUR_USERNAME')) return;
+  const cacheKey='mindspark:gh-stars:'+repoPath;
+  const fmt=n=> n>=1000 ? (n>=1000000 ? (n/1000000).toFixed(1).replace(/\.0$/,'')+'M' : (n/1000).toFixed(1).replace(/\.0$/,'')+'k') : String(n);
+  const render=n=>{
+    if(!isFinite(n)) return;
+    el.textContent='★ '+fmt(n);
+    el.hidden=false;
+    el.title=n.toLocaleString()+' stars on GitHub';
+  };
+  try{
+    const cached=JSON.parse(localStorage.getItem(cacheKey)||'null');
+    if(cached && isFinite(cached.count) && Date.now()-cached.ts < 6*3600*1000){
+      render(cached.count);
+    }
+  }catch(e){}
+  fetch('https://api.github.com/repos/'+repoPath, {cache:'no-store'})
+    .then(r=> r.ok ? r.json() : Promise.reject())
+    .then(j=>{
+      if(!j || !isFinite(j.stargazers_count)) return;
+      render(j.stargazers_count);
+      try{ localStorage.setItem(cacheKey, JSON.stringify({count:j.stargazers_count, ts:Date.now()})); }catch(e){}
+    })
+    .catch(()=>{});
+})();
+
 // Swap the donate modal's card into a "scan UPI QR" view.
 function showUpiQrView(modal){
   const card = modal.querySelector('.donate-card');
@@ -10128,6 +11296,11 @@ async function seedDemoMap(){
   return true;
 }
 async function proceedBoot(){
+  await _proceedBoot();
+  // Seed the tab strip with the boot map when tabbed workspace is on.
+  if(tabsEnabled && map && _tabs.length===0){ _tabs=[{key:map.id, title:map.title||'Untitled', map}]; _tabActive=0; renderTabs(); }
+}
+async function _proceedBoot(){
   loadUserTemplates();   // merge any saved "My templates" into the catalog
   // A shared map queued for copying takes priority over loading the last map.
   if(await consumePendingImport()) return;
@@ -10322,8 +11495,8 @@ function _shareePayload(m){
   const p = { v:1, title:m.title, color:m.color, style:m.style, layout:m.layout,
               rootId:m.rootId, nodes:m.nodes, links:m.links||[], vars:m.vars||{} };
   if(m.layoutConfig) p.layoutConfig = m.layoutConfig;   // omitted entirely when unset
-  if(m.lookConfig) p.lookConfig = m.lookConfig;         // omitted entirely when unset
-  if(m.themeConfig) p.themeConfig = m.themeConfig;       // omitted entirely when unset
+  if(m.styleConfig) p.styleConfig = m.styleConfig;
+  if(m.lookConfig) p.lookConfig = m.lookConfig;
   return p;
 }
 async function buildShareLink(){
@@ -10378,7 +11551,8 @@ async function tryEnterSharedView(){
   document.body.classList.add('shared-view');
   map={ id:'shared', title:payload.title||'Shared map', color:payload.color||'#e0613a',
         style:payload.style, layout:payload.layout, rootId:payload.rootId,
-        nodes:payload.nodes||{}, links:payload.links||[], vars:payload.vars||{} };
+        nodes:payload.nodes||{}, links:payload.links||[], vars:payload.vars||{},
+        layoutConfig:payload.layoutConfig, styleConfig:payload.styleConfig, lookConfig:payload.lookConfig };
   sel=null;
   $('#mapTitle').value=map.title; $('#mapTitle').readOnly=true;
   // Grow the title <input> to fit the whole title (it clips to its width) so a
@@ -11132,6 +12306,84 @@ async function tryEnterLiveSession(){
   Collab.join(room);
   return true;
 }
+
+/* ============================================================
+   Quote of the day — sidebar footer (cascade: Quotable → ZenQuotes → FavQs → DummyJSON → local)
+   ============================================================ */
+let _qotdQuotes=null;
+function _qotdDayOfYear(d=new Date()){
+  const start=new Date(d.getFullYear(),0,0);
+  const diff=d - start + ((start.getTimezoneOffset()-d.getTimezoneOffset())*60*1000);
+  return Math.floor(diff/86400000);
+}
+function _qotdRender(q){
+  const wrap=$('#qotd'), txt=wrap?.querySelector('.qotd-text'), auth=wrap?.querySelector('.qotd-author');
+  if(!wrap||!txt||!auth||!q) return;
+  txt.textContent=q.text||''; auth.textContent=q.author||'Unknown';
+  wrap.hidden=false;
+}
+async function _qotdFetch(url, parser){
+  try{
+    const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(), 4000);
+    const r=await fetch(url, {signal:ctrl.signal, cache:'no-store'});
+    clearTimeout(t);
+    if(!r.ok) throw new Error('http '+r.status);
+    const j=await r.json();
+    const q=parser(j);
+    if(q && q.text && q.text.trim()) return {text:q.text.trim(), author:(q.author||'Unknown').trim()};
+  }catch(e){}
+  return null;
+}
+async function _qotdTryCascade(){
+  // 1. Quotable — no key, CORS yes
+  let q=await _qotdFetch('https://api.quotable.io/random', j=>({text:j.content, author:j.author}));
+  if(q) return q;
+  // 2. ZenQuotes — today (daily) → random fallback handled by same endpoint array
+  q=await _qotdFetch('https://zenquotes.io/api/today', j=>Array.isArray(j)&&j[0]?{text:j[0].q, author:j[0].a}:null);
+  if(q) return q;
+  q=await _qotdFetch('https://zenquotes.io/api/random', j=>Array.isArray(j)&&j[0]?{text:j[0].q, author:j[0].a}:null);
+  if(q) return q;
+  // 3. FavQs — qotd (no key for low volume)
+  q=await _qotdFetch('https://favqs.com/api/qotd', j=>j.quote?{text:j.quote.body, author:j.quote.author}:null);
+  if(q) return q;
+  // 4. DummyJSON
+  q=await _qotdFetch('https://dummyjson.com/quotes/random', j=>({text:j.quote, author:j.author}));
+  if(q) return q;
+  return null;
+}
+async function loadQotd(){
+  const wrap=$('#qotd'); if(!wrap) return;
+  try{
+    // try live cascade first
+    const live=await _qotdTryCascade();
+    if(live){ _qotdRender(live); }
+    else {
+      // local fallback — deterministic daily rotation
+      if(!_qotdQuotes){
+        const res=await fetch('./quotes.json', {cache:'no-store'});
+        if(!res.ok) throw new Error('no quotes');
+        _qotdQuotes=await res.json();
+      }
+      if(!Array.isArray(_qotdQuotes)||!_qotdQuotes.length) throw new Error('empty');
+      const idx=_qotdDayOfYear()%_qotdQuotes.length;
+      _qotdRender(_qotdQuotes[idx]);
+    }
+    // refresh → try live again, else random local
+    $('#qotdRefresh')?.addEventListener('click', async ()=>{
+      const r=await _qotdTryCascade();
+      if(r) _qotdRender(r);
+      else if(_qotdQuotes){
+        const rnd=_qotdQuotes[Math.floor(Math.random()*_qotdQuotes.length)];
+        _qotdRender(rnd);
+      }
+    }, {once:false});
+  }catch(e){
+    wrap.hidden=true;
+  }
+}
+// init after DOM ready (side-foot exists at parse time, but fetch after load)
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', loadQotd);
+else loadQotd();
 
 (async()=>{
   // The inline <head> script guesses the auto scale before any page content exists,

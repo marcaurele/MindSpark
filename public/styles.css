@@ -175,7 +175,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
-  :root[data-theme="vscode-onedark"]{   /* VSCode One Dark Pro */
+:root[data-theme="vscode-onedark"]{   /* VSCode One Dark Pro */
     --toolbar-bg:#abb2bf; --toolbar-text:#282c34;
     --paper:#282c34; --paper-2:#21252b; --ink:#abb2bf; --ink-soft:#5c6370;
     --line:#3e4451; --line-2:#4a5261;
@@ -188,7 +188,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
-  :root[data-theme="monokai-pro"]{   /* VSCode Monokai Pro */
+:root[data-theme="monokai-pro"]{   /* VSCode Monokai Pro */
     --toolbar-bg:#fcfcfa; --toolbar-text:#2d2a2e;
     --paper:#2d2a2e; --paper-2:#19181a; --ink:#fcfcfa; --ink-soft:#727072;
     --line:#403e41; --line-2:#504d52;
@@ -201,7 +201,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.50);
     --shadow-lg:0 12px 40px rgba(0,0,0,.60);
   }
-  :root[data-theme="amazon-aws"]{   /* Amazon AWS Console */
+:root[data-theme="amazon-aws"]{   /* Amazon AWS Console */
     --toolbar-bg:#f9fafb; --toolbar-text:#111827;
     --paper:#161e2e; --paper-2:#1f2937; --ink:#d1d5db; --ink-soft:#6b7280;
     --line:#374151; --line-2:#455160;
@@ -214,7 +214,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
-  :root[data-theme="synthwave"]{   /* Synthwave '84 Sunset */
+:root[data-theme="synthwave"]{   /* Synthwave '84 Sunset */
     --toolbar-bg:#e2d9f3; --toolbar-text:#1a102f;
     --paper:#1a102f; --paper-2:#281b45; --ink:#e2d9f3; --ink-soft:#9a84b4;
     --line:#483267; --line-2:#5a4080;
@@ -227,7 +227,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="matrix-green"]{   /* Matrix Green terminal */
+:root[data-theme="matrix-green"]{   /* Matrix Green terminal */
     --toolbar-bg:#d7ffe0; --toolbar-text:#04140b;
     --paper:#030705; --paper-2:#07140b; --ink:#9ef7b2; --ink-soft:#347744;
     --line:#123a1f; --line-2:#1b4b2b;
@@ -240,7 +240,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="solarized"]{   /* Solarized Classic */
+:root[data-theme="solarized"]{   /* Solarized Classic */
     --toolbar-bg:#073642; --toolbar-text:#fdf6e3;
     --paper:#fdf6e3; --paper-2:#eee8d5; --ink:#657b83; --ink-soft:#93a1a1;
     --line:#eee8d5; --line-2:#d8d2be;
@@ -253,7 +253,7 @@
     --shadow:0 1px 3px rgba(7,54,66,.12),0 8px 24px rgba(7,54,66,.10);
     --shadow-lg:0 12px 40px rgba(7,54,66,.18);
   }
-  :root[data-theme="scholar-parchment"]{   /* Scholar Parchment */
+:root[data-theme="scholar-parchment"]{   /* Scholar Parchment */
     --toolbar-bg:#053327; --toolbar-text:#faf8f3;
     --paper:#faf8f3; --paper-2:#f1ece1; --ink:#2c2c2a; --ink-soft:#5a5a56;
     --line:#e2ddd3; --line-2:#d4cdbe;
@@ -266,8 +266,7 @@
     --shadow:0 1px 3px rgba(44,44,42,.10),0 8px 24px rgba(44,44,42,.08);
     --shadow-lg:0 12px 40px rgba(44,44,42,.16);
   }
-  
-  :root[data-theme="paper-ink"]{   /* Paper & Ink editorial */
+:root[data-theme="paper-ink"]{   /* Paper & Ink editorial */
     --toolbar-bg:#111111; --toolbar-text:#fcfbf7;
     --paper:#fcfbf7; --paper-2:#f1efe9; --ink:#343434; --ink-soft:#77736b;
     --line:#ddd9d0; --line-2:#cec9bd;
@@ -280,7 +279,7 @@
     --shadow:0 1px 3px rgba(52,52,52,.10),0 8px 24px rgba(52,52,52,.08);
     --shadow-lg:0 12px 40px rgba(52,52,52,.16);
   }
-  :root[data-theme="mint-graphite"]{   /* Mint Graphite */
+:root[data-theme="mint-graphite"]{   /* Mint Graphite */
     --toolbar-bg:#18251f; --toolbar-text:#f7fbf9;
     --paper:#f7fbf9; --paper-2:#e6f3ee; --ink:#34423c; --ink-soft:#71827a;
     --line:#d8e8e1; --line-2:#c6dbd1;
@@ -293,7 +292,7 @@
     --shadow:0 1px 3px rgba(52,66,60,.10),0 8px 24px rgba(52,66,60,.08);
     --shadow-lg:0 12px 40px rgba(52,66,60,.16);
   }
-  :root[data-theme="carbon-amber"]{   /* Carbon & Amber CAD */
+:root[data-theme="carbon-amber"]{   /* Carbon & Amber CAD */
     --toolbar-bg:#ffd066; --toolbar-text:#121212;
     --paper:#121212; --paper-2:#1a1400; --ink:#d4af37; --ink-soft:#8c6a00;
     --line:#332600; --line-2:#4a3a00;
@@ -306,7 +305,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="cyber-quantum"]{   /* Cyber-Quantum */
+:root[data-theme="cyber-quantum"]{   /* Cyber-Quantum */
     --toolbar-bg:#e2f8ff; --toolbar-text:#0a101d;
     --paper:#0a101d; --paper-2:#10192c; --ink:#e2f8ff; --ink-soft:#62879b;
     --line:#1b3b4d; --line-2:#28526b;
@@ -319,7 +318,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="blueprint"]{   /* Architectural Blueprint */
+:root[data-theme="blueprint"]{   /* Architectural Blueprint */
     --toolbar-bg:#e0f2fe; --toolbar-text:#005596;
     --paper:#005596; --paper-2:#004478; --ink:#e0f2fe; --ink-soft:#7dd3fc;
     --line:#4080b0; --line-2:#5797c2;
@@ -332,7 +331,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.50);
     --shadow-lg:0 12px 40px rgba(0,0,0,.60);
   }
-  :root[data-theme="obsidian"]{   /* Obsidian Terminal */
+:root[data-theme="obsidian"]{   /* Obsidian Terminal */
     --toolbar-bg:#ffffff; --toolbar-text:#000000;
     --paper:#000000; --paper-2:#18181b; --ink:#a1a1aa; --ink-soft:#52525b;
     --line:#27272a; --line-2:#333338;
@@ -345,7 +344,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.50),0 8px 24px rgba(0,0,0,.65);
     --shadow-lg:0 12px 40px rgba(0,0,0,.75);
   }
-  :root[data-theme="swiss-crimson"]{   /* Swiss Crimson */
+:root[data-theme="swiss-crimson"]{   /* Swiss Crimson */
     --toolbar-bg:#000000; --toolbar-text:#f4f4f4;
     --paper:#f4f4f4; --paper-2:#e6e6e6; --ink:#111111; --ink-soft:#666666;
     --line:#d1d1d1; --line-2:#c0c0c0;
@@ -358,7 +357,7 @@
     --shadow:0 1px 3px rgba(17,17,17,.10),0 8px 24px rgba(17,17,17,.08);
     --shadow-lg:0 12px 40px rgba(17,17,17,.16);
   }
-  :root[data-theme="nordic-sage"]{   /* Nordic Pine & Sage */
+:root[data-theme="nordic-sage"]{   /* Nordic Pine & Sage */
     --toolbar-bg:#1b2621; --toolbar-text:#f3f5f3;
     --paper:#f3f5f3; --paper-2:#e4eae6; --ink:#2d3a34; --ink-soft:#687770;
     --line:#d5ddd8; --line-2:#c3cdc7;
@@ -371,7 +370,7 @@
     --shadow:0 1px 3px rgba(45,58,52,.10),0 8px 24px rgba(45,58,52,.08);
     --shadow-lg:0 12px 40px rgba(45,58,52,.16);
   }
-  :root[data-theme="deep-ocean"]{   /* Deep Ocean Phosphor */
+:root[data-theme="deep-ocean"]{   /* Deep Ocean Phosphor */
     --toolbar-bg:#e6fffa; --toolbar-text:#06181d;
     --paper:#06181d; --paper-2:#0d282e; --ink:#a3e5d9; --ink-soft:#3b7a70;
     --line:#113836; --line-2:#1a4a45;
@@ -384,7 +383,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="google-material"]{   /* Google Material You */
+:root[data-theme="google-material"]{   /* Google Material You */
     --toolbar-bg:#e3e2e6; --toolbar-text:#1f1f1f;
     --paper:#1f1f1f; --paper-2:#2d2d2d; --ink:#e3e2e6; --ink-soft:#8e918f;
     --line:#444746; --line-2:#56595a;
@@ -397,7 +396,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.50);
     --shadow-lg:0 12px 40px rgba(0,0,0,.60);
   }
-  :root[data-theme="github-modern"]{   /* GitHub Modern (dark dimmed) */
+:root[data-theme="github-modern"]{   /* GitHub Modern (dark dimmed) */
     --toolbar-bg:#cdd9e5; --toolbar-text:#22272e;
     --paper:#22272e; --paper-2:#2d333b; --ink:#adbac7; --ink-soft:#768390;
     --line:#444c56; --line-2:#545d68;
@@ -410,7 +409,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
-  :root[data-theme="sakura-drift"]{   /* Eos Sakura Drift */
+:root[data-theme="sakura-drift"]{   /* Eos Sakura Drift */
     --toolbar-bg:#2c1e23; --toolbar-text:#fff9fa;
     --paper:#fff9fa; --paper-2:#ffebf0; --ink:#4a3e43; --ink-soft:#9e8890;
     --line:#f7d6df; --line-2:#efc3ce;
@@ -423,7 +422,7 @@
     --shadow:0 1px 3px rgba(74,62,67,.10),0 8px 24px rgba(74,62,67,.08);
     --shadow-lg:0 12px 40px rgba(74,62,67,.16);
   }
-  :root[data-theme="aurora-frost"]{   /* Nordic Aurora Frost */
+:root[data-theme="aurora-frost"]{   /* Nordic Aurora Frost */
     --toolbar-bg:#e0fbfc; --toolbar-text:#0b132b;
     --paper:#0b132b; --paper-2:#1c2541; --ink:#c0d6df; --ink-soft:#486581;
     --line:#1c2541; --line-2:#2a3a5e;
@@ -436,7 +435,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.50);
     --shadow-lg:0 12px 40px rgba(0,0,0,.60);
   }
-  :root[data-theme="espresso"]{   /* Velvet Espresso & Caramel */
+:root[data-theme="espresso"]{   /* Velvet Espresso & Caramel */
     --toolbar-bg:#faedcd; --toolbar-text:#1a1412;
     --paper:#1a1412; --paper-2:#281e19; --ink:#e3d5ca; --ink-soft:#8c7a6b;
     --line:#382b24; --line-2:#473731;
@@ -449,7 +448,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="arctic-glass"]{   /* Arctic Glass */
+:root[data-theme="arctic-glass"]{   /* Arctic Glass */
     --toolbar-bg:#102a43; --toolbar-text:#f4faff;
     --paper:#f4faff; --paper-2:#e9f5fb; --ink:#274154; --ink-soft:#6b8496;
     --line:#d6eaf4; --line-2:#c4deeb;
@@ -462,7 +461,7 @@
     --shadow:0 1px 3px rgba(39,65,84,.10),0 8px 24px rgba(39,65,84,.08);
     --shadow-lg:0 12px 40px rgba(39,65,84,.16);
   }
-  :root[data-theme="copper-lab"]{   /* Copper Laboratory */
+:root[data-theme="copper-lab"]{   /* Copper Laboratory */
     --toolbar-bg:#fff8f2; --toolbar-text:#1b1715;
     --paper:#1b1715; --paper-2:#29201c; --ink:#e4d7ce; --ink-soft:#927c70;
     --line:#463128; --line-2:#573d32;
@@ -475,7 +474,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="forest-night"]{   /* Forest Night */
+:root[data-theme="forest-night"]{   /* Forest Night */
     --toolbar-bg:#f4fff8; --toolbar-text:#101b17;
     --paper:#101b17; --paper-2:#172720; --ink:#d5e5dc; --ink-soft:#71897d;
     --line:#294138; --line-2:#345448;
@@ -488,7 +487,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.50);
     --shadow-lg:0 12px 40px rgba(0,0,0,.60);
   }
-  :root[data-theme="cobalt"]{   /* Cobalt Studio */
+:root[data-theme="cobalt"]{   /* Cobalt Studio */
     --toolbar-bg:#d7e3ff; --toolbar-text:#0b1530;
     --paper:#0b1530; --paper-2:#121f42; --ink:#d7e3ff; --ink-soft:#7082a8;
     --line:#263b6b; --line-2:#304a87;
@@ -501,7 +500,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.50);
     --shadow-lg:0 12px 40px rgba(0,0,0,.60);
   }
-  :root[data-theme="lavender-mist"]{   /* Lavender Mist */
+:root[data-theme="lavender-mist"]{   /* Lavender Mist */
     --toolbar-bg:#211a32; --toolbar-text:#faf8ff;
     --paper:#faf8ff; --paper-2:#f0ebfa; --ink:#403a52; --ink-soft:#817a94;
     --line:#e4ddf2; --line-2:#d6cee8;
@@ -514,7 +513,7 @@
     --shadow:0 1px 3px rgba(64,58,82,.10),0 8px 24px rgba(64,58,82,.08);
     --shadow-lg:0 12px 40px rgba(64,58,82,.16);
   }
-  :root[data-theme="ruby-night"]{   /* Ruby Night */
+:root[data-theme="ruby-night"]{   /* Ruby Night */
     --toolbar-bg:#ffd4dc; --toolbar-text:#151314;
     --paper:#151314; --paper-2:#24191c; --ink:#e8dddf; --ink-soft:#8e7a7e;
     --line:#43242b; --line-2:#57313a;
@@ -527,7 +526,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="sandstone"]{   /* Sandstone */
+:root[data-theme="sandstone"]{   /* Sandstone */
     --toolbar-bg:#2d2118; --toolbar-text:#fbf6ee;
     --paper:#fbf6ee; --paper-2:#f3e7d4; --ink:#51463a; --ink-soft:#8a7967;
     --line:#e8d8c2; --line-2:#dcc9ae;
@@ -540,7 +539,7 @@
     --shadow:0 1px 3px rgba(81,70,58,.10),0 8px 24px rgba(81,70,58,.08);
     --shadow-lg:0 12px 40px rgba(81,70,58,.16);
   }
-  :root[data-theme="electric-indigo"]{   /* Electric Indigo */
+:root[data-theme="electric-indigo"]{   /* Electric Indigo */
     --toolbar-bg:#e9e2ff; --toolbar-text:#0e0a22;
     --paper:#0e0a22; --paper-2:#191238; --ink:#dcd7ff; --ink-soft:#7770a5;
     --line:#33255b; --line-2:#42336f;
@@ -553,7 +552,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="teal-paper"]{   /* Teal Paper */
+:root[data-theme="teal-paper"]{   /* Teal Paper */
     --toolbar-bg:#12322f; --toolbar-text:#f7fcfb;
     --paper:#f7fcfb; --paper-2:#e6f2f0; --ink:#304744; --ink-soft:#6f8581;
     --line:#d4e7e3; --line-2:#c2dcd6;
@@ -566,7 +565,7 @@
     --shadow:0 1px 3px rgba(48,71,68,.10),0 8px 24px rgba(48,71,68,.08);
     --shadow-lg:0 12px 40px rgba(48,71,68,.16);
   }
-  :root[data-theme="steel-orange"]{   /* Steel & Orange */
+:root[data-theme="steel-orange"]{   /* Steel & Orange */
     --toolbar-bg:#d9dee3; --toolbar-text:#171a1d;
     --paper:#171a1d; --paper-2:#23282d; --ink:#d9dee3; --ink-soft:#7d8790;
     --line:#353b40; --line-2:#454c54;
@@ -579,7 +578,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="cosmic-rose"]{   /* Cosmic Rose */
+:root[data-theme="cosmic-rose"]{   /* Cosmic Rose */
     --toolbar-bg:#ffd6ec; --toolbar-text:#100c1b;
     --paper:#100c1b; --paper-2:#20142a; --ink:#e4d9ea; --ink-soft:#86708f;
     --line:#38223f; --line-2:#482c52;
@@ -592,7 +591,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="plasma-crimson"]{   /* Plasma Crimson */
+:root[data-theme="plasma-crimson"]{   /* Plasma Crimson */
     --toolbar-bg:#ffe8ed; --toolbar-text:#12080c;
     --paper:#12080c; --paper-2:#1f0e14; --ink:#f5d0d8; --ink-soft:#a56b78;
     --line:#4a1a28; --line-2:#5f2233;
@@ -605,7 +604,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.60);
     --shadow-lg:0 12px 40px rgba(0,0,0,.70);
   }
-  :root[data-theme="neon-noir"]{   /* Neon Noir */
+:root[data-theme="neon-noir"]{   /* Neon Noir */
     --toolbar-bg:#ffffff; --toolbar-text:#0a0a0f;
     --paper:#0a0a0f; --paper-2:#12121c; --ink:#c8c8d4; --ink-soft:#5a5a70;
     --line:#1f1f2e; --line-2:#2a2a3e;
@@ -618,7 +617,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.60);
     --shadow-lg:0 12px 40px rgba(0,0,0,.70);
   }
-  :root[data-theme="desert-oasis"]{   /* Desert Oasis */
+:root[data-theme="desert-oasis"]{   /* Desert Oasis */
     --toolbar-bg:#2c2116; --toolbar-text:#fdf6e9;
     --paper:#fdf6e9; --paper-2:#f5e8d0; --ink:#4a3c2a; --ink-soft:#8a7a62;
     --line:#e8d5b5; --line-2:#dcc59e;
@@ -631,7 +630,7 @@
     --shadow:0 1px 3px rgba(74,60,42,.10),0 8px 24px rgba(74,60,42,.08);
     --shadow-lg:0 12px 40px rgba(74,60,42,.16);
   }
-  :root[data-theme="ice-crystal"]{   /* Ice Crystal */
+:root[data-theme="ice-crystal"]{   /* Ice Crystal */
     --toolbar-bg:#0c1e36; --toolbar-text:#f0f9ff;
     --paper:#f0f9ff; --paper-2:#e0f2fe; --ink:#1e3a5f; --ink-soft:#5b7a9a;
     --line:#bae6fd; --line-2:#a4d9f5;
@@ -644,7 +643,7 @@
     --shadow:0 1px 3px rgba(30,58,95,.10),0 8px 24px rgba(30,58,95,.08);
     --shadow-lg:0 12px 40px rgba(30,58,95,.16);
   }
-  :root[data-theme="ember-forge"]{   /* Ember Forge */
+:root[data-theme="ember-forge"]{   /* Ember Forge */
     --toolbar-bg:#fff5eb; --toolbar-text:#140e0a;
     --paper:#140e0a; --paper-2:#221610; --ink:#e8d5c4; --ink-soft:#9a7a62;
     --line:#3d2418; --line-2:#4e2d1e;
@@ -657,7 +656,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.60);
     --shadow-lg:0 12px 40px rgba(0,0,0,.70);
   }
-  :root[data-theme="violet-circuit"]{   /* Violet Circuit */
+:root[data-theme="violet-circuit"]{   /* Violet Circuit */
     --toolbar-bg:#f5f0ff; --toolbar-text:#0f0a1a;
     --paper:#0f0a1a; --paper-2:#1a1230; --ink:#d4c8f0; --ink-soft:#7a6a9a;
     --line:#2e1f4a; --line-2:#3b2960;
@@ -670,7 +669,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.60);
     --shadow-lg:0 12px 40px rgba(0,0,0,.70);
   }
-  :root[data-theme="moss-stone"]{   /* Moss & Stone */
+:root[data-theme="moss-stone"]{   /* Moss & Stone */
     --toolbar-bg:#1a2416; --toolbar-text:#f4f6f0;
     --paper:#f4f6f0; --paper-2:#e8eedc; --ink:#2e3a2a; --ink-soft:#6a7a62;
     --line:#d4dcc8; --line-2:#c2ccb4;
@@ -683,7 +682,7 @@
     --shadow:0 1px 3px rgba(46,58,42,.10),0 8px 24px rgba(46,58,42,.08);
     --shadow-lg:0 12px 40px rgba(46,58,42,.16);
   }
-  :root[data-theme="twilight-amber"]{   /* Twilight Amber */
+:root[data-theme="twilight-amber"]{   /* Twilight Amber */
     --toolbar-bg:#fff8ec; --toolbar-text:#16120c;
     --paper:#16120c; --paper-2:#241e14; --ink:#e8dcc8; --ink-soft:#9a8a6a;
     --line:#3a3020; --line-2:#4a3d2a;
@@ -696,7 +695,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="ocean-depth"]{   /* Ocean Depth */
+:root[data-theme="ocean-depth"]{   /* Ocean Depth */
     --toolbar-bg:#e8f4fa; --toolbar-text:#06141c;
     --paper:#06141c; --paper-2:#0c1e28; --ink:#b8d8e8; --ink-soft:#4a7a90;
     --line:#0e2a38; --line-2:#163e52;
@@ -709,7 +708,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="charcoal-gold"]{   /* Charcoal Gold */
+:root[data-theme="charcoal-gold"]{   /* Charcoal Gold */
     --toolbar-bg:#f5f0e6; --toolbar-text:#121212;
     --paper:#121212; --paper-2:#1c1c18; --ink:#d4d0c8; --ink-soft:#8a8678;
     --line:#2e2e28; --line-2:#3c3c34;
@@ -722,7 +721,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="soft-clay"]{   /* Soft Clay */
+:root[data-theme="soft-clay"]{   /* Soft Clay */
     --toolbar-bg:#2a1e18; --toolbar-text:#fbf6f2;
     --paper:#fbf6f2; --paper-2:#f5e8e0; --ink:#4a3a32; --ink-soft:#8a7468;
     --line:#e8d8cc; --line-2:#dcc8b8;
@@ -735,7 +734,7 @@
     --shadow:0 1px 3px rgba(74,58,50,.10),0 8px 24px rgba(74,58,50,.08);
     --shadow-lg:0 12px 40px rgba(74,58,50,.16);
   }
-  :root[data-theme="azure-horizon"]{   /* Azure Horizon */
+:root[data-theme="azure-horizon"]{   /* Azure Horizon */
     --toolbar-bg:#e8f4ff; --toolbar-text:#0a1420;
     --paper:#0a1420; --paper-2:#121e30; --ink:#c0d8f0; --ink-soft:#5a7a9a;
     --line:#1a2e48; --line-2:#234063;
@@ -748,7 +747,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="jade-temple"]{   /* Jade Temple */
+:root[data-theme="jade-temple"]{   /* Jade Temple */
     --toolbar-bg:#e8fff4; --toolbar-text:#0a1612;
     --paper:#0a1612; --paper-2:#12241c; --ink:#c0e0d4; --ink-soft:#4a8a72;
     --line:#1a3a2e; --line-2:#234c3c;
@@ -761,7 +760,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="magenta-pulse"]{   /* Magenta Pulse */
+:root[data-theme="magenta-pulse"]{   /* Magenta Pulse */
     --toolbar-bg:#fff0ff; --toolbar-text:#140a16;
     --paper:#140a16; --paper-2:#221022; --ink:#e8d0e8; --ink-soft:#9a6a9a;
     --line:#3a1a3a; --line-2:#4a234a;
@@ -774,7 +773,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.60);
     --shadow-lg:0 12px 40px rgba(0,0,0,.70);
   }
-  :root[data-theme="graphite-terminal"]{   /* Graphite Terminal */
+:root[data-theme="graphite-terminal"]{   /* Graphite Terminal */
     --toolbar-bg:#e8e8e8; --toolbar-text:#1a1a1a;
     --paper:#1a1a1a; --paper-2:#242424; --ink:#b8b8b8; --ink-soft:#6a6a6a;
     --line:#333333; --line-2:#424242;
@@ -787,7 +786,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="honeycomb"]{   /* Honeycomb */
+:root[data-theme="honeycomb"]{   /* Honeycomb */
     --toolbar-bg:#2a1e0a; --toolbar-text:#fffbeb;
     --paper:#fffbeb; --paper-2:#fef3c7; --ink:#4a3a1a; --ink-soft:#8a7a4a;
     --line:#f5e6b0; --line-2:#ebd98e;
@@ -800,7 +799,7 @@
     --shadow:0 1px 3px rgba(74,58,26,.10),0 8px 24px rgba(74,58,26,.08);
     --shadow-lg:0 12px 40px rgba(74,58,26,.16);
   }
-  :root[data-theme="frosted-pine"]{   /* Frosted Pine */
+:root[data-theme="frosted-pine"]{   /* Frosted Pine */
     --toolbar-bg:#e8f8ec; --toolbar-text:#0c1610;
     --paper:#0c1610; --paper-2:#122018; --ink:#c0d8c8; --ink-soft:#5a8a6a;
     --line:#1a3a28; --line-2:#234c34;
@@ -813,7 +812,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="quantum-violet"]{   /* Quantum Violet */
+:root[data-theme="quantum-violet"]{   /* Quantum Violet */
     --toolbar-bg:#f0ecff; --toolbar-text:#0e0a18;
     --paper:#0e0a18; --paper-2:#18122a; --ink:#d0c8e8; --ink-soft:#7a6a9a;
     --line:#2a1e48; --line-2:#38295e;
@@ -826,7 +825,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.60);
     --shadow-lg:0 12px 40px rgba(0,0,0,.70);
   }
-  :root[data-theme="copper-rust"]{   /* Copper Rust */
+:root[data-theme="copper-rust"]{   /* Copper Rust */
     --toolbar-bg:#fff5ec; --toolbar-text:#16120e;
     --paper:#16120e; --paper-2:#241a12; --ink:#e0d0c0; --ink-soft:#9a7a62;
     --line:#3a2a1e; --line-2:#4a3728;
@@ -839,7 +838,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.40),0 8px 24px rgba(0,0,0,.55);
     --shadow-lg:0 12px 40px rgba(0,0,0,.65);
   }
-  :root[data-theme="lunar-silver"]{   /* Lunar Silver */
+:root[data-theme="lunar-silver"]{   /* Lunar Silver */
     --toolbar-bg:#f0f4f8; --toolbar-text:#0e1014;
     --paper:#0e1014; --paper-2:#181c22; --ink:#c8d0d8; --ink-soft:#6a7888;
     --line:#2a3038; --line-2:#383f49;
@@ -852,15 +851,59 @@
     --shadow:0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.50);
     --shadow-lg:0 12px 40px rgba(0,0,0,.60);
   }
-  *{box-sizing:border-box}
+*{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden;font-family:var(--sans);color:var(--ink);background:var(--paper)}
   button{font-family:inherit;cursor:pointer}
 
   /* ===== App shell ===== */
-  .app{display:grid;grid-template-columns:auto 1fr;grid-template-rows:minmax(0,1fr);height:calc(100vh / var(--ui-zoom, 1));height:calc(100dvh / var(--ui-zoom, 1))}
+  /* Three rows: a top header, the main content, and a status bar. Both bars
+     span only the tracks to the right of the sidebar (they start beside it,
+     not above/below it); .side spans all three rows and .stage is placed
+     explicitly so nothing is left to auto-placement. */
+  .app{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto minmax(0,1fr) auto;height:calc(100vh / var(--ui-zoom, 1));height:calc(100dvh / var(--ui-zoom, 1))}
+  .topbar{grid-column:2 / -1;grid-row:1}
+  .side{grid-column:1;grid-row:1 / 5}
+  .stage{grid-column:2;grid-row:3}
+  .statusbar{grid-column:2 / -1;grid-row:4}
+  #tabStrip{grid-column:2/-1;grid-row:2;display:flex;align-items:flex-end;gap:6px;padding:4px 12px 0;overflow:hidden}
+  #tabStrip.hidden{display:none}   /* collapsed row = auto 0, so the stage takes its place */
+  #tabRow{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0;align-items:flex-end}
+  #tabRow::-webkit-scrollbar{display:none}
+  #tabRow .tab{display:flex;align-items:center;gap:6px;max-width:200px;min-width:0;padding:5px 8px 6px 10px;border:1px solid var(--line);border-bottom:none;border-radius:10px 10px 0 0;background:var(--paper-2);cursor:pointer;font-family:inherit;font-size:12px;color:var(--ink-soft);position:relative;top:1px;transition:background-color .2s ease,color .2s ease,border-color .2s ease}
+  #tabRow .tab:hover{color:var(--ink)}
+  #tabRow .tab.active{background:var(--paper);color:var(--ink);font-weight:600;border-color:var(--line-2)}
+  #tabRow .tab-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #tabRow .tab-close{width:16px;height:16px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;font-size:10px;line-height:1;color:var(--ink-soft)}
+  #tabRow .tab-close:hover{background:var(--hover);color:var(--ink)}
+  .tab-new{flex:0 0 auto;width:30px;height:26px;border:1px dashed var(--line-2);background:none;color:var(--ink-soft);border-radius:8px 8px 0 0;cursor:pointer;font-size:16px;line-height:1;font-family:inherit}
+  .tab-new:hover{color:var(--accent);border-color:var(--accent)}
+  /* Floating shells and single-column layouts have no top strip row —
+     the tab strip stays hidden there unless tabbed workspace is enabled. */
+body.ui-classic:not(.tabs-on) #tabStrip, body.ui-rail:not(.tabs-on) #tabStrip, body.ui-zen:not(.tabs-on) #tabStrip, body.ui-mirror:not(.tabs-on) #tabStrip, body.ui-deck:not(.tabs-on) #tabStrip, body.ui-dock:not(.tabs-on) #tabStrip, body.ui-split:not(.tabs-on) #tabStrip, body.ui-minimal:not(.tabs-on) #tabStrip, body.ui-outline:not(.tabs-on) #tabStrip{display:none}
+body.ui-rail.tabs-on .app{grid-template-rows:auto minmax(0,1fr)}
+body.ui-rail.tabs-on #tabStrip{display:flex;grid-column:3/-1;grid-row:1}
+body.ui-rail.tabs-on .side{grid-row:1/3}
+body.ui-rail.tabs-on .topbar{grid-row:1/3}
+body.ui-rail.tabs-on .stage{grid-column:3;grid-row:2}
+body.ui-rail.tabs-on.md-ready .app{grid-template-rows:auto minmax(0,1fr)}
+body.ui-rail.tabs-on.md-ready #tabStrip{grid-column:3/-1;grid-row:1}
+body.ui-rail.tabs-on.md-ready #mdPane{grid-column:3;grid-row:2}
+body.ui-rail.tabs-on.md-ready .stage{grid-column:4;grid-row:2}
+body.ui-classic.tabs-on .app{grid-template-rows:auto minmax(0,1fr)}
+body.ui-classic.tabs-on #tabStrip{display:flex;grid-column:2;grid-row:1}
+body.ui-classic.tabs-on .side{grid-row:1/3}
+body.ui-classic.tabs-on .stage{grid-column:2;grid-row:2}
+body.ui-classic.tabs-on.md-ready .app{grid-template-rows:auto minmax(0,1fr)}
+body.ui-classic.tabs-on.md-ready #tabStrip{grid-column:2/-1;grid-row:1}
+body.ui-classic.tabs-on.md-ready #mdPane{grid-column:2;grid-row:2}
+body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
+  body.focus-mode #tabStrip{display:none}   /* focus is canvas-only */
+  body.shared-view #tabStrip{display:none}  /* shared banner view is single-map */
+  #tabRow .tab.active .tab-close{color:var(--ink-soft)}
   /* Markdown mode: split pane (editor | live map) */
   body.md-ready .app{grid-template-columns:auto auto minmax(0,1fr)}   /* md pane takes the middle track once it exists */
-  #mdPane{width:0;overflow:hidden;position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--paper);border-right:1px solid var(--line);transition:width .22s cubic-bezier(.4,0,.2,1)}
+  #mdPane{width:0;overflow:hidden;position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--paper);border-right:1px solid var(--line);transition:width .22s cubic-bezier(.4,0,.2,1);grid-column:2;grid-row:3}
+  body.md-ready .stage{grid-column:3;grid-row:3}
   body.md-mode #mdPane{width:var(--md-w,40vw)}
   body.md-resizing #mdPane{transition:none}                            /* no easing while dragging the divider */
   @media (prefers-reduced-motion: reduce){ #mdPane{transition:none} }
@@ -957,13 +1000,52 @@
   .tb#mdToggle.on{background:var(--accent);color:#fff}
 
   /* ===== Sidebar ===== */
-  .side{width:268px;min-height:0;background:var(--chrome);border-right:1px solid var(--chrome-edge);display:flex;flex-direction:column;transition:width .22s cubic-bezier(.4,0,.2,1)}
-  .side.collapsed{width:0;border:none}
+  .side{width:268px;min-height:0;position:relative;background:var(--chrome);border-right:1px solid var(--chrome-edge);display:flex;flex-direction:column;transition:width .22s cubic-bezier(.4,0,.2,1),background-color .3s ease,border-color .3s ease}
+  .side.collapsed{width:36px;border:none}                 /* icon rail instead of fully gone */
+  .side.resizing{transition:none}
+  .side.collapsed .brand{display:none !important}  /* never bleed into the slim rail */
+  .side.collapsed .side-tabs,
+  .side.collapsed .side-pane,
+  .side.collapsed .side-foot,
+  .side.collapsed .side-resize{display:none !important}
+  /* Collapsed state = slim rail with the reopen button, so the sidebar can
+     never get "lost". The same ☰ button sits in the brand header, beside
+     the MindSpark title. */
+  .side-rail{display:none;width:36px;flex:1 0 auto;justify-content:center;align-items:center}
+  .side.collapsed .side-rail{display:flex}
+  .side-rail .tb{background:none;border:none}
+  /* Drag handle on the sidebar's right edge (desktop only) */
+  .side-resize{position:absolute;top:0;right:-4px;width:8px;height:100%;cursor:col-resize;z-index:10;opacity:0;transition:opacity .15s}
+  .side-resize:hover,.side-resize:active{opacity:.55;background:var(--accent)}
+  .side-tabs{display:flex;gap:2px;padding:0 10px 10px}
+  .side-tab{flex:1;padding:7px 6px;border:none;background:none;border-radius:9px;font-family:inherit;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .side-tab:hover{background:var(--hover);color:var(--ink)}
+  .side-tab.active{background:var(--paper-2);color:var(--ink)}
+  .side-pane{flex:1;min-height:0;display:flex;flex-direction:column}
+  /* Tab switching is class-based (never inline styles) so the collapsed-rail
+     rules below always win: `.side-pane:not(.active)` is hidden, the active
+     pane is shown, and `.side.collapsed` (declared later + !important) hides
+     everything inside the slim rail. */
+  .side-pane.active{display:flex}
+  .side-pane:not(.active){display:none}
+  /* Template list inside the sidebar Templates tab */
+  .tpl-side-hdr{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);font-weight:700;padding:12px 8px 4px}
+  .tpl-side-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px 10px;border:none;background:none;border-radius:10px;cursor:pointer;font-family:inherit;color:var(--ink);margin:1px 0}
+  .tpl-side-item:hover{background:var(--hover)}
+  .tpl-side-ic{width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;border-radius:8px;font-size:14px}
+  .tpl-side-meta{display:flex;flex-direction:column;line-height:1.3;min-width:0}
+  .tpl-side-meta b{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tpl-side-meta i{font-style:normal;color:var(--ink-soft);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   @media (prefers-reduced-motion: reduce){ .side, #viewport{transition:none !important} }
   .brand{display:flex;align-items:center;gap:10px;padding:18px 18px 14px}
   .brand .mark{flex:0 0 auto; filter:drop-shadow(0 1px 3px rgba(40,30,15,.2))}
   .brand h1{font-family:var(--serif);font-weight:900;font-size:22px;margin:0;letter-spacing:-.5px}
   .brand h1 span{color:var(--accent)}
+  .brand #newMap,
+  .brand #toggleSide{width:32px;height:32px;flex:0 0 auto;font-size:16px}
+  .brand #newMap{margin-left:auto}
+  .brand #newMap:hover,
+  .brand #toggleSide:hover{background:var(--hover)}
   .side-scroll{flex:1;min-height:0;overflow-y:auto;padding:6px 10px 12px}
   .side-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-soft);padding:10px 8px 6px;font-weight:700}
   .map-item{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:10px;margin:2px 0;cursor:pointer;position:relative}
@@ -982,10 +1064,20 @@
   .row-pop button.danger{color:var(--accent-deep,#b8451f)}
   .row-pop button.danger:hover{background:rgba(184,69,31,.10)}
   .row-pop .rp-ic{width:16px;text-align:center;opacity:.85;font-size:14px}
-  .new-map{display:flex;align-items:center;justify-content:center;gap:8px;margin:8px;padding:11px;border-radius:11px;border:1.5px dashed var(--line-2);background:none;color:var(--ink-soft);font-weight:600;font-size:14px}
-  .new-map:hover{border-color:var(--accent);color:var(--accent);background:var(--node-bg)}
   .side-foot{padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom, 0px));border-top:1px solid var(--chrome-edge);font-size:11.5px;color:var(--ink-soft);line-height:1.5}
   .side-foot b{color:var(--ink)}
+  .qotd-sep{height:1px;background:var(--chrome-edge);margin:12px -16px 0;opacity:.9}
+  .side-foot:has(#qotd[hidden]) .qotd-sep{display:none}
+  .qotd{position:relative;margin-top:12px;padding:8px 10px 8px 10px;border-left:2px solid var(--accent);background:color-mix(in srgb, var(--accent) 7%, transparent);border-radius:0 8px 8px 0}
+  .qotd[hidden]{display:none}
+  .qotd-text{font-size:12px;line-height:1.45;color:var(--ink);font-style:italic;white-space:pre-wrap;word-break:break-word}
+  .qotd-text::before{content:'“'} .qotd-text::after{content:'”'}
+  .qotd-author{margin-top:4px;font-size:10.5px;color:var(--ink-soft);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qotd-author::before{content:'— '}
+  .qotd-refresh{position:absolute;top:4px;right:4px;width:20px;height:20px;display:grid;place-items:center;border:none;background:transparent;color:var(--ink-soft);border-radius:6px;cursor:pointer;font-size:12px;line-height:1;opacity:0;transition:opacity .15s, background-color .15s}
+  .qotd:hover .qotd-refresh{opacity:1}
+  .qotd-refresh:hover{background:var(--hover);color:var(--ink)}
+  .side.collapsed .qotd{display:none}
 
   /* ===== Canvas region ===== */
   .stage{position:relative;overflow:hidden;background:
@@ -996,10 +1088,9 @@
   #viewport{position:absolute;inset:0;transform-origin:0 0}
   #edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
 
-  /* ===== Topbar ===== */
-  .topbar{position:absolute;top:14px;left:14px;right:14px;display:flex;align-items:center;gap:8px;z-index:30;pointer-events:none}
-  .topbar > *{pointer-events:auto}
-  .tb-group{display:flex;align-items:center;gap:2px;background:var(--chrome);border:1px solid var(--chrome-edge);border-radius:12px;padding:4px;box-shadow:var(--shadow)}
+  /* ===== Top header — full-width bar, mirrors the status bar's strip look ===== */
+  .topbar{display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--chrome);border-bottom:1px solid var(--chrome-edge);z-index:30;flex-wrap:wrap;row-gap:4px;min-width:0}
+  .tb-group{display:flex;align-items:center;gap:2px;padding:0;background:none;border:none;border-radius:0;box-shadow:none}
   .tb{border:none;background:none;color:var(--ink);width:36px;height:34px;border-radius:8px;display:grid;place-items:center;font-size:16px;white-space:nowrap}
   .tb:hover{background:var(--hover)}
   .tb:disabled{opacity:.32;cursor:default}
@@ -1008,16 +1099,18 @@
   .tb.primary:hover{background:var(--accent-deep)}
   .title-edit{font-family:var(--serif);font-weight:600;font-size:19px;border:none;background:transparent;color:var(--ink);padding:6px 12px;min-width:120px;max-width:340px;border-radius:9px;outline:none}
   .title-edit:hover,.title-edit:focus{background:var(--chrome)}
+  /* Hairline separator between topbar clusters (outside any .tb-group) */
+  .tb-sep{width:1px;height:26px;background:var(--chrome-edge);flex:0 0 auto}
   .spacer{flex:1}
-  .search-wrap{display:flex;align-items:center;background:var(--chrome);border:1px solid var(--chrome-edge);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;width:0;transition:width .22s}
-  .search-wrap.open{width:230px}
+  .search-wrap{display:flex;align-items:center;background:none;border:none;border-radius:0;box-shadow:none;overflow:hidden;width:0;transition:width .22s,background-color .3s ease,border-color .3s ease,color .3s ease}
+  .search-wrap.open{width:230px;background:var(--paper-2);border-radius:9px}
   .search-wrap.open.replace-mode{width:420px}
-  .search-wrap input{border:none;background:none;outline:none;font-family:inherit;font-size:14px;color:var(--ink);padding:9px 12px;width:100%;min-width:0}
+  .search-wrap input{border:none;background:none;outline:none;font-family:inherit;font-size:12px;color:var(--ink);padding:9px 12px;width:100%;min-width:0}
   .search-wrap #replace,.search-wrap .search-act{display:none}
   .search-wrap.replace-mode #replace{display:block;border-left:1px solid var(--chrome-edge)}
   .search-wrap.replace-mode .search-act{display:inline-flex}
   .search-count{font-size:11px;color:var(--ink-soft);white-space:nowrap;padding:0 8px;flex-shrink:0}
-  .search-toggle{border:none;background:none;cursor:pointer;color:var(--ink-soft);font-size:14px;padding:8px 10px;flex-shrink:0;border-radius:0;transition:all 0.2s ease}
+  .search-toggle{border:none;background:none;cursor:pointer;color:var(--ink-soft);font-size:14px;padding:8px 10px;flex-shrink:0;border-radius:0}
   .search-toggle:hover{background:var(--hover);color:var(--ink)}
   .search-act{border:none;background:none;cursor:pointer;color:var(--accent);font-size:12px;font-weight:600;padding:8px 11px;flex-shrink:0;font-family:inherit;align-items:center}
   .search-act:hover{background:var(--hover)}
@@ -1029,28 +1122,73 @@
   .save-pill.saving .ring{background:var(--accent);animation:pulse 1s infinite}
   @keyframes pulse{50%{opacity:.3}}
 
-  /* ===== Bottom controls ===== */
-  .zoombar{position:fixed;bottom:18px;right:18px;z-index:30;display:flex;flex-direction:column;gap:2px;background:var(--chrome);border:1px solid var(--chrome-edge);border-radius:12px;padding:4px;box-shadow:var(--shadow)}
-  .zoombar button{border:none;background:none;width:36px;height:34px;border-radius:8px;font-size:17px;color:var(--ink)}
-  .zoombar button:hover{background:var(--hover)}
-  .zoom-val{font-size:11px;text-align:center;color:var(--ink-soft);font-weight:600;padding:3px 4px;border-radius:5px;cursor:pointer;min-width:36px;outline:none}
+  /* ===== Bottom controls — one "overview" card =====
+     Minimap and zoom controls live inside the status bar as a single chip.
+     Hovering it expands the breadcrumb (see .breadcrumb.shown). Collapses to
+     a stub via the chevron (state persisted in JS). */
+  .overview{flex:0 0 auto;display:flex;align-items:center;gap:7px;padding:2px 6px;border-radius:8px}
+  .overview:hover{background:var(--hover)}
+  .overview .minimap{position:static;border-radius:6px;box-shadow:none}
+  .zoom-row{display:flex;align-items:center;gap:3px}
+  .zoom-row button{border:none;background:none;width:28px;height:26px;border-radius:7px;font-size:15px;color:var(--ink);flex:0 0 auto;display:grid;place-items:center}
+  .zoom-row button:hover{background:var(--hover)}
+  #zoomSlider{flex:1;min-width:0;width:70px;accent-color:var(--accent);height:16px;margin:0;cursor:pointer}
+  .zoom-val{font-size:11px;text-align:center;color:var(--ink-soft);font-weight:600;padding:3px 4px;border-radius:5px;cursor:pointer;min-width:38px;outline:none;flex:0 0 auto}
   .zoom-val:hover{background:var(--hover);color:var(--ink)}
   .zoom-val[contenteditable="true"]{background:#fff;box-shadow:0 0 0 2px var(--accent);color:var(--ink)}
-  .hint{position:absolute;bottom:18px;left:18px;z-index:20;background:var(--chrome);border:1px solid var(--chrome-edge);border-radius:11px;padding:9px 13px;box-shadow:var(--shadow);font-size:12px;color:var(--ink-soft);max-width:330px;line-height:1.55}
+  .overview-toggle{border:none;background:none;color:var(--ink-soft);font-size:11px;width:22px;height:22px;flex:0 0 auto;border-radius:6px;cursor:pointer;display:grid;place-items:center;transition:transform .18s}
+  .overview-toggle:hover{background:var(--hover);color:var(--ink)}
+  .overview.collapsed{padding:2px}
+  .overview.collapsed .minimap,
+  .overview.collapsed .zoom-row{display:none}
+  .overview.collapsed .overview-toggle{transform:rotate(-90deg)}
+
+  /* ===== Status bar — bottom strip under the canvas ===== */
+  .statusbar{display:flex;align-items:center;gap:14px;padding:5px 14px;background:var(--chrome);border-top:1px solid var(--chrome-edge);min-height:34px;font-family:var(--sans)}
+  .statusbar .hint{
+    display:flex;align-items:center;gap:6px;position:static;margin:0;
+    background:none;border:none;box-shadow:none;border-radius:0;padding:0;
+    font-size:12px;color:var(--ink-soft);max-width:70%;line-height:1.5;flex:1;min-width:0;
+  }
+  .statusbar .hint b{color:var(--ink);font-weight:600}
+  /* The hint's text lives in its own span so it can shrink and ellipsize as a
+     single unit — the bar shrinks when the overview collapses (the chip is
+     content-sized), so without this the text would re-wrap into a ragged
+     multi-line mess every time the overview is toggled. */
+  .statusbar .hint .hint-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .statusbar .hint .close{border:none;background:none;color:var(--ink-soft);font-size:14px;line-height:1;padding:2px 5px;border-radius:5px;cursor:pointer;flex:0 0 auto}
+  .statusbar .hint .close:hover{background:var(--hover);color:var(--ink)}
+  .statusbar .save-pill,
+  .statusbar .token-total{font-size:11.5px;padding:4px 11px;box-shadow:none}
+  .statusbar .user-pill{height:28px;font-size:12px}
+  .statusbar .user-pill img{width:20px;height:20px}
+  .sb-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex:0 0 auto}
   .hint b{color:var(--ink);font-weight:600}
   .hint kbd{font-family:var(--sans);background:var(--paper-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:11px;font-weight:600;color:var(--ink)}
   .hint .close{float:right;margin-left:8px;cursor:pointer;color:var(--ink-soft);border:none;background:none;font-size:14px}
 
   /* ===== Nodes ===== */
-  .node{position:absolute;background:var(--node-bg);border:1.5px solid var(--line);border-radius:var(--node-radius,12px);padding:var(--node-pad-y,9px) var(--node-pad-x,15px);font-size:calc(15px * var(--look-node-size,1));font-weight:500;line-height:1.35;box-shadow:var(--shadow);width:max-content;max-width:240px;min-width:34px;user-select:none;transition:box-shadow .15s,border-color .15s,transform .06s;white-space:pre-wrap;word-break:break-word;display:flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box}
+  .node{position:absolute;background:var(--node-bg);border:1.5px solid var(--line);border-radius:12px;padding:9px 15px;font-size:15px;font-weight:500;line-height:1.35;box-shadow:var(--shadow);width:max-content;max-width:240px;min-width:34px;user-select:none;transition:background-color .3s ease,color .3s ease,box-shadow .15s,border-color .15s,transform .06s;white-space:pre-wrap;word-break:break-word;display:flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box}
   .node:hover{box-shadow:var(--shadow-lg)}
-  .node.root{font-family:var(--serif);font-weight:600;font-size:19px;padding:var(--node-pad-y,12px) var(--node-pad-x,22px);border-width:0}
+  .node.root{font-family:var(--serif);font-weight:600;font-size:19px;padding:12px 22px;border-width:0}
   .node.sel{outline:2.5px solid var(--accent);outline-offset:2px}
   .node.editing{cursor:text;user-select:text;outline:none !important;box-shadow:none}
   .node.editing .node-text{outline:none}
   .node.dim{opacity:.28}
   .node.match{outline:2.5px solid var(--teal);outline-offset:2px}
   .node .badge{display:none}  /* legacy, no longer rendered */
+  /* Zebra striping — XMind-style alternating tint by tree depth. Only affects
+     uncoloured nodes: the root and user-picked card colours carry inline
+     background styles that win over these classes. Subtle color-mix so the
+     stripes follow every theme, and they ride the theme-switch transition. */
+  :root{
+    --zebra-1:color-mix(in srgb, var(--node-bg) 93%, var(--accent));
+    --zebra-2:color-mix(in srgb, var(--node-bg) 93%, var(--teal));
+  }
+  .node[data-depth="1"],.node[data-depth="3"],.node[data-depth="5"],
+  .node[data-depth="7"]{background:var(--zebra-1)}
+  .node[data-depth="2"],.node[data-depth="4"],.node[data-depth="6"],
+  .node[data-depth="8"]{background:var(--zebra-2)}
   /* Hover-only "created/last edited" watermark — sits just above the node (not inside it,
      which used to collide with the node's own vertically-centered text on shorter nodes)
      so it never overlaps the actual content. */
@@ -1163,11 +1301,11 @@
      it reads as a real insertion marker, plus a background tint so there's
      more than one signal to notice mid-drag. */
   .node.drop-before{
-    box-shadow:0 -5px 0 3px var(--accent), var(--shadow) !important;
+    box-shadow:0 -5px 0 3px var(--accent), var(--shadow);
     background:color-mix(in srgb, var(--accent) 12%, var(--node-bg)) !important;
   }
   .node.drop-after{
-    box-shadow:0 5px 0 3px var(--accent), var(--shadow) !important;
+    box-shadow:0 5px 0 3px var(--accent), var(--shadow);
     background:color-mix(in srgb, var(--accent) 12%, var(--node-bg)) !important;
   }
   /* File-drop target — deliberately distinct from .drop-target above.
@@ -1179,11 +1317,11 @@
     box-shadow:0 0 0 6px color-mix(in srgb, var(--teal, #2f6f6a) 22%, transparent);
   }
   .node.drop-target{
-    outline:3px dashed var(--accent) !important; outline-offset:5px;
+    outline:3px dashed var(--accent); outline-offset:5px;
     background:linear-gradient(0deg,
       color-mix(in srgb, var(--accent) 22%, var(--node-bg)),
       color-mix(in srgb, var(--accent) 22%, var(--node-bg))) !important;
-    box-shadow:0 0 0 6px color-mix(in srgb, var(--accent) 20%, transparent) !important;
+    box-shadow:0 0 0 6px color-mix(in srgb, var(--accent) 20%, transparent);
   }
 
   /* Notes indicator — small page-icon at the top-right of nodes with a note */
@@ -1292,27 +1430,27 @@
 
   /* ===== Map style variants (applied to viewport[data-style]) ===== */
   #viewport[data-style="modern"]{--edge-color:var(--line-2);--edge-width:2.2}
-  #viewport[data-style="classic"] .node{border-radius:var(--node-radius,4px); border-width:1.5px}
+  #viewport[data-style="classic"] .node{border-radius:4px; border-width:1.5px}
   #viewport[data-style="classic"]{--edge-color:var(--line-2);--edge-width:1.6}
-  #viewport[data-style="classic"] .node.root{border-radius:var(--node-radius,6px)}
-  #viewport[data-style="bubble"]  .node{border-radius:var(--node-radius,999px); padding:var(--node-pad-y,11px) var(--node-pad-x,22px); border-width:0; box-shadow:var(--shadow-lg)}
+  #viewport[data-style="classic"] .node.root{border-radius:6px}
+  #viewport[data-style="bubble"]  .node{border-radius:999px; padding:11px 22px; border-width:0; box-shadow:var(--shadow-lg)}
   #viewport[data-style="bubble"] {--edge-color:var(--accent);--edge-width:3}
-  #viewport[data-style="bubble"]  .node.root{padding:var(--node-pad-y,14px) var(--node-pad-x,26px)}
-  #viewport[data-style="sketch"]  .node{border-radius:var(--node-radius,3px); border-width:2px; border-color:var(--ink); box-shadow:none}
+  #viewport[data-style="bubble"]  .node.root{padding:14px 26px}
+  #viewport[data-style="sketch"]  .node{border-radius:3px; border-width:2px; border-color:var(--ink); box-shadow:none}
   #viewport[data-style="sketch"]  .node.root{border-width:0}
   #viewport[data-style="sketch"] {--edge-color:var(--ink-soft);--edge-width:1.6}
   #viewport[data-style="dashed"]   {--edge-color:var(--line-2);--edge-width:2.2}
-  #viewport[data-style="dashed"]   .node{border-radius:var(--node-radius,14px)}
+  #viewport[data-style="dashed"]   .node{border-radius:14px}
   #viewport[data-style="minimal"]  {--edge-color:var(--line-2);--edge-width:1.1}
-  #viewport[data-style="minimal"]  .node{border-radius:var(--node-radius,6px); border-width:1px; box-shadow:none}
-  #viewport[data-style="minimal"]  .node.root{border-radius:var(--node-radius,8px)}
+  #viewport[data-style="minimal"]  .node{border-radius:6px; border-width:1px; box-shadow:none}
+  #viewport[data-style="minimal"]  .node.root{border-radius:8px}
   #viewport[data-style="zigzag"]   {--edge-color:var(--line-2);--edge-width:2}
-  #viewport[data-style="zigzag"]   .node{border-radius:var(--node-radius,2px); border-width:2px; box-shadow:none}
-  #viewport[data-style="zigzag"]   .node.root{border-radius:var(--node-radius,2px)}
+  #viewport[data-style="zigzag"]   .node{border-radius:2px; border-width:2px; box-shadow:none}
+  #viewport[data-style="zigzag"]   .node.root{border-radius:2px}
   #viewport[data-style="neon"]     {--edge-color:var(--accent);--edge-width:2.4}
-  #viewport[data-style="neon"]     .node{border-radius:var(--node-radius,10px); border-width:1px; border-color:color-mix(in srgb, var(--accent) 55%, transparent); box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 var(--node-glow,16px) color-mix(in srgb, var(--accent) 38%, transparent)}
-  #viewport[data-style="neon"]     .node.root{box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent), 0 0 calc(var(--node-glow,16px) * 1.6) color-mix(in srgb, var(--accent) 55%, transparent)}
-  #viewport[data-style="neon"]     #edges path{filter:drop-shadow(0 0 var(--edge-glow,3px) color-mix(in srgb, var(--accent) 65%, transparent))}
+  #viewport[data-style="neon"]     .node{border-radius:10px; border-width:1px; border-color:color-mix(in srgb, var(--accent) 55%, transparent); box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 16px color-mix(in srgb, var(--accent) 38%, transparent)}
+  #viewport[data-style="neon"]     .node.root{box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent), 0 0 26px color-mix(in srgb, var(--accent) 55%, transparent)}
+  #viewport[data-style="neon"]     #edges path{filter:drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 65%, transparent))}
 
   /* Cascades the pencil font to every part of the app that already
      references --sans/--serif (sidebar, modals, buttons, topbar, and
@@ -1334,7 +1472,7 @@
      font-size on .node: NOT a shape override (no border-radius/transform
      here), just legibility compensation — handwriting fonts need more size
      than a geometric sans for equivalent readability. */
-  :root[data-look="handwritten"] .node{ font-size:calc(1.2em * var(--look-node-size,1)); }
+  :root[data-look="handwritten"] .node{ font-size:1.2em; }
   :root[data-look="handwritten"] .stage{
     background-image:repeating-linear-gradient(var(--paper) 0px, var(--paper) 27px, var(--line) 28px);
     background-size:100% 28px; background-color:var(--paper);
@@ -1346,7 +1484,6 @@
   }
   /* Sidebar — thicker ink-colored edge instead of the default hairline */
   :root[data-look="handwritten"] .side{border-right:2px solid var(--ink)}
-  :root[data-look="handwritten"] .new-map{border:2px dashed var(--ink-soft)}
   /* Modal cards (citation form, due-date form, etc.) — same sketchy-border
      language as the toolbar, for visual consistency across the app */
   :root[data-look="handwritten"] .vf-card{
@@ -1361,8 +1498,7 @@
   :root[data-look="handwritten"] .row-pop,
   :root[data-look="handwritten"] .picker,
   :root[data-look="handwritten"] .donate-card,
-  :root[data-look="handwritten"] .export-pop,
-  :root[data-look="handwritten"] .tpl-pop{
+  :root[data-look="handwritten"] .export-pop{
     border-radius:16px 6px 16px 6px; border:2px solid var(--ink);
   }
   :root[data-look="handwritten"] .donate-card{ border-radius:20px 8px 20px 8px; }
@@ -1397,7 +1533,6 @@
     border:1.5px solid var(--ink); box-shadow:none;
   }
   :root[data-look="coffee-shop"] .side{border-right:1.5px solid var(--ink)}
-  :root[data-look="coffee-shop"] .new-map{border:1.5px dashed var(--ink-soft)}
   :root[data-look="coffee-shop"] .vf-card{
     border-radius:18px 7px 18px 7px; border:1.5px solid var(--ink); box-shadow:var(--shadow-lg);
   }
@@ -1405,8 +1540,7 @@
   :root[data-look="coffee-shop"] .row-pop,
   :root[data-look="coffee-shop"] .picker,
   :root[data-look="coffee-shop"] .donate-card,
-  :root[data-look="coffee-shop"] .export-pop,
-  :root[data-look="coffee-shop"] .tpl-pop{
+  :root[data-look="coffee-shop"] .export-pop{
     border-radius:14px 5px 14px 5px; border:1.5px solid var(--ink);
   }
   :root[data-look="coffee-shop"] .donate-card{ border-radius:18px 7px 18px 7px; }
@@ -1415,61 +1549,230 @@
   :root[data-look="coffee-shop"] .toast{ border-radius:12px 4px 12px 4px; border:1.5px solid var(--ink); }
 
   /* ===== "In the Lab" look and feel — technical, squared-off =====
-     Font-only override plus a quiet blueprint grid on the canvas, same
-     principles as the other looks: no palette change, no card-shape or
-     edge-style interference (those belong to Map Style). Everything is
-     squared and precise to match a monospace: 3px corners instead of
-     organic rounded ones, 1.5px ink borders, a lab-notebook grid texture
-     (both axes) instead of dots or ruled lines. JetBrains Mono is a
-     designed text face, so no font-size compensation on .node. */
-  :root[data-look="lab"]{ --sans:"JetBrains Mono",monospace; --serif:"JetBrains Mono",monospace; }
-  :root[data-look="lab"] .stage{
-    background-image:linear-gradient(color-mix(in srgb, var(--line) 55%, transparent) 1px, transparent 1px),
-      linear-gradient(90deg, color-mix(in srgb, var(--line) 55%, transparent) 1px, transparent 1px);
-    background-size:26px 26px; background-color:var(--paper);
-  }
-  :root[data-look="lab"] .nodebar{
-    border-radius:3px;
-    border:1.5px solid var(--ink); box-shadow:none;
-  }
-  :root[data-look="lab"] .side{border-right:1.5px solid var(--ink)}
-  :root[data-look="lab"] .new-map{border:1.5px dashed var(--ink-soft)}
-  :root[data-look="lab"] .vf-card{
-    border-radius:3px; border:1.5px solid var(--ink); box-shadow:var(--shadow-lg);
-  }
-  :root[data-look="lab"] .vf-card h2{font-weight:700}
-  :root[data-look="lab"] .row-pop,
-  :root[data-look="lab"] .picker,
-  :root[data-look="lab"] .donate-card,
-  :root[data-look="lab"] .export-pop,
-  :root[data-look="lab"] .tpl-pop{
-    border-radius:3px; border:1.5px solid var(--ink);
-  }
-  :root[data-look="lab"] .donate-card{ border-radius:4px; }
-  :root[data-look="lab"] .search-wrap{ border-radius:3px; border:1.5px solid var(--ink); }
-  :root[data-look="lab"] .minimap{ border-radius:3px; border:1.5px solid var(--ink); }
-  :root[data-look="lab"] .toast{ border-radius:3px; border:1.5px solid var(--ink); }
+      Font-only override plus a quiet blueprint grid on the canvas, same
+      principles as the other looks: no palette change, no card-shape or
+      edge-style interference (those belong to Map Style). Everything is
+      squared and precise to match a monospace: 3px corners instead of
+      organic rounded ones, 1.5px ink borders, a lab-notebook grid texture
+      (both axes) instead of dots or ruled lines. JetBrains Mono is a
+      designed text face, so no font-size compensation on .node. */
+   :root[data-look="lab"]{ --sans:"JetBrains Mono",monospace; --serif:"JetBrains Mono",monospace; }
+   :root[data-look="lab"] .stage{
+     background-image:linear-gradient(color-mix(in srgb, var(--line) 55%, transparent) 1px, transparent 1px),
+       linear-gradient(90deg, color-mix(in srgb, var(--line) 55%, transparent) 1px, transparent 1px);
+     background-size:26px 26px; background-color:var(--paper);
+   }
+   :root[data-look="lab"] .nodebar{
+     border-radius:3px;
+     border:1.5px solid var(--ink); box-shadow:none;
+   }
+   :root[data-look="lab"] .side{border-right:1.5px solid var(--ink)}
+   :root[data-look="lab"] .new-map{border:1.5px dashed var(--ink-soft)}
+   :root[data-look="lab"] .vf-card{
+     border-radius:3px; border:1.5px solid var(--ink); box-shadow:var(--shadow-lg);
+   }
+   :root[data-look="lab"] .vf-card h2{font-weight:700}
+   :root[data-look="lab"] .row-pop,
+   :root[data-look="lab"] .picker,
+   :root[data-look="lab"] .donate-card,
+   :root[data-look="lab"] .export-pop,
+   :root[data-look="lab"] .tpl-pop{
+     border-radius:3px; border:1.5px solid var(--ink);
+   }
+   :root[data-look="lab"] .donate-card{ border-radius:4px; }
+   :root[data-look="lab"] .search-wrap{ border-radius:3px; border:1.5px solid var(--ink); }
+   :root[data-look="lab"] .minimap{ border-radius:3px; border:1.5px solid var(--ink); }
+:root[data-look="lab"] .toast{ border-radius:3px; border:1.5px solid var(--ink); }
 
-  /* ===== Look settings (JSON) — the "I am" section's cog =====
-     A configured --look-radius (inline on :root, see applyLookConfigVars)
-     rounds ALL the chrome uniformly, overriding every look's asymmetric
-     pattern. The [style*="--look-radius"] attribute selector matches only
-     while the inline custom property is actually set — unconfigured maps are
-     untouched, and each look's own corners (16px 6px, 3px, ...) still win by
-     virtue of this block coming later in the cascade. */
-  :root[style*="--look-radius"] .row-pop,
-  :root[style*="--look-radius"] .picker,
-  :root[style*="--look-radius"] .donate-card,
-  :root[style*="--look-radius"] .export-pop,
-  :root[style*="--look-radius"] .tpl-pop,
-  :root[style*="--look-radius"] .search-wrap,
-  :root[style*="--look-radius"] .minimap,
-  :root[style*="--look-radius"] .toast,
-  :root[style*="--look-radius"] .vf-card,
-  :root[style*="--look-radius"] .nodebar,
-  :root[style*="--look-radius"] .theme-panel{
-    border-radius:var(--look-radius);
+/* Forest — birch grove: staggered vertical trunk lines on the canvas,
+     rounded asymmetric corners, teal-green chrome. Fredoka is rounded and
+     friendly, like a nature walk sign. */
+  :root[data-look="forest"]{ --sans:"Fredoka",system-ui,sans-serif; --serif:"Fredoka",system-ui,sans-serif; }
+  :root[data-look="forest"] .stage{
+    background-image:
+      radial-gradient(ellipse 7px 10px at 18% 22%, color-mix(in srgb, var(--teal) 10%, transparent) 98%, transparent 100%),
+      radial-gradient(ellipse 5px 7px at 68% 18%, color-mix(in srgb, var(--teal) 7%, transparent) 98%, transparent 100%),
+      radial-gradient(ellipse 9px 6px at 42% 38%, color-mix(in srgb, var(--teal) 8%, transparent) 98%, transparent 100%),
+      radial-gradient(ellipse 6px 8px at 82% 52%, color-mix(in srgb, var(--teal) 6%, transparent) 98%, transparent 100%),
+      radial-gradient(ellipse 8px 5px at 12% 68%, color-mix(in srgb, var(--teal) 7%, transparent) 98%, transparent 100%),
+      radial-gradient(ellipse 5px 9px at 55% 78%, color-mix(in srgb, var(--teal) 6%, transparent) 98%, transparent 100%),
+      radial-gradient(ellipse 6px 6px at 30% 88%, color-mix(in srgb, var(--teal) 5%, transparent) 98%, transparent 100%);
+    background-size:220px 220px, 240px 240px, 200px 200px, 260px 260px, 210px 210px, 230px 230px, 190px 190px;
+    background-color:var(--paper);
   }
+  :root[data-look="forest"] .nodebar{
+    border-radius:22px 10px 22px 10px;
+    border:2px solid var(--teal); box-shadow:var(--shadow);
+  }
+  :root[data-look="forest"] .side{border-right:2px solid var(--teal)}
+  :root[data-look="forest"] .new-map{border:2px dashed var(--teal)}
+  :root[data-look="forest"] .vf-card{
+    border-radius:22px 10px 22px 10px; border:2px solid var(--teal); box-shadow:var(--shadow);
+  }
+  :root[data-look="forest"] .vf-card h2{font-weight:600}
+  :root[data-look="forest"] .row-pop,
+  :root[data-look="forest"] .picker,
+  :root[data-look="forest"] .donate-card,
+  :root[data-look="forest"] .export-pop,
+  :root[data-look="forest"] .tpl-pop{
+    border-radius:18px 8px 18px 8px; border:2px solid var(--teal);
+  }
+  :root[data-look="forest"] .donate-card{ border-radius:24px 10px 24px 10px; }
+  :root[data-look="forest"] .search-wrap{ border-radius:18px 8px 18px 8px; border:2px solid var(--teal); }
+  :root[data-look="forest"] .minimap{ border-radius:18px 8px 18px 8px; border:2px solid var(--teal); }
+  :root[data-look="forest"] .toast{ border-radius:16px 8px 16px 8px; border:2px solid var(--teal); }
+
+  /* Beach — ocean ripples: horizontal wave bands on the canvas, pebble-pill
+     cards. Oswald is tall and condensed, like seaside signage. */
+  :root[data-look="beach"]{ --sans:"Oswald",system-ui,sans-serif; --serif:"Oswald",system-ui,sans-serif; }
+  :root[data-look="beach"] .stage{
+    background-image:repeating-linear-gradient(45deg, transparent 0 16px, color-mix(in srgb, var(--teal) 7%, transparent) 17px, transparent 18px);
+    background-size:60px 60px; background-color:var(--paper);
+  }
+  :root[data-look="beach"] .nodebar{
+    border-radius:999px;
+    border:1px solid var(--teal); box-shadow:var(--shadow);
+  }
+  :root[data-look="beach"] .side{border-right:1px solid var(--teal)}
+  :root[data-look="beach"] .new-map{border:1.5px dashed var(--teal)}
+  :root[data-look="beach"] .vf-card{
+    border-radius:999px; border:1px solid var(--teal); box-shadow:var(--shadow);
+  }
+  :root[data-look="beach"] .vf-card h2{font-weight:600}
+  :root[data-look="beach"] .row-pop,
+  :root[data-look="beach"] .picker,
+  :root[data-look="beach"] .donate-card,
+  :root[data-look="beach"] .export-pop,
+  :root[data-look="beach"] .tpl-pop{
+    border-radius:18px; border:1px solid var(--teal);
+  }
+  :root[data-look="beach"] .donate-card{ border-radius:24px; }
+  :root[data-look="beach"] .search-wrap{ border-radius:999px; border:1px solid var(--teal); }
+  :root[data-look="beach"] .minimap{ border-radius:999px; border:1px solid var(--teal); }
+  :root[data-look="beach"] .toast{ border-radius:999px; border:1px solid var(--teal); }
+
+  /* Studio — artist's sketchbook: diagonal crosshatch on the canvas, dashed
+     pencil-outline chrome. Fraunces is a warm, wonky editorial serif. */
+  :root[data-look="studio"]{ --sans:"Fraunces",serif; --serif:"Fraunces",serif; }
+  :root[data-look="studio"] .stage{
+    background-image:
+      repeating-linear-gradient(45deg, color-mix(in srgb, var(--ink) 12%, transparent) 0 1px, transparent 1px 22px),
+      repeating-linear-gradient(-45deg, color-mix(in srgb, var(--ink) 12%, transparent) 0 1px, transparent 1px 22px);
+    background-size:31px 31px; background-color:var(--paper);
+  }
+  :root[data-look="studio"] .nodebar{
+    border-radius:6px;
+    border:1.5px dashed var(--ink); box-shadow:none;
+  }
+  :root[data-look="studio"] .side{border-right:1.5px dashed var(--ink)}
+  :root[data-look="studio"] .new-map{border:1.5px dashed var(--ink-soft)}
+  :root[data-look="studio"] .vf-card{
+    border-radius:6px; border:1.5px dashed var(--ink); box-shadow:none;
+  }
+  :root[data-look="studio"] .vf-card h2{font-style:italic}
+  :root[data-look="studio"] .row-pop,
+  :root[data-look="studio"] .picker,
+  :root[data-look="studio"] .donate-card,
+  :root[data-look="studio"] .export-pop,
+  :root[data-look="studio"] .tpl-pop{
+    border-radius:6px; border:1.5px dashed var(--ink);
+  }
+  :root[data-look="studio"] .donate-card{ border-radius:8px; }
+  :root[data-look="studio"] .search-wrap{ border-radius:6px; border:1.5px dashed var(--ink); }
+  :root[data-look="studio"] .minimap{ border-radius:6px; border:1.5px dashed var(--ink); }
+  :root[data-look="studio"] .toast{ border-radius:6px; border:1.5px dashed var(--ink); }
+
+  /* Mountain — topographic contour rings on the canvas, peaked angular
+     cards. Roboto Condensed is compact and alpine. */
+  :root[data-look="mountain"]{ --sans:"Roboto Condensed",system-ui,sans-serif; --serif:"Roboto Condensed",system-ui,sans-serif; }
+  :root[data-look="mountain"] .stage{
+    background-image:
+      linear-gradient(180deg, transparent 60%, color-mix(in srgb, var(--ink-soft) 12%, transparent) 61%, transparent 62%),
+      repeating-linear-gradient(90deg, transparent 0 80px, color-mix(in srgb, var(--ink-soft) 8%, transparent) 81px, transparent 82px);
+    background-size:100% 120px, 100% 100%; background-color:var(--paper);
+  }
+  :root[data-look="mountain"] .nodebar{
+    border-radius:12px 12px 0 0;
+    border:2px solid var(--ink-soft); box-shadow:var(--shadow-lg);
+  }
+  :root[data-look="mountain"] .side{border-right:2px solid var(--ink-soft)}
+  :root[data-look="mountain"] .new-map{border:2px dashed var(--ink-soft)}
+  :root[data-look="mountain"] .vf-card{
+    border-radius:12px 12px 0 0; border:2px solid var(--ink-soft); box-shadow:var(--shadow-lg);
+  }
+  :root[data-look="mountain"] .vf-card h2{font-weight:700; text-transform:uppercase; letter-spacing:.04em}
+  :root[data-look="mountain"] .row-pop,
+  :root[data-look="mountain"] .picker,
+  :root[data-look="mountain"] .donate-card,
+  :root[data-look="mountain"] .export-pop,
+  :root[data-look="mountain"] .tpl-pop{
+    border-radius:10px 10px 0 0; border:2px solid var(--ink-soft);
+  }
+  :root[data-look="mountain"] .donate-card{ border-radius:14px 14px 0 0; }
+  :root[data-look="mountain"] .search-wrap{ border-radius:10px 10px 0 0; border:2px solid var(--ink-soft); }
+  :root[data-look="mountain"] .minimap{ border-radius:10px 10px 0 0; border:2px solid var(--ink-soft); }
+  :root[data-look="mountain"] .toast{ border-radius:10px 10px 0 0; border:2px solid var(--ink-soft); }
+
+  /* Observatory — night sky: sparse scattered stars of varied size with soft
+     nebula haze, crisp accent-edged cards. Libre Baskerville is a classical
+     scholarly serif. */
+  :root[data-look="observatory"]{ --sans:"Libre Baskerville",serif; --serif:"Libre Baskerville",serif; }
+  :root[data-look="observatory"] .stage{
+    background-image:
+      radial-gradient(circle at 12px 14px, color-mix(in srgb, var(--accent) 60%, transparent) 1.4px, transparent 2px),
+      radial-gradient(circle at 44px 38px, color-mix(in srgb, var(--accent) 40%, transparent) 1px, transparent 1.6px),
+      radial-gradient(circle at 30px 52px, color-mix(in srgb, var(--accent) 50%, transparent) 0.9px, transparent 1.4px),
+      radial-gradient(circle at 56px 12px, color-mix(in srgb, var(--accent) 35%, transparent) 0.7px, transparent 1.1px),
+      radial-gradient(ellipse at 28% 26%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%),
+      radial-gradient(ellipse at 74% 68%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
+    background-size:70px 70px, 70px 70px, 70px 70px, 70px 70px, 100% 100%, 100% 100%; background-color:var(--paper);
+  }
+  :root[data-look="observatory"] .nodebar{
+    border-radius:6px;
+    border:1.5px solid var(--accent); box-shadow:var(--shadow-lg);
+  }
+  :root[data-look="observatory"] .side{border-right:1.5px solid var(--accent)}
+  :root[data-look="observatory"] .new-map{border:1.5px dashed var(--accent)}
+  :root[data-look="observatory"] .vf-card{
+    border-radius:6px; border:1.5px solid var(--accent); box-shadow:var(--shadow-lg);
+  }
+  :root[data-look="observatory"] .vf-card h2{font-weight:700}
+  :root[data-look="observatory"] .row-pop,
+  :root[data-look="observatory"] .picker,
+  :root[data-look="observatory"] .donate-card,
+  :root[data-look="observatory"] .export-pop,
+  :root[data-look="observatory"] .tpl-pop{
+    border-radius:6px; border:1.5px solid var(--accent);
+  }
+  :root[data-look="observatory"] .donate-card{ border-radius:8px; }
+  :root[data-look="observatory"] .search-wrap{ border-radius:6px; border:1.5px solid var(--accent); }
+  :root[data-look="observatory"] .minimap{ border-radius:6px; border:1.5px solid var(--accent); }
+  :root[data-look="observatory"] .toast{ border-radius:6px; border:1.5px solid var(--accent); }
+
+  /* Sketchpad — expressive, bold pen strokes on a clean canvas. Thick borders,
+     very asymmetric radii for a hand-drawn feel, and slightly larger node text
+     to give the writing more presence. */
+  :root[data-look="sketchpad"]{ --sans:system-ui,sans-serif; --serif:system-ui,sans-serif; }
+  :root[data-look="sketchpad"] .node{ font-size:1.15em; }
+  :root[data-look="sketchpad"] .nodebar{
+    border-radius:14px 4px 14px 4px;
+    border:2px solid var(--ink); box-shadow:none;
+  }
+  :root[data-look="sketchpad"] .side{border-right:2px solid var(--ink)}
+  :root[data-look="sketchpad"] .vf-card{
+    border-radius:16px 5px 16px 5px; border:2px solid var(--ink); box-shadow:var(--shadow-lg);
+  }
+  :root[data-look="sketchpad"] .vf-card h2{font-weight:700}
+  :root[data-look="sketchpad"] .row-pop,
+  :root[data-look="sketchpad"] .picker,
+  :root[data-look="sketchpad"] .donate-card,
+  :root[data-look="sketchpad"] .export-pop{
+    border-radius:14px 4px 14px 4px; border:2px solid var(--ink);
+  }
+  :root[data-look="sketchpad"] .donate-card{ border-radius:18px 6px 18px 6px; }
+  :root[data-look="sketchpad"] .search-wrap{ border-radius:12px 4px 12px 4px; border:2px solid var(--ink); }
+  :root[data-look="sketchpad"] .minimap{ border-radius:10px 4px 10px 4px; border:2px solid var(--ink); }
+  :root[data-look="sketchpad"] .toast{ border-radius:12px 5px 12px 5px; border:2px solid var(--ink); }
 
   /* ===== Theme panel — multi-section layout ===== */
   /* ===== Theme picker panel ===== */
@@ -1482,7 +1785,7 @@
     min-width:580px; max-width:700px; display:flex; flex-direction:column;
     gap:0; padding:0; overflow-x:hidden; overflow-y:auto;
   }
-  .theme-panel-large .tp-section{padding:10px 12px; border-top:1px solid var(--chrome-edge)}
+  .theme-panel-large .tp-section{padding:7px 12px; border-top:1px solid var(--chrome-edge)}
   .theme-panel-large .tp-section:first-child{border-top:none}
   .theme-panel-large .tp-section-special{
     background:color-mix(in srgb, var(--accent) 6%, transparent);
@@ -1492,7 +1795,7 @@
   .theme-panel-large .tp-section-special .tp-label{color:var(--accent)}
   .theme-panel-large .tp-label{
     font-size:11px; text-transform:uppercase; letter-spacing:.11em;
-    color:var(--ink-soft); font-weight:700; margin-bottom:8px;
+    color:var(--ink-soft); font-weight:700; margin-bottom:5px;
   }
   /* Cog beside a section label — opens that section's JSON settings. */
   .theme-panel-large .tp-label{ display:flex; align-items:center; gap:6px; }
@@ -1515,6 +1818,16 @@
     font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12.5px;
     line-height:1.5; white-space:pre; overflow:auto;
   }
+  /* Import tile in the Layout row — a dashed square marking it as an action
+     rather than one more layout to choose. */
+  .theme-panel-large .theme-opt.layout-import .li-tile{
+    width:70px; height:40px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    border:1.5px dashed var(--line-2); border-radius:10px;
+    font-size:18px; line-height:1; color:var(--ink-soft);
+  }
+  .theme-panel-large .theme-opt.layout-import:hover .li-tile{
+    border-color:var(--accent); color:var(--accent);
+  }
   /* Saved-layout chips inside the import dialog. */
   .var-form .li-list{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
   .var-form .li-chip{
@@ -1526,7 +1839,7 @@
   }
   .var-form .li-chip button:hover{ color:#c0392b; }
   .theme-panel-large .tp-grid{
-    display:grid; gap:4px;
+    display:grid; gap:3px;
     grid-template-columns:repeat(4,minmax(160px,1fr));
   }
   /* One-line scrolling row (Layout). Keeps the panel from gaining a whole
@@ -1577,6 +1890,20 @@
   }
   /* A focused option must never be hidden behind a fade. */
   .theme-panel-large .tp-grid.tp-scroll-row > .theme-opt:focus-visible{ outline-offset:-2px; }
+  /* Two-row horizontal scrolling grid (Colour theme): only two rows are ever
+     shown and extra columns scroll sideways — same fades and behaviour as the
+     one-line rows, just with a taller window. Items keep stretching to fill
+     the column track (the one-line row's fixed 160px flex width doesn't
+     apply to grid items). */
+  .theme-panel-large .tp-grid.tp-scroll-row.tp-scroll-2rows{
+    display:grid;
+    grid-template-rows:repeat(2,auto);
+    grid-auto-flow:column;
+    grid-auto-columns:minmax(160px,1fr);
+  }
+  .theme-panel-large .tp-grid.tp-scroll-row.tp-scroll-2rows > .theme-opt{
+    width:auto; flex:none;
+  }
   .style-thumb{
     width:70px; height:40px; border-radius:6px; border:1px solid var(--line);
     background:var(--paper); display:inline-flex; align-items:center; justify-content:center;
@@ -1584,11 +1911,9 @@
   }
   .theme-opt{
     display:flex; align-items:center; gap:8px;
-    padding:8px 8px; border:1.5px solid transparent; border-radius:9px;
+    padding:6px 8px; border:1.5px solid transparent; border-radius:9px;
     background:transparent; cursor:pointer; text-align:left;
     font-family:inherit; font-size:13px; font-weight:500; color:var(--ink);
-    /* Smoothly interpolates color changes over 0.3 seconds (theme switching) */
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
   }
   .theme-opt:hover{background:var(--hover)}
   .theme-opt.active{border-color:var(--accent); background:var(--paper-2)}
@@ -1604,6 +1929,7 @@
     background:var(--paper); color:var(--ink); font-size:17px; font-weight:600;
   }
   .theme-name{flex:1; white-space:normal; line-height:1.25}
+
   .theme-opt.add-theme-opt{
     border:1.5px dashed var(--line-2);
     flex-direction:column; justify-content:center; text-align:center; gap:2px;
@@ -1635,6 +1961,7 @@
   }
   .lib-card:hover{background:var(--hover); border-color:var(--line-2)}
   .lib-card .lib-name{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2}
+
 
   /* ===== Context toolbar on selected node ===== */
   .nodebar{position:absolute;z-index:25;display:flex;align-items:center;gap:2px;background:var(--toolbar-bg);color:var(--toolbar-text);border-radius:10px;padding:4px;box-shadow:var(--shadow-lg)}
@@ -1693,7 +2020,7 @@
   .empty h2{font-family:var(--serif);font-size:26px;color:var(--ink);margin:0 0 8px}
   .empty p{margin:0 0 20px;line-height:1.6}
 
-  .toast{position:absolute;bottom:64px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--toolbar-bg);color:var(--toolbar-text);padding:11px 20px;border-radius:11px;font-size:13.5px;font-weight:500;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:.25s;z-index:50}
+  .toast{position:absolute;bottom:64px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--toolbar-bg);color:var(--toolbar-text);padding:11px 20px;border-radius:11px;font-size:13.5px;font-weight:500;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s,background-color .3s ease,border-color .3s ease,color .3s ease;z-index:50}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   /* ===== Login overlay (cloud / static-deploy mode only) ===== */
   .login-overlay{
@@ -1884,6 +2211,20 @@
       transform:translateX(-100%);
       border:none; box-shadow:none;
     }
+    /* Off-canvas overlay shows the sidebar contents again — but only the
+       ACTIVE pane, and with !important to beat the collapsed-rail rules.
+       (The brand stays hidden: the overlay is dismissed by tapping the dimmed
+       stage, which closes the sidebar.) */
+    .side.collapsed .side-tabs{display:flex !important}
+    .side.collapsed .side-pane.active{display:flex !important}
+    .side.collapsed .side-foot{display:block !important}
+    .side.collapsed .side-rail,
+    .side-resize{display:none !important}       /* no icon rail / resize on touch */
+    /* Status bar: single-line, hint text shrinks to fit */
+    .statusbar{padding:4px 10px; gap:8px; grid-column:1; grid-row:4}
+    .statusbar .hint{max-width:58%}
+    .statusbar .save-pill{display:none}
+    .statusbar .token-total{padding:4px 9px; font-size:11px}
     /* Dim the canvas while the mobile sidebar is open */
     .app:has(.side:not(.collapsed)) .stage::after{
       content:""; position:absolute; inset:0; background:rgba(20,15,8,.35);
@@ -1892,7 +2233,10 @@
     .stage{width:100%}
 
     /* Topbar: keep buttons readable on tiny screens */
-    .topbar{padding:7px 8px; gap:4px}
+    .topbar{padding:7px 8px; gap:4px; grid-column:1; grid-row:1}
+    .side{grid-column:1; grid-row:2}
+    .stage{grid-column:1; grid-row:3}
+    #tabStrip, #tabsBtn{display:none}               /* no tabs on touch screens */
     .title-edit{min-width:60px; max-width:130px; font-size:16px; padding:4px 8px}
     .tb{width:38px; height:38px; font-size:18px}    /* bigger tap targets */
     .tb.wide{padding:0 10px}
@@ -1908,9 +2252,10 @@
     .nodebar{max-width:calc(100vw - 16px); flex-wrap:wrap}
     .nodebar button{width:34px; height:34px; min-width:34px}
 
-    /* Zoom bar smaller, repositioned */
-    .zoombar{bottom:14px; right:12px; padding:5px}
-    .zoombar button{width:34px; height:34px}
+    /* Overview chip tighter on phones; minimap hidden */
+    .overview{gap:4px; padding:2px 4px}
+    .overview .minimap{display:none}
+    .zoom-row button{width:32px; height:32px}
 
     /* Cards fit phone width */
     .login-card{padding:24px 22px}
@@ -1991,97 +2336,15 @@
   .export-pop button span:not(.ex-ic){display:flex; flex-direction:column; line-height:1.3}
   .export-pop button b{font-weight:600; font-size:13px}
   .export-pop button i{font-style:normal; color:var(--ink-soft); font-size:11.5px; margin-top:1px}
+  .export-pop .ex-div{height:1px; background:var(--chrome-edge); margin:4px 6px}
 
-  /* ===== Sidebar GitHub / bug links ===== */
-  .side-links{
-    display:flex; flex-direction:column; gap:8px; margin-top:10px; padding-top:10px;
-    border-top:1px solid var(--chrome-edge);
-  }
-  .side-links a{
-    display:flex; align-items:center; gap:7px;
-    color:var(--ink-soft); text-decoration:none;
-    font-size:12px; font-weight:500; white-space:nowrap;
-  }
-  .side-links a:hover{color:var(--accent)}
-  /* Uniform 16px icon gutter so emoji and the GitHub SVG line up in a column. */
-  .side-links a svg,
-  .side-links a .li-ic{
-    flex-shrink:0; width:16px; height:16px;
-    display:inline-flex; align-items:center; justify-content:center;
-    opacity:.85; font-size:13px; line-height:1;
-  }
-
-  /* Inline lists inside a node (created via the selection-aware UL/OL button).
-     Override the centered text-align since bulleted lines look better aligned left. */
-  .node-text ul, .node-text ol{
-    margin:4px 0; padding-left:22px;
-    text-align:left; display:inline-block; vertical-align:top;
-  }
-  .node-text li{margin:2px 0}
-  .node-text ul{list-style-type:disc}
-  .node-text ol{list-style-type:decimal}
-
-  /* ===== Focus mode — hide all chrome, full-bleed canvas ===== */
-  body.focus-mode .topbar,
-  body.focus-mode .side,
-  body.focus-mode .hint,
-  body.focus-mode .save-pill,
-  body.focus-mode .user-pill,
-  body.focus-mode .search-wrap{display:none !important}
-  body.focus-mode .app{grid-template-columns:1fr}
-  body.focus-mode .stage{width:calc(100vw / var(--ui-zoom, 1)); height:calc(100vh / var(--ui-zoom, 1)); height:calc(100dvh / var(--ui-zoom, 1))}
-  /* Zoom bar fades out unless you hover near it */
-  body.focus-mode .zoombar{opacity:.25; transition:opacity .25s}
-  body.focus-mode .zoombar:hover{opacity:1}
-  .focus-exit{
-    position:fixed; top:16px; right:18px; z-index:5500;
-    padding:8px 14px;
-    background:var(--chrome); color:var(--ink);
-    border:1px solid var(--chrome-edge);
-    border-radius:22px;
-    font-family:var(--sans); font-size:13px; font-weight:500;
-    cursor:pointer; box-shadow:var(--shadow);
-    opacity:.7; transition:opacity .2s;
-  }
-  .focus-exit:hover{opacity:1; background:var(--hover)}
-
-  /* ===== Token-count badge (bottom-right of node) ===== */
-  .node .token-badge{
-    position:absolute; bottom:-9px; left:-6px;
-    padding:1px 7px; border-radius:9px;
-    background:var(--toolbar-bg); color:var(--toolbar-text);
-    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    font-size:10px; font-weight:600; line-height:1.4;
-    opacity:.85; pointer-events:auto; z-index:5;
-    border:1.5px solid var(--node-bg, #fff);
-    white-space:nowrap;
-  }
-  .node .token-badge:hover{opacity:1}
-  .node.sel .token-badge{opacity:1}
-
-  /* ===== "New mind map" with template-picker caret ===== */
-  .new-map-row{display:flex; gap:0; margin:14px 14px 10px}
-  .new-map-row .new-map{
-    flex:1; border-top-right-radius:0; border-bottom-right-radius:0;
-    margin:0;
-  }
-  .new-map-row .new-map-caret{
-    width:36px; padding:0;
-    background:var(--accent); color:#fff; border:none;
-    border-left:1px solid color-mix(in srgb, #000 18%, var(--accent));
-    border-top-right-radius:10px; border-bottom-right-radius:10px;
-    cursor:pointer; font-size:13px;
-    font-family:inherit;
-  }
-  .new-map-row .new-map-caret:hover{background:var(--accent-deep)}
-
-  /* ===== Templates popover ===== */
+  /* ===== Templates popover (classic floating) ===== */
   .tpl-pop{
     background:var(--chrome); border:1px solid var(--chrome-edge); border-radius:14px;
     box-shadow:var(--shadow-lg); padding:8px; z-index:1000;
     width:340px; font-family:var(--sans);
     display:flex; flex-direction:column; gap:1px;
-    overflow-y:auto;   /* scrollbar appears only when max-height (set in JS) is exceeded */
+    overflow-y:auto;
   }
   .tpl-pop .tpl-head{
     font-size:11px; text-transform:uppercase; letter-spacing:.11em;
@@ -2113,6 +2376,80 @@
   .tpl-item span:not(.tpl-ic){display:flex; flex-direction:column; line-height:1.3; min-width:0}
   .tpl-item b{font-weight:600; font-size:13px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .tpl-item i{font-style:normal; color:var(--ink-soft); font-size:11.5px; margin-top:2px}
+  .tpl-pop .tpl-del{
+    margin-left:auto; color:var(--ink-soft); font-size:12px; padding:2px 6px;
+    border-radius:5px; opacity:0;
+  }
+  .tpl-pop .tpl-item:hover .tpl-del{opacity:.7}
+  .tpl-pop .tpl-del:hover{opacity:1; background:var(--hover); color:#c0392b}
+
+  /* ===== Sidebar GitHub / bug links ===== */
+  .side-links{
+    display:flex; flex-direction:column; gap:8px; margin-top:10px; padding-top:10px;
+    border-top:1px solid var(--chrome-edge);
+  }
+  .side-links a{
+    display:flex; align-items:center; gap:7px;
+    color:var(--ink-soft); text-decoration:none;
+    font-size:12px; font-weight:500; white-space:nowrap;
+  }
+  .side-links a:hover{color:var(--accent)}
+  /* Uniform 16px icon gutter so emoji and the GitHub SVG line up in a column. */
+  .side-links a svg,
+  .side-links a .li-ic{
+    flex-shrink:0; width:16px; height:16px;
+    display:inline-flex; align-items:center; justify-content:center;
+    opacity:.85; font-size:13px; line-height:1;
+  }
+  .gh-stars{margin-left:auto;font-size:11px;font-weight:600;color:var(--ink-soft);background:var(--paper-2);border:1px solid var(--line);border-radius:20px;padding:1px 7px;line-height:1.6;white-space:nowrap}
+  .gh-stars[hidden]{display:none}
+
+  /* Inline lists inside a node (created via the selection-aware UL/OL button).
+     Override the centered text-align since bulleted lines look better aligned left. */
+  .node-text ul, .node-text ol{
+    margin:4px 0; padding-left:22px;
+    text-align:left; display:inline-block; vertical-align:top;
+  }
+  .node-text li{margin:2px 0}
+  .node-text ul{list-style-type:disc}
+  .node-text ol{list-style-type:decimal}
+
+  /* ===== Focus mode — hide all chrome, full-bleed canvas ===== */
+  body.focus-mode .topbar,
+  body.focus-mode .side,
+  body.focus-mode .hint,
+  body.focus-mode .save-pill,
+  body.focus-mode .user-pill,
+  body.focus-mode .empty .btn-row,
+  body.focus-mode .statusbar,
+  body.focus-mode .search-wrap{display:none !important}
+  body.focus-mode .app{grid-template-columns:1fr}
+  body.focus-mode .stage{grid-column:1;grid-row:3;width:calc(100vw / var(--ui-zoom, 1)); height:calc(100vh / var(--ui-zoom, 1)); height:calc(100dvh / var(--ui-zoom, 1))}
+  .focus-exit{
+    position:fixed; top:16px; right:18px; z-index:5500;
+    padding:8px 14px;
+    background:var(--chrome); color:var(--ink);
+    border:1px solid var(--chrome-edge);
+    border-radius:22px;
+    font-family:var(--sans); font-size:13px; font-weight:500;
+    cursor:pointer; box-shadow:var(--shadow);
+    opacity:.7; transition:opacity .2s;
+  }
+  .focus-exit:hover{opacity:1; background:var(--hover)}
+
+  /* ===== Token-count badge (bottom-right of node) ===== */
+  .node .token-badge{
+    position:absolute; bottom:-9px; left:-6px;
+    padding:1px 7px; border-radius:9px;
+    background:var(--toolbar-bg); color:var(--toolbar-text);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:10px; font-weight:600; line-height:1.4;
+    opacity:.85; pointer-events:auto; z-index:5;
+    border:1.5px solid var(--node-bg, #fff);
+    white-space:nowrap;
+  }
+  .node .token-badge:hover{opacity:1}
+  .node.sel .token-badge{opacity:1}
 
   /* ===== Variable / placeholder form (Export as prompt) ===== */
   .var-form{position:fixed; inset:0; z-index:6000; font-family:var(--sans); animation:fadeIn .15s ease}
@@ -2254,9 +2591,9 @@
        print output to a single page's worth of content, however much there actually is.
        Print has no "viewport" in that sense, so drop the constraint entirely here. */
     html, body{ height:auto !important; overflow:visible !important; }
-    .topbar, .side, .zoombar, .hint, .save-pill, .token-total,
+    .topbar, .side, .overview, .hint, .save-pill, .token-total, .statusbar,
     .nodebar, .search-wrap, .user-pill, .bulk-bar, .focus-exit,
-    .picker, .tpl-pop, .export-pop, .theme-panel{ display:none !important; }
+    .picker, .tpl-pop, .export-pop, .theme-panel, #outlinePane, #deckBar, #tabStrip{ display:none !important; }
     .app{ grid-template-columns:1fr !important; }
     .stage{ width:100% !important; height:auto !important; overflow:visible !important; }
     body, .app, .stage{ background:#fff !important; }
@@ -2379,22 +2716,19 @@
 
   /* ===== Sidebar duplicate button ===== */
 
-  /* ===== User template delete (✕) in picker ===== */
-  .tpl-pop .tpl-del{
-    margin-left:auto; color:var(--ink-soft); font-size:12px; padding:2px 6px;
-    border-radius:5px; opacity:0;
-  }
-  .tpl-pop .tpl-item:hover .tpl-del{opacity:.7}
-  .tpl-pop .tpl-del:hover{opacity:1; background:var(--hover); color:#c0392b}
-
-  /* ===== Breadcrumb (floating pill, top-centre of canvas) ===== */
+  /* ===== Breadcrumb (floating pill, anchored under the topbar's left edge) =====
+     Hidden by default; expands (fades in) while the mouse is over the overview
+     in the status bar — the .shown class is toggled from JS. */
   .breadcrumb{
-    position:fixed; top:60px; left:50%; transform:translateX(-50%);
-    display:none; align-items:center; gap:1px; z-index:90;
+    position:fixed; top:56px; left:14px; transform:none;
+    display:flex; align-items:center; gap:1px; z-index:90;
     background:var(--chrome); border:1px solid var(--chrome-edge);
     border-radius:10px; box-shadow:var(--shadow); padding:3px 6px;
     max-width:min(70vw, 720px); overflow:hidden; font-family:var(--sans);
+    opacity:0; pointer-events:none; transform:translateY(-4px);
+    transition:opacity .16s ease, transform .16s ease;
   }
+  .breadcrumb.shown{opacity:1; pointer-events:auto; transform:translateY(0)}
   .breadcrumb .bc-crumb{
     border:none; background:transparent; cursor:pointer;
     font-family:inherit; font-size:12px; color:var(--ink-soft);
@@ -2405,18 +2739,17 @@
   .breadcrumb .bc-crumb.current{color:var(--ink); font-weight:600}
   .breadcrumb .bc-sep{color:var(--ink-soft); font-size:12px; opacity:.6; flex:none}
 
-  /* ===== Minimap (bottom-right overview) ===== */
+  /* ===== Minimap (inside the overview card, bottom-right) ===== */
   .minimap{
-    position:fixed; bottom:18px; right:72px; z-index:29;
-    width:168px; height:120px;
+    position:relative; z-index:29;
+    width:104px; height:50px;
     background:color-mix(in srgb, var(--chrome) 92%, transparent);
     border:1px solid var(--chrome-edge); border-radius:10px;
     box-shadow:var(--shadow); overflow:hidden; cursor:crosshair;
   }
-  .minimap svg{display:block}
+  .minimap svg{display:block;width:100%;height:100%}
   .minimap #mmView{ stroke:var(--accent); stroke-width:1.5; fill:color-mix(in srgb, var(--accent) 12%, transparent); }
   .minimap .mm-sel{ stroke:var(--accent); stroke-width:1.5; }
-  body.focus-mode .minimap, body.focus-mode .breadcrumb{display:none !important}
   @media (max-width:760px){ .minimap{display:none} .breadcrumb{max-width:88vw} }
 
   /* ===== Read-only shared view ===== */
@@ -2443,7 +2776,7 @@
 
   /* In shared view: hide all editing chrome, keep viewing aids (zoom, minimap) */
   body.shared-view .side,
-  body.shared-view .new-map-row,
+  body.shared-view #newMap,
   body.shared-view #menuExport,
   body.shared-view #searchBtn,
   body.shared-view #varsBtn,
@@ -2456,15 +2789,17 @@
   body.shared-view #donateBtn,
   body.shared-view .hint,
   body.shared-view .save-pill,
+  body.shared-view .menu-toggle,
   body.shared-view #addChild,
   body.shared-view #toggleSide{ display:none !important; }
   /* Sidebar is hidden in shared view — collapse the grid to one column so the
      stage fills the full width (otherwise it auto-places into the 0-width track
      and the canvas clips to nothing). */
-  body.shared-view .app{ grid-template-columns:1fr; }
-  body.shared-view .stage{ top:var(--shared-banner-h, 42px); }   /* clear the banner */
-  body.shared-view .topbar{ top:50px; }
-  body.shared-view .breadcrumb{ top:96px; }
+  body.shared-view .app{ grid-template-columns:1fr; padding-top:var(--shared-banner-h, 42px); }
+  body.shared-view .topbar{ grid-column:1; grid-row:1; }
+  body.shared-view .stage{ grid-column:1; grid-row:3; }
+  body.shared-view .statusbar{ grid-column:1; grid-row:4; }
+  body.shared-view .breadcrumb{ top:97px; left:14px; }
   body.shared-view #mapTitle{ pointer-events:none; max-width:none; }
   body.shared-view .node{ cursor:default; }
   /* Read-only: no node editing affordances (collapse toggle + notes stay). */
@@ -2480,7 +2815,7 @@
   .theme-panel .tp-hint{ font-weight:400; text-transform:none; letter-spacing:0; color:var(--ink-soft); font-size:10.5px; margin-left:6px; }
   .theme-panel .tp-scale{ display:flex; gap:6px; }
   .theme-panel .scale-opt{
-    flex:1; padding:7px 0; border:1px solid var(--chrome-edge); border-radius:8px;
+    flex:1; padding:5px 0; border:1px solid var(--chrome-edge); border-radius:8px;
     background:var(--node-bg); color:var(--ink); cursor:pointer;
     font-family:var(--sans); font-size:12.5px; font-weight:600;
   }
@@ -2710,6 +3045,496 @@ body.no-banner.shared-view .stage{ top:0; }
   #mdPrintRoot math[display="block"]{display:block;margin:.6em auto;text-align:center;page-break-inside:avoid}
 }
 
+/* ===== Floating-shell interface layouts (Classic / Side-toolbar) =====
+   body.ui-classic and body.ui-rail both drop the status bar and float the
+   chrome over the canvas: minimap card + vertical zoombar bottom-right, hint
+   bottom-left, breadcrumb top-centre, collapsed sidebar vanishes (no rail).
+   Classic keeps the upstream toolbar as one floating strip inside .stage;
+   Side-toolbar docks the same toolbar as a vertical icon rail left of the
+   canvas with the title, save pill and minimap floating over it. The same
+   DOM elements are reparented by applyUiLayout() — nothing is hidden or
+   cloned, only restyled and repositioned. */
+body.ui-classic .app, body.ui-rail .app{grid-template-rows:minmax(0,1fr)}
+body.ui-classic .side, body.ui-rail .side, body.ui-zen .side{grid-column:1;grid-row:1;width:268px}
+body.ui-classic .side.collapsed, body.ui-rail .side.collapsed, body.ui-zen .side.collapsed{width:0}
+body.ui-classic .side-rail, body.ui-rail .side-rail, body.ui-zen .side-rail,
+body.ui-classic .side-resize, body.ui-rail .side-resize, body.ui-zen .side-resize{display:none}
+body.ui-classic .statusbar, body.ui-rail .statusbar, body.ui-zen .statusbar{display:none}
+/* Floating bottom-right: the minimap as its own card (right:72) and the
+   vertical zoom bar beside it (right:18) — the upstream zoombar. The zoom
+   row is reparented out of the overview card by applyUiLayout(); the
+   overview here is just the minimap chip. */
+body.ui-classic .overview, body.ui-rail .overview, body.ui-zen .overview{
+  position:absolute;bottom:18px;right:72px;z-index:29;
+  flex-direction:column;align-items:stretch;gap:0;padding:0;
+  background:none;border:none;box-shadow:none;
+}
+body.ui-classic .overview .minimap, body.ui-rail .overview .minimap, body.ui-zen .overview .minimap{width:168px;height:120px}
+body.ui-classic .zoom-row, body.ui-rail .zoom-row, body.ui-zen .zoom-row{
+  position:absolute;bottom:18px;right:18px;z-index:30;
+  flex-direction:column;gap:2px;padding:4px;
+  background:var(--chrome);border:1px solid var(--chrome-edge);border-radius:12px;
+  box-shadow:var(--shadow);
+}
+body.ui-classic .zoom-row button, body.ui-rail .zoom-row button, body.ui-zen .zoom-row button{width:36px;height:34px;border-radius:8px;font-size:17px}
+body.ui-classic #zoomSlider, body.ui-rail #zoomSlider, body.ui-zen #zoomSlider{display:none}   /* no slider here; the % label handles custom zoom */
+body.ui-classic .zoom-row #zoomIn, body.ui-rail .zoom-row #zoomIn, body.ui-zen .zoom-row #zoomIn{order:1}  /* upstream order: ＋ 100% － ⊡ */
+body.ui-classic .zoom-row #zoomVal, body.ui-rail .zoom-row #zoomVal, body.ui-zen .zoom-row #zoomVal{order:2}
+body.ui-classic .zoom-row #zoomOut, body.ui-rail .zoom-row #zoomOut, body.ui-zen .zoom-row #zoomOut{order:3}
+body.ui-classic .zoom-row #zoomFit, body.ui-rail .zoom-row #zoomFit, body.ui-zen .zoom-row #zoomFit{order:4}
+body.ui-classic .overview-toggle, body.ui-rail .overview-toggle, body.ui-zen .overview-toggle{display:none}
+/* Floating hint pill, bottom-left (upstream position). */
+body.ui-classic .hint, body.ui-rail .hint, body.ui-zen .hint{
+  position:absolute;bottom:18px;left:18px;z-index:20;
+  background:var(--chrome);border:1px solid var(--chrome-edge);border-radius:11px;
+  padding:9px 13px;box-shadow:var(--shadow);font-size:12px;color:var(--ink-soft);
+  max-width:330px;line-height:1.55;
+}
+body.ui-classic .hint .hint-text, body.ui-rail .hint .hint-text, body.ui-zen .hint .hint-text{white-space:normal;overflow:visible}
+/* Breadcrumb: top-centre. */
+body.ui-classic .breadcrumb, body.ui-rail .breadcrumb, body.ui-zen .breadcrumb{top:60px;left:50%;transform:translateX(-50%) translateY(-4px)}
+body.ui-classic .breadcrumb.shown, body.ui-rail .breadcrumb.shown, body.ui-zen .breadcrumb.shown{transform:translateX(-50%) translateY(0)}
+body.ui-classic.focus-mode .overview, body.ui-rail.focus-mode .overview, body.ui-zen.focus-mode .overview{display:none !important}
+body.ui-classic.shared-view .overview, body.ui-rail.shared-view .overview, body.ui-zen.shared-view .overview{display:none !important}
+
+/* ---- Classic: the upstream floating toolbar ---- */
+body.ui-classic .app{grid-template-columns:auto 1fr}
+body.ui-classic .stage{grid-column:2;grid-row:1}
+body.ui-classic .topbar{
+  position:absolute;top:14px;left:14px;right:14px;z-index:30;pointer-events:none;
+  background:none;border-bottom:none;padding:0;flex-wrap:nowrap;gap:8px;
+}
+body.ui-classic .topbar > *{pointer-events:auto}
+body.ui-classic .tb-group{background:var(--chrome);border:1px solid var(--chrome-edge);border-radius:12px;padding:4px;box-shadow:var(--shadow)}
+body.ui-classic .tb-sep{display:none}
+body.ui-classic .search-wrap{background:var(--chrome);border:1px solid var(--chrome-edge);border-radius:12px;box-shadow:var(--shadow)}
+body.ui-classic .search-wrap.open{background:var(--paper-2)}
+/* Sidebar shell (as upstream): plain brand, new-map row with ▾ caret, no
+   tabs — the caret toggles the Templates pane in and out. */
+body.ui-classic .side-tabs{display:none}
+body.ui-classic .new-map-row{display:flex;gap:0;margin:14px 14px 10px}
+body.ui-classic .new-map-row #newMap{
+  flex:1;height:auto;padding:11px;margin:0;
+  border:1.5px dashed var(--line-2);background:none;color:var(--ink-soft);
+  border-top-left-radius:11px;border-bottom-left-radius:11px;
+  border-top-right-radius:0;border-bottom-right-radius:0;
+  font-weight:600;font-size:14px;font-family:inherit;
+}
+body.ui-classic .new-map-row #newMap:hover{border-color:var(--accent);color:var(--accent);background:var(--node-bg)}
+body.ui-classic .new-map-row .new-map-caret{
+  width:36px;padding:0;background:var(--accent);color:#fff;border:none;
+  border-left:1px solid color-mix(in srgb, #000 18%, var(--accent));
+  border-top-right-radius:11px;border-bottom-right-radius:11px;
+  cursor:pointer;font-size:13px;font-family:inherit;
+}
+body.ui-classic .new-map-row .new-map-caret:hover{background:var(--accent-deep)}
+body.ui-classic.md-ready .app{grid-template-columns:auto auto minmax(0,1fr)}
+body.ui-classic #mdPane{grid-column:2;grid-row:1}
+body.ui-classic.md-ready .stage{grid-column:3;grid-row:1}
+body.ui-classic.focus-mode .app{grid-template-columns:1fr}
+body.ui-classic.focus-mode .stage{grid-column:1;grid-row:1;width:calc(100vw / var(--ui-zoom, 1));height:calc(100dvh / var(--ui-zoom, 1))}
+body.ui-classic.shared-view .app{grid-template-columns:1fr;padding-top:var(--shared-banner-h, 42px)}
+body.ui-classic.shared-view .stage{grid-column:1;grid-row:1}
+body.ui-classic.shared-view .breadcrumb{top:97px;left:50%;transform:translateX(-50%) translateY(-4px)}
+body.ui-classic.shared-view .breadcrumb.shown{transform:translateX(-50%) translateY(0)}
+
+/* ---- Side-toolbar: the toolbar is a vertical icon rail left of the canvas.
+   Title, save pill, minimap card, zoombar and hint float over the canvas. ---- */
+body.ui-rail .app{grid-template-columns:auto 46px minmax(0,1fr)}
+body.ui-rail .side{grid-column:1;grid-row:1}
+body.ui-rail .topbar{
+  grid-column:2;grid-row:1;position:relative;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:10px 5px;background:var(--chrome);border-right:1px solid var(--chrome-edge);
+  border-bottom:none;overflow:visible;scrollbar-width:none;
+}
+body.ui-rail .topbar::-webkit-scrollbar{display:none}
+body.ui-rail .topbar .tb-group{flex-direction:column;gap:2px}
+body.ui-rail .topbar .tb{width:36px;height:34px;padding:0;font-size:16px}
+body.ui-rail .topbar .tb.wide{width:36px;padding:0;font-size:16px}
+body.ui-rail .topbar .tb-sep{display:none}
+body.ui-rail .topbar .spacer,
+body.ui-rail .topbar .title-edit{display:none}   /* the title is moved out to float on the canvas */
+body.ui-rail .topbar > .user-pill,
+body.ui-rail .topbar > .token-total{display:none}  /* too wide for the rail (left over from classic) */
+/* Search floats right of the rail, over the canvas — toggled by the
+   ⌕ button exactly like the modern toolbar's own inline field. */
+body.ui-rail .topbar .search-wrap{
+  position:absolute;top:64px;left:calc(100% + 8px);right:auto;z-index:20;
+  width:0; overflow:hidden;
+  background:none; border:none; box-shadow:none;
+}
+body.ui-rail .topbar .search-wrap.open{
+  width:230px;
+  background:var(--chrome);border:1px solid var(--chrome-edge);border-radius:12px;
+  box-shadow:var(--shadow);
+}
+body.ui-rail .topbar .search-wrap.open.replace-mode{width:420px}
+body.ui-rail .stage{grid-column:3;grid-row:1}
+body.ui-rail .title-edit{
+  position:absolute;top:14px;left:14px;z-index:30;max-width:42vw;
+  background:transparent;border:1px solid transparent;
+}
+body.ui-rail .title-edit:hover, body.ui-rail .title-edit:focus{background:var(--chrome);border-color:var(--chrome-edge)}
+body.ui-rail .save-pill{position:absolute;top:14px;right:14px;z-index:30;margin:0}
+body.ui-rail.md-ready .app{grid-template-columns:auto 46px auto minmax(0,1fr)}
+body.ui-rail #mdPane{grid-column:3;grid-row:1}
+body.ui-rail.md-ready .stage{grid-column:4;grid-row:1}
+body.ui-rail.focus-mode .app{grid-template-columns:1fr}
+body.ui-rail.focus-mode .topbar{display:none}
+body.ui-rail.focus-mode .stage{grid-column:1;grid-row:1;width:calc(100vw / var(--ui-zoom, 1));height:calc(100dvh / var(--ui-zoom, 1))}
+body.ui-rail.shared-view .app{grid-template-columns:auto 46px minmax(0,1fr);padding-top:var(--shared-banner-h, 42px)}
+body.ui-rail.shared-view .topbar{grid-column:2;grid-row:1}
+body.ui-rail.shared-view .stage{grid-column:3;grid-row:1}
+body.ui-rail.shared-view .breadcrumb{top:97px;left:50%;transform:translateX(-50%) translateY(-4px)}
+body.ui-rail.shared-view .breadcrumb.shown{transform:translateX(-50%) translateY(0)}
+
+/* ── Side-toolbar popovers: fly out to the right of the rail ───────────────
+   In the rail layout the toolbar is a 46px vertical strip. A classic dropdown
+   (below the button, right-aligned) gets clamped to the left viewport edge and
+   looks detached — the pattern every modern app with a vertical rail uses is a
+   horizontal flyout 8px to the right of the rail, top-aligned with the trigger
+   (VS Code activity bar, Figma tools, Slack navigation, Discord server list).
+   The JS `positionPopup(…, {side:'right'})` places the popover there; these
+   rules just polish the feel so the flyout reads as attached to the rail. */
+@keyframes railPopIn{
+  from{opacity:0; transform:translateX(-6px) scale(.98);}
+  to{opacity:1; transform:translateX(0) scale(1);}
+}
+body.ui-rail .theme-panel,
+body.ui-rail .export-pop{
+  transform-origin:left center;
+  animation:railPopIn .14s cubic-bezier(.2,0,.2,1);
+  /* A slightly stronger shadow so the flyout lifts clearly off the canvas and
+     the rail when it sits 8px away — matching VS Code / Slack elevation. */
+  box-shadow:0 12px 40px rgba(0,0,0,.22), 0 2px 8px rgba(0,0,0,.14);
+}
+@media (prefers-reduced-motion: reduce){
+  body.ui-rail .theme-panel,
+  body.ui-rail .export-pop{animation:none;}
+}
+
+/* ---- Zen / write: the shell vanishes; the canvas fills the window. The
+   toolbar strip, breadcrumb and save pill are hidden and slide in only while
+   the pointer hovers the top edge (body.zen-chrome). Minimap card, zoombar
+   and hint stay floating at all times. ---- */
+body.ui-zen .app{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
+body.ui-zen .side{
+  position:fixed;top:0;left:0;bottom:0;width:min(320px,86vw);z-index:400;
+  background:var(--chrome);border-right:1px solid var(--chrome-edge);
+  box-shadow:var(--shadow-lg);transform:translateX(-100%);
+  transition:transform .25s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;
+}
+body.ui-zen.side-open .side{transform:translateX(0)}
+body.ui-zen .statusbar{display:none}
+body.ui-zen .stage{grid-column:1;grid-row:1}
+body.ui-zen .topbar{
+  position:absolute;top:14px;left:50%;right:auto;z-index:30;pointer-events:none;
+  display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;
+  background:var(--chrome);border:1px solid var(--chrome-edge);border-radius:12px;
+  padding:4px 8px;box-shadow:var(--shadow);max-width:92vw;width:max-content;
+  opacity:0;transform:translateX(-50%) translateY(-12px);
+  transition:opacity .18s ease, transform .18s ease;
+}
+body:not(.ui-zen) #zenPin{display:none}
+body.ui-zen.zen-chrome .topbar{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+/* Pinned: bar stays visible without hovering the top edge (state in localStorage).
+   Declared BEFORE the focus-mode rules below so focus mode still hides it. */
+body.ui-zen.zen-pinned .topbar{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+body.ui-zen #zenPin.on{background:var(--accent);color:#fff}
+body.ui-zen .tb-group{background:none;border:none;border-radius:0;padding:0;box-shadow:none}
+body.ui-zen .tb-sep{width:1px;height:22px;background:var(--chrome-edge);flex:0 0 auto}
+body.ui-zen .search-wrap{background:transparent;border:none;box-shadow:none;flex:0 0 auto}
+body.ui-zen .search-wrap.open{background:var(--paper-2);border:1px solid var(--chrome-edge);border-radius:8px;padding:2px}
+/* Opening search must widen the centered bar instead of squeezing the field:
+   lift the 92vw cap and absorb the extra width from the map title first. */
+body.ui-zen .topbar:has(.search-wrap.open){max-width:98vw}
+body.ui-zen .topbar:has(.search-wrap.open) .title-edit{min-width:60px;max-width:160px}
+/* While the find field is open the least-used actions step aside, so the
+   token counter and pin stay on the first row instead of wrapping. The wrap
+   rule above remains as the safety net for very narrow windows. */
+body.ui-zen .topbar:has(.search-wrap.open) #presentBtn,
+body.ui-zen .topbar:has(.search-wrap.open) #tabsBtn{display:none}
+body.ui-zen .save-pill{display:flex;position:absolute;top:22px;right:14px;z-index:30;margin:0}
+body.ui-zen .token-total{background:none;border:none;box-shadow:none;border-radius:0;padding:6px 4px;margin-left:4px}
+body.ui-zen .breadcrumb{display:none}
+body.ui-zen.md-ready .topbar{max-width:min(92vw, calc(100% - 28px))}
+body.ui-zen.md-ready .topbar:has(.search-wrap.open){max-width:min(98vw, calc(100% - 16px))}
+body.ui-zen.md-ready .app{grid-template-columns:auto minmax(0,1fr)}
+body.ui-zen #mdPane{grid-column:1;grid-row:1}
+body.ui-zen.md-ready .stage{grid-column:2;grid-row:1}
+body.ui-zen.tabs-on .app{grid-template-rows:auto minmax(0,1fr)}
+body.ui-zen.tabs-on #tabStrip{grid-column:1;grid-row:1;display:flex}
+body.ui-zen.tabs-on .stage{grid-column:1;grid-row:2}
+body.ui-zen.tabs-on.md-ready .app{grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+body.ui-zen.tabs-on.md-ready #tabStrip{grid-column:1/-1;grid-row:1}
+body.ui-zen.tabs-on.md-ready #mdPane{grid-column:1;grid-row:2}
+body.ui-zen.tabs-on.md-ready .stage{grid-column:2;grid-row:2}
+body.ui-zen.focus-mode #mdPane{display:none}
+@media (prefers-reduced-motion: reduce){ body.ui-zen .topbar{transition:none} }
+body.ui-zen.focus-mode .topbar{opacity:0;transform:translateY(-12px);pointer-events:none}
+body.ui-zen.focus-mode .stage{grid-column:1;grid-row:1;width:calc(100vw / var(--ui-zoom, 1));height:calc(100dvh / var(--ui-zoom, 1))}
+body.ui-zen.shared-view .app{grid-template-columns:1fr;padding-top:var(--shared-banner-h, 42px)}
+body.ui-zen.shared-view .topbar{display:none}
+body.ui-zen.shared-view .stage{grid-column:1;grid-row:1}
+body.ui-zen.shared-view .breadcrumb{top:97px;left:50%;transform:translateX(-50%) translateY(-4px)}
+body.ui-zen.shared-view .breadcrumb.shown{transform:translateX(-50%) translateY(0)}
+
+/* ---- Bottom-dock: the status bar becomes a full-width dock that owns the
+   sidebar toggle, the Maps/Templates tabs, the hint and the overview chip;
+   the sidebar turns into a slide-over panel instead of a permanent column. ---- */
+body.ui-dock .app{grid-template-columns:1fr;grid-template-rows:auto auto minmax(0,1fr) auto}
+body.ui-dock .topbar{grid-column:1;grid-row:1}
+body.ui-dock #tabStrip{grid-column:1;grid-row:2}
+body.ui-dock .stage{grid-column:1;grid-row:3}
+body.ui-dock .statusbar{grid-column:1;grid-row:4;width:100%;gap:12px;padding:6px 12px}
+body.ui-dock .side{
+  position:fixed;top:0;left:0;bottom:0;width:min(320px,86vw);z-index:400;
+  background:var(--chrome);border-right:1px solid var(--chrome-edge);
+  box-shadow:var(--shadow-lg);transform:translateX(-100%);
+  transition:transform .25s cubic-bezier(.4,0,.2,1);
+}
+body.ui-dock.side-open .side{transform:translateX(0)}
+body.ui-dock .side-rail, body.ui-dock .side-resize{display:none}
+body.ui-dock .side-tabs{display:flex;gap:2px;padding:2px;background:var(--paper-2);border-radius:10px}
+body.ui-dock .hint{margin-left:auto}
+body.ui-dock.md-ready .app{grid-template-columns:minmax(0,1fr) auto}
+body.ui-dock.md-ready #mdPane{grid-column:2;grid-row:3; border-right:none; border-left:1px solid var(--line)}
+body.ui-dock.md-ready .stage{grid-column:1;grid-row:3}
+body.ui-dock.md-ready .topbar{grid-column:1/-1;grid-row:1}
+body.ui-dock.md-ready #tabStrip{grid-column:1/-1;grid-row:2}
+body.ui-dock.md-ready .statusbar{grid-column:1/-1;grid-row:4}
+body.ui-dock.md-ready #mdPane .md-resize{left:0; right:auto}
+body.ui-dock.md-mode #mdPane{width:var(--md-w,40vw)}
+body.ui-dock.focus-mode .app{grid-template-columns:1fr}
+body.ui-dock.focus-mode #mdPane{display:none}
+body.ui-dock.focus-mode .stage{grid-column:1;grid-row:3;width:calc(100vw / var(--ui-zoom, 1));height:calc(100dvh / var(--ui-zoom, 1))}
+body.ui-dock.shared-view .app{grid-template-columns:1fr}
+body.ui-dock.shared-view #mdPane{display:none}
+body.ui-dock.shared-view .stage{grid-column:1;grid-row:3}
+
+/* ---- Split editor: the modern shell plus the markdown pane pinned open as a
+   permanent third column (side | editor | canvas). ---- */
+body.ui-split .app{grid-template-columns:auto auto minmax(0,1fr)}
+body.ui-split .side{grid-column:1;grid-row:1/5}
+body.ui-split .topbar{grid-column:2/-1;grid-row:1}
+body.ui-split #mdPane{grid-column:2;grid-row:3;width:var(--md-w,40vw)}
+body.ui-split .stage{grid-column:3;grid-row:3}
+body.ui-split .statusbar{grid-column:2/-1;grid-row:4}
+body.ui-split #mdToggle{display:none}
+body.ui-split #mdPane .md-close{display:none}
+ body.ui-split.focus-mode .app{grid-template-columns:1fr}
+  body.ui-split.focus-mode #mdPane{display:none}
+  body.ui-split.focus-mode .stage{grid-column:1;grid-row:3;width:calc(100vw / var(--ui-zoom, 1));height:calc(100dvh / var(--ui-zoom, 1))}
+body.ui-split.tabs-on .app{grid-template-rows:auto auto minmax(0,1fr) auto}
+body.ui-split.tabs-on #tabStrip{display:flex;grid-column:2/-1;grid-row:2}
+body.ui-split.tabs-on #mdPane{grid-column:2;grid-row:3}
+body.ui-split.tabs-on .stage{grid-column:3;grid-row:3}
+body.ui-split.shared-view .app{grid-template-columns:1fr}
+body.ui-split.shared-view #mdPane{display:none}
+body.ui-split.shared-view .stage{grid-column:1;grid-row:3}
+
+ /* ---- Minimal: the plain modern shell with the sidebar gone entirely — no
+   column, no slide-over, nothing to toggle. ---- */
+body.ui-minimal .app{grid-template-columns:1fr}
+body.ui-minimal .topbar{grid-column:1;grid-row:1}
+body.ui-minimal .stage{grid-column:1;grid-row:3}
+body.ui-minimal .statusbar{grid-column:1;grid-row:4}
+body.ui-minimal .side{
+  position:fixed;top:0;left:0;bottom:0;width:min(320px,86vw);z-index:400;
+  background:var(--chrome);border-right:1px solid var(--chrome-edge);
+  box-shadow:var(--shadow-lg);transform:translateX(-100%);
+  transition:transform .25s cubic-bezier(.4,0,.2,1);
+}
+body.ui-minimal.side-open .side{transform:translateX(0)}
+body.ui-minimal .side-rail, body.ui-minimal .side-resize{display:none}
+body.ui-minimal #toggleSide{display:none}
+body.ui-minimal.md-ready .app{grid-template-columns:minmax(0,1fr) auto}
+body.ui-minimal.md-ready #mdPane{grid-column:2;grid-row:3; border-right:none; border-left:1px solid var(--line)}
+body.ui-minimal.md-ready .stage{grid-column:1;grid-row:3}
+body.ui-minimal.md-ready .topbar{grid-column:1/-1;grid-row:1}
+body.ui-minimal.md-ready #tabStrip{grid-column:1/-1;grid-row:2}
+body.ui-minimal.md-ready .statusbar{grid-column:1/-1;grid-row:4}
+body.ui-minimal.md-ready #mdPane .md-resize{left:0; right:auto}
+body.ui-minimal.md-mode #mdPane{width:var(--md-w,40vw)}
+body.ui-minimal.tabs-on .app{grid-template-rows:auto auto minmax(0,1fr) auto}
+body.ui-minimal.tabs-on #tabStrip{display:flex;grid-column:1;grid-row:2}
+body.ui-minimal.tabs-on .stage{grid-column:1;grid-row:3}
+body.ui-minimal.tabs-on.md-ready #mdPane{grid-column:2;grid-row:3}
+body.ui-minimal.tabs-on.md-ready .stage{grid-column:1;grid-row:3}
+body.ui-minimal.focus-mode .app{grid-template-columns:1fr}
+body.ui-minimal.focus-mode #mdPane{display:none}
+body.ui-minimal.focus-mode .stage{grid-column:1;grid-row:3;width:calc(100vw / var(--ui-zoom, 1));height:calc(100dvh / var(--ui-zoom, 1))}
+body.ui-minimal.shared-view .app{grid-template-columns:1fr}
+body.ui-minimal.shared-view #mdPane{display:none}
+body.ui-minimal.shared-view .stage{grid-column:1;grid-row:3}
+
+  /* ---- Minimal launcher: a Raspberry-Pi-OS-style menu. The MindSpark logo
+   sits beside the map title at the top-left and opens a context menu with
+   Maps, Templates and Open source. Only the minimal layout shows the logo. ---- */
+.minimal-menu-btn{display:none;align-items:center;justify-content:center;
+  width:34px;height:34px;margin:6px 4px 6px 10px;padding:0;flex:0 0 auto;
+  border:none;border-radius:9px;background:none;cursor:pointer}
+.minimal-menu-btn:hover{background:var(--hover)}
+.minimal-menu-btn:active{transform:scale(.94)}
+.minimal-menu-btn svg{width:24px;height:24px}
+body.ui-minimal .minimal-menu-btn{display:flex}
+.minimal-menu{
+  position:fixed;min-width:190px;z-index:500;padding:6px;
+  background:var(--chrome);border:1px solid var(--chrome-edge);border-radius:12px;
+  box-shadow:var(--shadow-lg);display:flex;flex-direction:column;gap:2px;
+  animation:pop .12s ease-out;
+}
+.minimal-menu[hidden]{display:none}
+.minimal-menu .mm-item{
+  display:flex;align-items:center;gap:10px;padding:8px 10px;width:100%;
+  border:none;background:none;border-radius:8px;font-family:inherit;font-size:13px;
+  color:var(--ink);cursor:pointer;text-align:left}
+.minimal-menu .mm-item:hover{background:var(--hover)}
+.minimal-menu .mm-item.mm-has-sub:hover{background:var(--paper-2)}
+.minimal-menu .mm-item.mm-has-sub:hover .mm-caret{color:var(--accent);opacity:1}
+.minimal-menu .mm-item:active{transform:scale(.98)}
+.minimal-menu .mm-item + .mm-item{border-top:1px solid transparent}
+.minimal-menu .mm-item .mm-lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.minimal-menu .mm-item .mm-caret{margin-left:auto;font-size:10px;opacity:.6;transform:translateY(-1px)}
+.minimal-menu .mm-ic{width:18px;height:18px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:var(--accent)}
+.minimal-menu .mm-ic svg{width:16px;height:16px}
+.minimal-menu .mm-ic .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;display:block}
+.minimal-menu .mm-ic svg + .dot{display:none}
+@keyframes pop{from{opacity:0}to{opacity:1}}
+
+/* Cascading sub-panels anchored beside their parent item. They live on <body>
+   (never inside the animated menu) so their fixed positioning is relative to
+   the viewport; they flip to the left/bottom edge when they would otherwise
+   run off the screen. */
+.minimal-sub{
+  position:fixed;min-width:190px;max-width:280px;max-height:min(70vh,420px);overflow-y:auto;
+  z-index:501;padding:6px;background:var(--chrome);border:1px solid var(--chrome-edge);
+  border-radius:12px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;gap:2px;
+  animation:pop .12s ease-out;
+}
+.minimal-sub[hidden]{display:none}
+.minimal-sub .mm-item{display:flex;align-items:center;gap:10px;padding:8px 10px;width:100%;border:none;background:none;border-radius:8px;font-family:inherit;font-size:13px;color:var(--ink);cursor:pointer;text-align:left}
+.minimal-sub .mm-item:hover{background:var(--hover)}
+.minimal-sub .mm-item:active{transform:scale(.98)}
+.minimal-sub .mm-item.active{background:var(--paper-2);color:var(--accent);font-weight:600}
+.minimal-sub .mm-item .mm-lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.minimal-sub .mm-item .mm-pin{margin-left:auto;font-size:11px;opacity:.7}
+.minimal-sub .mm-ic{width:18px;height:18px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:var(--accent)}
+.minimal-sub .mm-ic svg{width:16px;height:16px}
+.minimal-sub .mm-ic .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;display:block}
+.minimal-sub .mm-empty{padding:8px 10px;font-size:12px;color:var(--muted);text-align:center}
+.minimal-sub .map-group-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding:8px 10px 4px;font-weight:700}
+
+/* ---- Mirror classic: the same floating shell as classic, flipped to the
+   left. applyUiLayout() keeps body.ui-classic applied too, so every classic
+   rule already covers this layout — only the positions are mirrored. ---- */
+body.ui-mirror .topbar{justify-content:flex-end}     /* actions left, title right */
+body.ui-mirror .tb-group{flex-direction:row-reverse}
+body.ui-mirror .overview{right:auto;left:72px}       /* minimap card bottom-left */
+body.ui-mirror .zoom-row{right:auto;left:18px}       /* zoombar beside it, left edge */
+body.ui-mirror .hint{left:auto;right:18px}           /* hint bottom-right */
+body.ui-mirror.shared-view .breadcrumb{transform:translateX(-50%) translateY(-4px)}
+body.ui-mirror.shared-view .breadcrumb.shown{transform:translateX(-50%) translateY(0)}
+
+/* ---- Presentation: chrome vanishes, the canvas fills the window and the map
+   is walked node by node (breadth-first). The current node gets an accent
+   ring and the rest of the map dims; a slim bar top-centre shows the node
+   title, the position in the walk and prev/next controls. ---- */
+body.ui-deck .app{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
+body.ui-deck .stage{grid-column:1;grid-row:1}
+body.ui-deck .side, body.ui-deck .topbar, body.ui-deck .statusbar,
+body.ui-deck .hint, body.ui-deck .overview, body.ui-deck .breadcrumb,
+body.ui-deck .save-pill, body.ui-deck .search-wrap, body.ui-deck #mdPane,
+body.ui-deck .focus-exit{display:none !important}
+#deckBar{
+  position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:500;
+  display:flex;align-items:center;gap:12px;max-width:min(92vw, 640px);
+  padding:6px 8px 6px 14px;background:var(--chrome);
+  border:1px solid var(--chrome-edge);border-radius:12px;box-shadow:var(--shadow);
+  font-size:13px;color:var(--ink);
+}
+#deckBar .deck-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#deckBar .deck-pos{font-variant-numeric:tabular-nums;color:var(--ink-soft);font-size:12px;flex:0 0 auto}
+#deckBar .deck-nav{display:flex;gap:4px}
+#deckBar button{width:30px;height:30px;border-radius:8px;border:none;background:none;color:var(--ink-soft);cursor:pointer;font-size:13px;line-height:1}
+#deckBar button:hover{background:var(--hover);color:var(--ink)}
+#deckBar #deckExit:hover{background:color-mix(in srgb, var(--accent) 14%, transparent);color:var(--accent)}
+body.ui-deck .node{transition:opacity .3s ease}
+body.ui-deck .node:not(.deck-current){opacity:.28}
+body.ui-deck .node.deck-current{box-shadow:0 0 0 3px var(--accent)}
+
+/* ---- Outline dock: the modern shell plus a live tree panel between the
+   sidebar and the canvas (side | outline | canvas). Folded by default — the
+   ▤ toolbar button opens it. Rows select + centre the node; the twist folds
+   a branch locally without touching the map. ---- */
+body.ui-outline .app{grid-template-columns:auto 0 minmax(0,1fr)}
+body.ui-outline.outline-open .app{grid-template-columns:auto auto minmax(0,1fr)}
+body.ui-outline .topbar, body.ui-outline .statusbar{grid-column:2/-1}
+body.ui-outline .stage{grid-column:3;grid-row:3}
+body.ui-outline #mdToggle{display:none}
+body:not(.ui-outline) #outlineBtn{display:none}
+#outlinePane{
+  grid-column:2;grid-row:3;display:flex;flex-direction:column;min-width:0;min-height:0;
+  width:0;overflow:hidden;background:var(--paper);border-right:1px solid var(--line);
+  transition:width .22s cubic-bezier(.4,0,.2,1);
+}
+body.ui-outline.outline-open #outlinePane{width:min(280px,24vw)}
+#outlinePane .ol-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;color:var(--ink-soft);letter-spacing:.04em}
+#outlinePane .ol-close{margin-left:auto;border:none;background:none;cursor:pointer;color:var(--ink-soft);font-size:13px;line-height:1;padding:4px 6px;border-radius:6px}
+#outlinePane .ol-close:hover{background:var(--hover);color:var(--ink)}
+#outlinePane .ol-body{flex:1;min-height:0;overflow:auto;padding:8px 6px 14px}
+#outlinePane .ol-tree, #outlinePane .ol-sub{list-style:none;margin:0;padding:0}
+#outlinePane .ol-sub{padding-left:16px}
+#outlinePane .ol-node.collapsed > .ol-sub{display:none}
+#outlinePane .ol-row{display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:8px;cursor:pointer;font-size:13px;line-height:1.45;color:var(--ink)}
+#outlinePane .ol-row:hover{background:var(--hover)}
+#outlinePane .ol-node.sel > .ol-row{background:color-mix(in srgb, var(--accent) 14%, transparent);color:var(--accent)}
+#outlinePane .ol-twist{flex:0 0 14px;width:14px;text-align:center;color:var(--ink-soft);font-size:10px;user-select:none;transition:transform .15s ease}
+#outlinePane .ol-leaf{visibility:hidden}
+#outlinePane .ol-node.collapsed > .ol-row .ol-twist{transform:rotate(-90deg)}
+#outlinePane .ol-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.ui-outline.focus-mode .app{grid-template-columns:1fr}
+body.ui-outline.focus-mode #outlinePane{display:none}
+body.ui-outline.focus-mode .stage{grid-column:1;grid-row:3;width:calc(100vw / var(--ui-zoom, 1));height:calc(100dvh / var(--ui-zoom, 1))}
+body.ui-outline.shared-view .app{grid-template-columns:auto minmax(0,1fr)}
+body.ui-outline.shared-view #outlinePane{display:none}
+body.ui-outline.shared-view .stage{grid-column:2;grid-row:3}
+
+@media (max-width:720px){
+  #deckBar{top:8px;left:8px;right:8px;transform:none;max-width:none}
+  body.ui-outline .app{grid-template-columns:1fr}
+  body.ui-outline .topbar, body.ui-outline .statusbar{grid-column:1}
+  body.ui-outline .stage{grid-column:1;grid-row:3}
+  body.ui-outline #outlinePane, body.ui-outline #outlineBtn{display:none}
+  body.ui-classic .app{grid-template-columns:1fr}
+  body.ui-classic .side{grid-column:1;grid-row:1;width:min(280px, 86vw)}
+  body.ui-classic .stage{grid-column:1;grid-row:1}
+  body.ui-classic .side.collapsed{width:min(280px, 86vw)}
+  body.ui-classic .topbar{top:10px;left:10px;right:10px}
+  /* Full-width strip on phones. The insets stretch the bar, so the desktop
+     translateX(-50%) centering must go too — it shifted the strip half its
+     own width off-screen (left edge unreachable). */
+  body.ui-zen .topbar{top:10px;left:10px;right:10px;width:auto;max-width:none;transform:translateY(-12px)}
+  body.ui-zen.zen-chrome .topbar,
+  body.ui-zen.zen-pinned .topbar{transform:translateY(0)}
+  body.ui-split .app{grid-template-columns:1fr}
+  body.ui-split .topbar{grid-column:1;grid-row:1}
+  body.ui-split .stage{grid-column:1;grid-row:3}
+  body.ui-split .statusbar{grid-column:1;grid-row:4}
+  body.ui-classic .hint, body.ui-rail .hint, body.ui-zen .hint{display:none}
+  body.ui-classic .overview, body.ui-rail .overview, body.ui-zen .overview{display:none}   /* minimap is hidden on small screens; the zoombar stays */
+  body.ui-classic .zoom-row, body.ui-rail .zoom-row, body.ui-zen .zoom-row{bottom:12px;right:12px}
+  body.ui-mirror .zoom-row{bottom:12px;left:12px;right:auto}
+  /* Rail keeps its slim column on phones; the sidebar is the off-canvas
+     overlay and the canvas fills the remaining column. */
+  body.ui-rail .app{grid-template-columns:40px minmax(0,1fr)}
+  body.ui-rail .side{grid-column:1;grid-row:1;width:min(280px, 86vw)}
+  body.ui-rail .topbar{grid-column:1;grid-row:1;padding:8px 2px}
+  body.ui-rail .stage{grid-column:2;grid-row:1}
+}
+
 /* ===== Smooth theme switching =====
    When a Colour Theme (or a theme-config JSON) changes the custom
    properties, these surfaces interpolate their colors over 0.3s — the same
@@ -2718,15 +3543,26 @@ body.no-banner.shared-view .stage{ top:0; }
    while the paper color underneath fades; node and edge strokes fade with
    the theme too. Interactive hover controls use the shorter 0.2s so hover
    feedback stays snappy. */
-body, .app, .side, .stage, .node, .nodebar,
-.vf-card, .row-pop, .picker, .donate-card, .export-pop, .tpl-pop,
-.search-wrap, .minimap, .toast, .theme-panel{
+body, .app, .topbar, .statusbar, .stage, .nodebar, .brand, .save-pill,
+.vf-card, .row-pop, .picker, .donate-card, .export-pop,
+.search-wrap, .minimap, .toast, .theme-panel, .notes-popup{
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
-#viewport path{
+#edges path{
   transition: stroke 0.3s ease;
 }
-.tb, .map-item, .sw, .scale-opt, .donate-provider, .donate-amt,
+.tb, .map-item, .scale-opt, .side-tab, .tpl-side-item, .title-edit,
+.overview, .zoom-val, .zoom-row button,
 input, textarea, select{
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce){
+  body, .app, .topbar, .statusbar, .stage, .nodebar, .brand, .save-pill,
+  .vf-card, .row-pop, .picker, .donate-card, .export-pop,
+  .minimap, .theme-panel, .notes-popup, #edges path,
+  .tb, .map-item, .scale-opt, .side-tab, .tpl-side-item, .title-edit,
+  .overview, .zoom-val, .zoom-row button,
+  input, textarea, select{
+    transition: none !important;
+  }
 }

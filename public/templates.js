@@ -864,7 +864,27 @@ const TEMPLATES = {
   },
 
   /* ===== Feature showcase — demonstrates colours, formatting, notes, tasks,
-     references, an image and cross-links. A friendly first map to explore. ===== */
+     markers, an image and cross-links. A friendly first map to explore. ===== */
+  showcase: {
+    name:'Feature showcase', desc:'Markers, tasks, notes, links & formatting', color:'#e0613a', group:'pro', icon:'✨',
+    nodes:[
+      { k:'root', text:'MindSpark tour', notes:'<p>This map shows off a few things MindSpark can do \u2014 try clicking the ⭐ badges, the ☑ task boxes, or a node to see its toolbar.</p>' },
+      { k:'mk', parent:'root', text:'Markers & priorities', marker:'\u2B50', fontSize:16, bold:true, color:'#ffedc2' },
+      { k:'m1', parent:'mk', text:'Must ship this week', marker:'\u2757', task:'doing' },
+      { k:'m2', parent:'mk', text:'Blocked — needs review', marker:'\u{1F512}', task:'todo' },
+      { k:'m3', parent:'mk', text:'Fresh idea', marker:'\u{1F4A1}', task:'todo' },
+      { k:'ts', parent:'root', text:'Tasks & progress', fontSize:16, bold:true, color:'#dcefce' },
+      { k:'t1', parent:'ts', text:'Todo item', task:'todo' },
+      { k:'t2', parent:'ts', text:'In progress', task:'doing' },
+      { k:'t3', parent:'ts', text:'Done — strikethrough', task:'done' },
+      { k:'nt', parent:'root', text:'Notes on any node', notes:'<p>Click the 📝 button in the node toolbar (or press <kbd>Shift</kbd>+<kbd>Enter</kbd> on a node) to open this sticky note.</p>' },
+      { k:'lk', parent:'root', text:'Cross-links', fontSize:16, bold:true, color:'#d8e0fb' },
+      { k:'l1', parent:'lk', text:'Marker section' },
+      { k:'l2', parent:'lk', text:'Tasks section' },
+      { k:'ex', parent:'root', text:'Markdown pane', notes:'<p>Open the 📄 button to edit this map as Markdown and export it to PDF.</p>' }
+    ],
+    links:[ { from:'l1', to:'mk' }, { from:'l2', to:'ts' } ]
+  },
 };
 // Template categories (ordered) for the drill-down menu.
 const TEMPLATE_CATEGORIES = [
