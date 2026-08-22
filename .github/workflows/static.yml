@@ -33,13 +33,14 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          # Auto-enable Pages if not already enabled (requires pages:write)
+          enablement: true
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.' 
-      - name: Docker Setup Docker
-        uses: docker/setup-docker-action@v5.2.0
+          # Upload only the static app (public/) as the site root
+          path: 'public'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
