@@ -12280,6 +12280,7 @@ function _applySharedMap(id, token, data){
   const settle=()=>{ if(stage.getBoundingClientRect().width>1){ autoLayout(); fit(); rebase(); map._opening=false; } else if(tries++<60){ requestAnimationFrame(settle); } else { map._opening=false; } };
   requestAnimationFrame(settle);
 }
+
 // Leave shared mode WITHOUT a reload: flush a pending save, stop polling, drop the
 // banner/read-only state, and clear #shared= from the URL so you can switch straight
 // back to "Your maps" in the same session (no browser back button needed).
