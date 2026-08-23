@@ -4,7 +4,9 @@ MindSpark is an open-source **mind-mapping app you actually own** — no account
 
 ![status](https://img.shields.io/badge/license-MIT-green) ![deps](https://img.shields.io/badge/dependencies-0-blue) ![node](https://img.shields.io/badge/node-%E2%89%A522-brightgreen)
 
-**▶ Try it live → [mindspark.githubpage.workers.dev](https://mindspark.githubpage.workers.dev/)** — runs entirely in your browser. Sign in with GitHub and your maps are saved as private JSON files in a `mindspark-maps` repo on your own account (no server in between).
+**▶ Try full version (Worker, OAuth + live collab) → [mindspark.githubpage.workers.dev](https://mindspark.githubpage.workers.dev/)** — runs entirely in your browser. Sign in with GitHub (OAuth or PAT) and your maps are saved as private JSON files in a `mindspark-maps` repo on your own account (no server in between).
+
+**▶ Try PAT-only (GitHub Pages, no worker) → [prasadpatil25.github.io/MindSpark](https://prasadpatil25.github.io/MindSpark/)** — same editor on `*.github.io`, sign in with a personal access token only. No OAuth, no live collaboration — ideal for forks and static hosting. Your fork lives at `https://<you>.github.io/MindSpark/`.
 
 **🧠 Make maps by chatting → [MindSpark — Mind Map for Everyone](https://chatgpt.com/g/g-6a3a81242f748191ab1b7cff99a21619-mindspark-mind-map-for-everyone)** — describe a topic and the GPT builds the map, then hands you a link to open and edit it in MindSpark. No account needed to view.
 
@@ -86,26 +88,28 @@ Every map *is* a Markdown outline — not a one-way export bolted on afterward. 
 
 ## What works offline vs. what needs the cloud
 
-MindSpark's editor is 100% client-side. The only things that require the optional Cloudflare Worker are the ones that inherently need a shared server between people.
+MindSpark's editor is 100% client-side. The only things that require the optional Cloudflare Worker are the ones that inherently need a shared server between people. There are three deployment shapes — see [Deployment modes](#deployment-modes).
 
-| Capability | Local (self-host or static + GitHub) | Cloud (worker) |
-|---|:---:|:---:|
-| Create / edit maps, all layouts, math, formulas, prompt building | ✅ | ✅ |
-| **Markdown mode** (two-way sync, preview, PDF export), citations | ✅ | ✅ |
-| Import / export (JSON, OPML, Markdown, PNG, PDF, `.doc`, Mermaid, …) | ✅ | ✅ |
-| Version history, undo/redo, search, presentation mode | ✅ | ✅ |
-| **Read-only share links** (`#view=`, whole map encoded in the URL) | ✅ | ✅ |
-| Save maps to **your own private GitHub repo** | ✅ *(sign in with a token)* | ✅ |
-| One-click **"Sign in with GitHub"** (OAuth) | ➖ *(token login only)* | ✅ |
-| **Cloud share (editable)** `#shared=` links | ❌ | ✅ |
-| **Real-time collaboration** / live merge | ❌ | ✅ |
-| **Access control** (named collaborators, roles, revoke, link modes) | ❌ | ✅ |
-| **Shared-maps sidebar**, "recently opened by" | ❌ | ✅ |
-| **GPT map-import** endpoint (`POST /api/import`) | ❌ | ✅ *(recipients still open a local `#view=` link)* |
+| Capability | Local (`node server.js`) | Static Pages (`*.github.io`, PAT-only) | Worker (`*.workers.dev`, full) |
+|---|:---:|:---:|:---:|
+| Create / edit maps, all layouts, math, formulas, prompt building | ✅ | ✅ | ✅ |
+| **Markdown mode** (two-way sync, preview, PDF export), citations | ✅ | ✅ | ✅ |
+| Import / export (JSON, OPML, Markdown, PNG, PDF, `.doc`, Mermaid, …) | ✅ | ✅ | ✅ |
+| Version history, undo/redo, search, presentation mode | ✅ | ✅ | ✅ |
+| **Read-only share links** (`#view=`, whole map encoded in the URL) | ✅ | ✅ | ✅ |
+| Save maps to **your own private GitHub repo** | ✅ *(SQLite, no GitHub)* | ✅ *(PAT)* | ✅ *(PAT or OAuth)* |
+| One-click **"Sign in with GitHub"** (OAuth) | ❌ | ❌ | ✅ |
+| **Cloud share (editable)** `#shared=` links | ❌ | ❌ | ✅ |
+| **Real-time collaboration** / live merge | ❌ | ❌ | ✅ |
+| **Access control** (named collaborators, roles, revoke, link modes) | ❌ | ❌ | ✅ |
+| **Shared-maps sidebar**, "recently opened by" | ❌ | ❌ | ✅ |
+| **GPT map-import** endpoint (`POST /api/import`) | ❌ | ❌ | ✅ *(recipients still open a local `#view=` link)* |
 
 Notes:
 
-- Collaboration is only offered in **cloud mode** (static build + a configured worker). The single-user `node server.js` / SQLite deployment intentionally has no shared backend, so it offers local maps and `#view=` links but not `#shared=` collaboration.
+- **Local** (`node server.js` / SQLite) has no shared backend — local maps + `#view=` links only, no OAuth/collab. Detected via `fetch('/healthz')` → `MODE='server'` (`public/app.js:361`).
+- **Static Pages** (`*.github.io`, e.g. `https://prasadpatil25.github.io/MindSpark/`) is pure browser + GitHub API with a `repo`-scoped PAT. `OAuth`/collab UI is hidden by host gate `/(^|\.)github\.io$/.test(location.hostname)` → `oauthConfigured()=false` (`public/app.js:11534`), `collabAvailable()=false` (`public/app.js:11537`). Forks get `https://<you>.github.io/MindSpark/` automatically PAT-only.
+- **Worker** (`*.workers.dev`, e.g. `https://mindspark.githubpage.workers.dev/` via `wrangler.jsonc`) serves the same `public/` as static assets **plus** the collab/OAuth worker (`worker/oauth-worker.js`). `GH_OAUTH.workerUrl` is honoured only off-`github.io`, enabling `OAuth`, `#shared=`, live merge and ACLs.
 - The two share links are different by design: **`#view=`** carries the whole map in the URL and needs nothing server-side (read-only); **`#shared=`** points to a live room in the worker and supports editing, collaboration, and access control.
 - **Access control** (JWT-signed identities, roles, revoke) additionally requires the worker's `AUTH_SECRET` to be set. Without it the worker returns `501` for identity and the app falls back to legacy capability links.
 
@@ -168,26 +172,26 @@ PORT=8080 DB_PATH=/var/lib/mindspark/db.sqlite node server.js
 
 ## Deployment modes
 
-MindSpark detects how it's running and picks a storage backend automatically (the client probes `/healthz` at boot — if it answers, it's the self-hosted server; otherwise it's GitHub-backed cloud mode).
+MindSpark detects how it's running and picks a storage backend automatically (the client probes `/healthz` at boot — if it answers, it's the self-hosted server; otherwise it's GitHub-backed cloud mode). The cloud mode further splits by hostname — `*.github.io` is PAT-only, `*.workers.dev` (or custom) is full.
 
-| Mode | How to run | Auth | Storage | Collaboration | Cost |
-|---|---|---|---|:---:|---|
-| **Self-hosted** | `node server.js` | None — single user | SQLite on disk | ❌ | Your server |
-| **Cloud (static)** | Host `public/` on any static host | GitHub token | User's own private `mindspark-maps` repo | ➖ *(add worker)* | **$0** |
-| **Cloud (worker)** | `public/` on Cloudflare Workers **+** the `worker/` collab worker | GitHub OAuth / token | User's GitHub repo + shared rooms in the worker | ✅ | **$0** on CF free tier |
+| Mode | Example URL | How to run | Auth | Storage | Collaboration | Cost |
+|---|---|---|---|---|:---:|---|
+| **Local** | `http://localhost:3000` | `node server.js` | None — single user | SQLite on disk | ❌ | Your server |
+| **Static Pages (PAT-only)** | `https://prasadpatil25.github.io/MindSpark/` (`https://<you>.github.io/MindSpark/` for forks) | Host `public/` on GitHub Pages (or any static host) | GitHub PAT (`repo` scope) | User's own private `mindspark-maps` repo | ❌ (no OAuth, no `#shared=`, no live) | **$0** |
+| **Worker (full)** | `https://mindspark.githubpage.workers.dev` | `public/` on Cloudflare Workers **+** the `worker/` collab worker | GitHub OAuth or PAT | User's GitHub repo + shared rooms in the worker | ✅ | **$0** on CF free tier |
 
-### Cloud (static-only) deployment — $0 forever
+### Static Pages deployment (PAT-only) — $0 forever
 
-Pure browser app, talks directly to the GitHub API. Each visitor stores their own maps in their own private repository. **No backend to maintain.**
+Pure browser app, talks directly to the GitHub API. Each visitor stores their own maps in their own private repository. **No backend to maintain.** OAuth and collaboration are intentionally disabled on `*.github.io` (host gate in `public/app.js:11534`).
 
-- **GitHub Pages** — the repo ships a workflow at [`.github/workflows/static.yml`](.github/workflows/static.yml) that publishes `public/` on every push to `main`. (Or set **Settings → Pages** to deploy the `/public` folder from your branch.)
-- **Cloudflare Pages / Netlify / Vercel** — point any static host at `public/`. No build command, output directory `public`.
+- **GitHub Pages** — the repo ships a workflow at [`.github/workflows/static.yml`](.github/workflows/static.yml) that publishes `public/` on every push to `main`. Live at `https://prasadpatil25.github.io/MindSpark/` — forks automatically get `https://<you>.github.io/MindSpark/`. First enable **Settings → Pages → Source: GitHub Actions** then **Settings → Actions → General → Workflow permissions: Read and write** — otherwise `actions/configure-pages@v5` fails with `Get Pages site failed / Resource not accessible by integration`.
+- **Cloudflare Pages / Netlify / Vercel** — point any static host at `public/`. No build command, output directory `public`. Any `*.github.io` host stays PAT-only; non-`github.io` static hosts behave the same unless you point `GH_OAUTH` at your own worker.
 
 **User flow (per visitor):** click *Create a personal access token on GitHub →*, generate a `repo`-scoped token, paste it in, and sign in. On first sign-in MindSpark creates a **private** `mindspark-maps` repo and commits a small JSON file per save. The token is kept only in `localStorage` and sent only to `api.github.com`. Revoke at <https://github.com/settings/tokens>.
 
-### Cloud + collaboration deployment
+### Worker deployment (full — OAuth + live collaboration)
 
-This is how the live demo runs: the `public/` app is served as a **Cloudflare Worker with static assets** (see [`wrangler.jsonc`](wrangler.jsonc)), paired with the **collaboration/OAuth worker** in [`worker/`](worker/).
+This is how the full live demo runs (`https://mindspark.githubpage.workers.dev`): the `public/` app is served as a **Cloudflare Worker with static assets** (see [`wrangler.jsonc`](wrangler.jsonc)), paired with the **collaboration/OAuth worker** in [`worker/`](worker/). On `*.workers.dev` (or any non-`github.io` host) `public/app.js:11534` enables `GH_OAUTH`, so OAuth, `#shared=` and live merge are available.
 
 ```bash
 # 1) Deploy the app (public/) as a Cloudflare Worker
@@ -203,9 +207,9 @@ npx wrangler secret put AUTH_SECRET        --config worker/wrangler.toml   # req
 # npx wrangler secret put IMPORT_TOKEN     --config worker/wrangler.toml   # only if using the GPT /api/import flow
 ```
 
-Then set `GH_OAUTH.workerUrl` (and `clientId`) in `public/app.js` to your worker's URL. If you skip the worker entirely and leave `GH_OAUTH` blank, only the token login shows and collaboration is hidden — everything else keeps working. See [`worker/README.md`](worker/README.md) for the OAuth App setup and the GPT Action schema.
+Then set `GH_OAUTH.workerUrl` (and `clientId`) in `public/app.js` to your worker's URL — it is honoured only off-`github.io` (host gate `public/app.js:11534`). If you skip the worker entirely and leave `GH_OAUTH` blank, only the token login shows and collaboration is hidden — everything else keeps working. See [`worker/README.md`](worker/README.md) for the OAuth App setup and the GPT Action schema.
 
-> The app and the worker are **two separate deploys**. `npx wrangler deploy` ships the app (`public/`); `npx wrangler deploy --config worker/wrangler.toml` ships the collab/OAuth worker. Set worker secrets against the worker config, as shown above.
+> The app and the worker are **two separate deploys**. `npx wrangler deploy` ships the app (`public/`); `npx wrangler deploy --config worker/wrangler.toml` ships the collab/OAuth worker. Set worker secrets against the worker config, as shown above. Static `*.github.io` deploys stay PAT-only even if `GH_OAUTH` is set — the gate in `public/app.js:11534` prevents the token `postMessage` from leaking to Pages origins.
 
 ### Self-hosted (VPS / Docker)
 
