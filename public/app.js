@@ -11531,10 +11531,14 @@ function showUserPill(){
 //               and does the code->token exchange). See /worker.
 // ============================================================
 const GH_OAUTH = { clientId: 'Ov23liCukvrI3Zs9p3Px', workerUrl: 'https://mindspark-oauth.githubpage.workers.dev/' };
-function oauthConfigured(){ return !!(GH_OAUTH.clientId && GH_OAUTH.workerUrl); }
+function oauthConfigured(){
+  if(/(^|\.)github\.io$/.test(location.hostname)) return false;
+  return !!(GH_OAUTH.clientId && GH_OAUTH.workerUrl);
+}
 // Live collaboration & cloud share rely on the Cloudflare worker, whose CORS/origin
-// is bound to the deployed app — they can't work from local (server-mode) hosting.
-function collabAvailable(){ return MODE==='cloud' && !!(GH_OAUTH && GH_OAUTH.workerUrl); }
+// is bound to the deployed app — they can't work from local (server-mode) hosting
+// or from static GitHub Pages (PAT-only).
+function collabAvailable(){ return MODE==='cloud' && oauthConfigured(); }
 
 // Shared success path for BOTH login methods (PAT and OAuth).
 // A cloud-backed #shared= link opened while signed out is parked here, then opened
