@@ -1451,6 +1451,28 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   #viewport[data-style="neon"]     .node{border-radius:10px; border-width:1px; border-color:color-mix(in srgb, var(--accent) 55%, transparent); box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 16px color-mix(in srgb, var(--accent) 38%, transparent)}
   #viewport[data-style="neon"]     .node.root{box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent), 0 0 26px color-mix(in srgb, var(--accent) 55%, transparent)}
   #viewport[data-style="neon"]     #edges path{filter:drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 65%, transparent))}
+  #viewport[data-style="circuit"]  {--edge-color:var(--accent);--edge-width:1.4}
+  #viewport[data-style="circuit"]  .node{border-radius:4px; border-width:1.5px; border-color:color-mix(in srgb, var(--accent) 45%, transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent), 0 1px 3px color-mix(in srgb, var(--accent) 12%, transparent)}
+  #viewport[data-style="circuit"]  .node.root{border-width:1.5px; box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent), 0 0 10px color-mix(in srgb, var(--accent) 18%, transparent)}
+  #viewport[data-style="circuit"]  #edges path{stroke-dasharray:3 3}
+  #viewport[data-style="blueprint"]{--edge-color:var(--ink-soft);--edge-width:1.2}
+  #viewport[data-style="blueprint"] .node{border-radius:11px; border-width:1.5px; border-style:dashed; border-color:var(--ink); background:color-mix(in srgb, var(--paper) 82%, transparent); box-shadow:none}
+  #viewport[data-style="blueprint"] .node.root{border-radius:13px; border-style:dashed}
+  #viewport[data-style="blueprint"] #edges path{stroke-dasharray:6 4}
+  #viewport[data-style="clay"]     {--edge-color:var(--line-2);--edge-width:1.6}
+  #viewport[data-style="clay"]     .node{border-radius:16px; border-width:1px; border-color:color-mix(in srgb, var(--line) 40%, transparent); background:var(--node-bg); box-shadow:inset 2px 2px 4px color-mix(in srgb, #fff 70%, transparent), inset -2px -2px 6px color-mix(in srgb, var(--ink) 12%, transparent), 0 8px 20px color-mix(in srgb, var(--ink) 14%, transparent)}
+  #viewport[data-style="clay"]     .node.root{border-radius:18px; box-shadow:inset 3px 3px 6px color-mix(in srgb, #fff 75%, transparent), inset -3px -3px 8px color-mix(in srgb, var(--ink) 14%, transparent), 0 12px 28px color-mix(in srgb, var(--ink) 16%, transparent)}
+  #viewport[data-style="clay"]     #edges path{opacity:.95}
+  #viewport[data-style="ink"]      {--edge-color:var(--ink);--edge-width:2.6}
+  #viewport[data-style="ink"]      .node{border-radius:8px; border-width:3px; border-color:var(--ink); box-shadow:4px 4px 0 var(--ink)}
+  #viewport[data-style="ink"]      .node.root{border-radius:10px; border-width:3px; box-shadow:4px 4px 0 var(--ink)}
+  #viewport[data-style="ink"]      #edges path{stroke-linecap:square}
+  #viewport[data-style="paper"]    {--edge-color:var(--line-2);--edge-width:1.5}
+  #viewport[data-style="paper"]    .node{border-radius:6px; border-width:1px; border-color:var(--line); background-color:var(--node-bg); background-image:repeating-linear-gradient(180deg, transparent 0 22px, color-mix(in srgb, var(--line) 22%, transparent) 23px); background-size:100% 23px; box-shadow:0 2px 6px color-mix(in srgb, var(--ink) 10%, transparent), 0 1px 2px color-mix(in srgb, var(--ink) 8%, transparent)}
+  #viewport[data-style="paper"]    .node::after{content:""; position:absolute; top:0; right:0; width:14px; height:14px; background:linear-gradient(135deg, transparent 50%, color-mix(in srgb, var(--line) 55%, transparent) 50%, color-mix(in srgb, var(--paper) 92%, transparent) 56%); border-radius:0 6px 0 4px; box-shadow:-1px 1px 2px color-mix(in srgb, var(--ink) 10%, transparent); pointer-events:none}
+  #viewport[data-style="paper"]    .node.root{border-radius:8px}
+  #viewport[data-style="paper"]    .node.root::after{width:16px; height:16px; border-radius:0 8px 0 5px}
+  #viewport[data-style="paper"]    #edges path{stroke-linecap:round}
 
   /* Cascades the pencil font to every part of the app that already
      references --sans/--serif (sidebar, modals, buttons, topbar, and
@@ -1583,6 +1605,225 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
    :root[data-look="lab"] .search-wrap{ border-radius:3px; border:1.5px solid var(--ink); }
    :root[data-look="lab"] .minimap{ border-radius:3px; border:1.5px solid var(--ink); }
 :root[data-look="lab"] .toast{ border-radius:3px; border:1.5px solid var(--ink); }
+
+  /* ===== "The Scientist" — Schrödinger's graph paper =====
+      Quantum lab: crisp measurement grid + interference fringes +
+      probability clouds + lattice dots. Glowing accent instrumentation
+      rather than flat ink: tighter monospace tracking, luminous borders,
+      specimen-label breadcrumb. Distinct from "In the Lab" (flat grid,
+      ink borders) — here the grid is accent-laced, clouds drift, and
+      chrome glows. No palette or Map Style interference — all
+      var(--paper)/--line/--accent. */
+   :root[data-look="scientist"]{ --sans:"Space Mono",monospace; --serif:"Space Mono",monospace; }
+    :root[data-look="scientist"] .stage{
+      background-image:
+        /* crisp 28px measurement grid */
+        linear-gradient(color-mix(in srgb, var(--line) 52%, transparent) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in srgb, var(--line) 52%, transparent) 1px, transparent 1px),
+        /* interference fringes — faint diagonal wave */
+        repeating-linear-gradient(-14deg, transparent 0 34px, color-mix(in srgb, var(--accent) 7%, transparent) 35px, transparent 36px),
+        /* pinpoint lattice — sub-pixel dots at intersections */
+        radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 18%, transparent) 1.2px, transparent 1.7px);
+      background-size:28px 28px, 28px 28px, auto, 52px 52px;
+      background-color:var(--paper);
+    }
+   :root[data-look="scientist"] .nodebar{
+     border-radius:3px;
+     border:1.5px solid var(--accent);
+     box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent), 0 0 12px color-mix(in srgb, var(--accent) 18%, transparent);
+     letter-spacing:0.01em;
+   }
+   :root[data-look="scientist"] .side{border-right:1.5px solid var(--accent); box-shadow:inset -1px 0 0 color-mix(in srgb, var(--accent) 10%, transparent)}
+   :root[data-look="scientist"] .new-map{border:1.5px dashed var(--accent); background:color-mix(in srgb, var(--accent) 6%, transparent)}
+   :root[data-look="scientist"] .vf-card{
+     border-radius:3px; border:1.5px solid var(--accent); box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent), var(--shadow-lg);
+   }
+   :root[data-look="scientist"] .vf-card h2{font-weight:800; letter-spacing:0.04em; text-transform:uppercase; font-size:13px; color:var(--accent)}
+   :root[data-look="scientist"] .row-pop,
+   :root[data-look="scientist"] .picker,
+   :root[data-look="scientist"] .donate-card,
+   :root[data-look="scientist"] .export-pop,
+   :root[data-look="scientist"] .tpl-pop{
+     border-radius:3px; border:1.5px solid var(--accent);
+     box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent), var(--shadow);
+   }
+   :root[data-look="scientist"] .donate-card{ border-radius:4px; }
+   :root[data-look="scientist"] .search-wrap{ border-radius:3px; border:1.5px solid var(--accent); box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent) }
+   :root[data-look="scientist"] .minimap{ border-radius:3px; border:1.5px solid var(--accent); box-shadow:0 0 8px color-mix(in srgb, var(--accent) 20%, transparent) }
+   :root[data-look="scientist"] .toast{ border-radius:3px; border:1.5px solid var(--accent); box-shadow:0 0 10px color-mix(in srgb, var(--accent) 16%, transparent) }
+   /* specimen-label breadcrumb — monospace, upper + tracked, accent pill */
+   :root[data-look="scientist"] .breadcrumb{
+     background:var(--paper); border:1.5px solid var(--accent);
+     box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent), 0 4px 16px color-mix(in srgb, var(--accent) 14%, transparent);
+     border-radius:6px; padding:3px 6px; gap:2px;
+      font-family:"Space Mono",monospace; font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase;
+   }
+   :root[data-look="scientist"] .breadcrumb .bc-crumb{ border-radius:4px; padding:3px 8px; font-weight:700; letter-spacing:0.05em; }
+   :root[data-look="scientist"] .breadcrumb .bc-crumb:hover{ background:color-mix(in srgb, var(--accent) 10%, transparent); color:var(--accent) }
+   :root[data-look="scientist"] .breadcrumb .bc-sep{ color:var(--accent); opacity:1; font-weight:900; font-size:10px; }
+
+  /* ===== "The Architect" — blueprint system drafting table =====
+      Software-architecture blueprint: dual grid (major 32px + minor 8px),
+      faint 45° construction haze, snapshot component ghosts, and title-block
+      corners. Heavy ink structure with accent spine — not the lab's flat
+      grid. Space Grotesk for confident, structural sans (distinct from
+      office Bricolage / studio Fraunces). Title-block breadcrumb like a
+      drawing sheet label. No palette override — follows active Colour Theme. */
+   :root[data-look="architect"]{ --sans:"Space Grotesk",sans-serif; --serif:"Space Grotesk",sans-serif; }
+   :root[data-look="architect"] .stage{
+     background-image:
+       /* major 32px blueprint grid */
+       linear-gradient(color-mix(in srgb, var(--line) 48%, transparent) 1px, transparent 1px),
+       linear-gradient(90deg, color-mix(in srgb, var(--line) 48%, transparent) 1px, transparent 1px),
+       /* minor 8px subdivision — lighter */
+       linear-gradient(color-mix(in srgb, var(--line) 20%, transparent) 1px, transparent 1px),
+       linear-gradient(90deg, color-mix(in srgb, var(--line) 20%, transparent) 1px, transparent 1px),
+       /* 45° construction haze — very faint */
+       repeating-linear-gradient(45deg, transparent 0 48px, color-mix(in srgb, var(--line) 9%, transparent) 49px, transparent 50px),
+       /* blueprint title-block corners — L-shaped faint ink markers */
+       linear-gradient(90deg, color-mix(in srgb, var(--ink) 14%, transparent) 2px, transparent 2px),
+       linear-gradient(color-mix(in srgb, var(--ink) 14%, transparent) 2px, transparent 2px),
+       /* ghost system blocks — faint accent rectangles hinting at components */
+       linear-gradient(color-mix(in srgb, var(--accent) 4.5%, transparent) 1px, transparent 1px),
+       linear-gradient(90deg, color-mix(in srgb, var(--accent) 4.5%, transparent) 1px, transparent 1px);
+     background-size:32px 32px, 32px 32px, 8px 8px, 8px 8px, 64px 64px, 100% 100%, 100% 100%, 220px 140px, 220px 140px;
+     background-position:0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 18% 42%, 72% 68%;
+     background-repeat:repeat, repeat, repeat, repeat, repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+     background-color:var(--paper);
+   }
+   :root[data-look="architect"] .nodebar{
+      border-radius:6px;
+      border:1.5px solid var(--ink); border-left:4px solid var(--accent);
+      box-shadow:inset 0 1px 0 color-mix(in srgb, var(--paper) 60%, transparent), 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent);
+    }
+   :root[data-look="architect"] .nodebar::before{
+     content:""; position:absolute; top:6px; right:6px; width:6px; height:6px;
+     border-top:1.5px solid var(--accent); border-right:1.5px solid var(--accent); opacity:.55; border-radius:1px;
+   }
+   :root[data-look="architect"] .side{border-right:2px solid var(--ink); box-shadow:inset -2px 0 0 color-mix(in srgb, var(--accent) 18%, transparent)}
+   :root[data-look="architect"] .side .side-tabs{ border-bottom:1px solid var(--line) }
+   :root[data-look="architect"] .new-map{border:1.5px dashed var(--ink); border-left:3px solid var(--accent); background:color-mix(in srgb, var(--paper-2) 60%, transparent)}
+   :root[data-look="architect"] .vf-card{
+     border-radius:6px; border:2px solid var(--ink); border-left:4px solid var(--accent); box-shadow:var(--shadow-lg);
+   }
+   :root[data-look="architect"] .vf-card h2{font-weight:800; letter-spacing:0.06em; text-transform:uppercase; font-size:12.5px; color:var(--ink)}
+   :root[data-look="architect"] .row-pop,
+   :root[data-look="architect"] .picker,
+   :root[data-look="architect"] .donate-card,
+   :root[data-look="architect"] .export-pop,
+   :root[data-look="architect"] .tpl-pop{
+     border-radius:6px; border:1.5px solid var(--ink);
+   }
+   :root[data-look="architect"] .donate-card{ border-radius:8px; border-width:2px; }
+   :root[data-look="architect"] .search-wrap{ border-radius:6px; border:1.5px solid var(--ink); border-left:3px solid var(--accent); }
+   :root[data-look="architect"] .minimap{ border-radius:6px; border:2px solid var(--ink); box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent) }
+   :root[data-look="architect"] .toast{ border-radius:6px; border:1.5px solid var(--ink); border-left:3px solid var(--accent); }
+   /* title-block breadcrumb — architectural drawing label */
+   :root[data-look="architect"] .breadcrumb{
+     background:var(--paper); border:2px solid var(--ink); border-left:4px solid var(--accent);
+     box-shadow:var(--shadow); border-radius:4px; padding:2px 5px; gap:1px;
+      font-family:"Space Grotesk",sans-serif; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; font-weight:800;
+   }
+   :root[data-look="architect"] .breadcrumb .bc-crumb{ border-radius:3px; padding:3px 8px; font-weight:800; letter-spacing:0.08em; background:color-mix(in srgb, var(--paper-2) 70%, transparent); }
+   :root[data-look="architect"] .breadcrumb .bc-crumb.current{ background:var(--accent); color:#fff; }
+   :root[data-look="architect"] .breadcrumb .bc-sep{ color:var(--ink); opacity:.45; font-weight:900; font-size:10px; letter-spacing:0; }
+    :root[data-look="architect"] .breadcrumb .bc-crumb:hover{ background:color-mix(in srgb, var(--accent) 12%, transparent); }
+
+  /* ===== "An Alien" — close encounter =====
+      Abducted: night void, starfield, crop-circle grid and a saucer's beam.
+      Space Mono is stark and modular like an alien console. No palette override. */
+   :root[data-look="alien"]{ --sans:"Space Mono",monospace; --serif:"Space Mono",monospace; }
+   :root[data-look="alien"] .stage{
+     background-image:
+       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Cg opacity='0.08' fill='none' stroke='%231a1a1a' stroke-width='1.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='translate(62 62)'%3E%3Cellipse cx='0' cy='0' rx='22' ry='14'/%3E%3Cpath d='M -18 -2 C -12 -14 12 -14 18 -2'/%3E%3Cellipse cx='0' cy='-4' rx='10' ry='12' fill='white' fill-opacity='0.04'/%3E%3Cellipse cx='-4' cy='-2' r='2.2' fill='black'/%3E%3Cellipse cx='4' cy='-2' r='2.2' fill='black'/%3E%3Cpath d='M -22 6 L -28 10 L -18 12 Z'/%3E%3Cpath d='M 22 6 L 28 10 L 18 12 Z'/%3E%3C/g%3E%3Cg transform='translate(168 58)'%3E%3Cellipse cx='0' cy='0' rx='28' ry='16'/%3E%3Cpath d='M -20 -4 C -14 -12 14 -12 20 -4'/%3E%3Cellipse cx='-8' cy='-1' rx='1.5' ry='1.2' fill='black'/%3E%3Cellipse cx='8' cy='-1' rx='1.5' ry='1.2' fill='black'/%3E%3Cpath d='M -6 6 L -8 12 M 0 7 L 0 13 M 6 6 L 8 12'/%3E%3C/g%3E%3Cg transform='translate(268 62)'%3E%3Cellipse cx='0' cy='-6' rx='14' ry='18'/%3E%3Cellipse cx='-5' cy='-4' r='3.2' fill='black'/%3E%3Cellipse cx='5' cy='-4' r='3.2' fill='black'/%3E%3Cpath d='M -4 6 Q 0 9 4 6' stroke='%23ff6b6b'/%3E%3Cpath d='M 0 -22 Q 4 -26 2 -30'/%3E%3Ccircle cx='2' cy='-30' r='2' fill='none'/%3E%3Cpath d='M -8 12 L -10 28 L -6 28 Z'/%3E%3Cpath d='M 8 12 L 10 28 L 6 28 Z'/%3E%3C/g%3E%3Cg transform='translate(348 62)'%3E%3Cellipse cx='0' cy='0' rx='32' ry='18'/%3E%3Cellipse cx='0' cy='-8' rx='16' ry='12'/%3E%3Ccircle cx='-6' cy='-8' r='1.2' fill='black'/%3E%3Ccircle cx='6' cy='-8' r='1.2' fill='black'/%3E%3Cpath d='M -10 4 L -12 8 M -4 5 L -4 9 M 4 5 L 4 9 M 10 4 L 12 8'/%3E%3C/g%3E%3Cg transform='translate(78 148)'%3E%3Ccircle cx='0' cy='0' r='26' stroke-dasharray='2 3'/%3E%3Cpath d='M -18 -6 Q -12 -10 -8 -6 Q -4 -2 -8 2 Q -12 6 -18 2 Q -16 -2 -18 -6'/%3E%3Cpath d='M 6 -8 Q 12 -6 14 -2 Q 10 2 6 -2'/%3E%3Cpath d='M -6 8 Q 0 12 6 8'/%3E%3C/g%3E%3Cg transform='translate(200 158)'%3E%3Cellipse cx='0' cy='0' rx='34' ry='20'/%3E%3Cpath d='M -24 -6 C -18 -14 18 -14 24 -6'/%3E%3Cellipse cx='-8' cy='-2' r='2' fill='black'/%3E%3Cellipse cx='8' cy='-2' r='2' fill='black'/%3E%3Cpath d='M -10 8 L -12 16 M -2 10 L -2 18 M 2 10 L 2 18 M 10 8 L 12 16'/%3E%3C/g%3E%3Cg transform='translate(338 148)'%3E%3Ccircle cx='0' cy='-12' r='16' fill='white' fill-opacity='0.05'/%3E%3Cpath d='M -12 -8 L -14 -14 L -10 -16 L -6 -12 Z'/%3E%3Cpath d='M 0 -18 L 0 -24'/%3E%3Ccircle cx='0' cy='-26' r='2' fill='none'/%3E%3Cpath d='M -18 6 L -24 14 L -18 16 Z'/%3E%3Cpath d='M 18 6 L 24 14 L 18 16 Z'/%3E%3Crect x='-4' y='8' width='8' height='6' rx='1' fill='none'/%3E%3Cpath d='M -8 14 L -10 22 L -6 22 Z'/%3E%3Cpath d='M 8 14 L 10 22 L 6 22 Z'/%3E%3C/g%3E%3Cg transform='translate(48 268)'%3E%3Ccircle cx='0' cy='-14' r='12'/%3E%3Cpath d='M -8 -10 Q -12 -14 -8 -18 Q -4 -16 0 -18 Q 4 -16 8 -18 Q 12 -14 8 -10'/%3E%3Ccircle cx='-4' cy='-6' r='1.8' fill='black'/%3E%3Ccircle cx='4' cy='-6' r='1.8' fill='black'/%3E%3Cpath d='M -5 2 Q 0 6 5 2 L 0 8 Z'/%3E%3Cpath d='M -14 4 L -18 18 L -12 16 M 14 4 L 18 18 L 12 16'/%3E%3Cpath d='M 0 12 L -2 28 L 2 28 Z'/%3E%3C/g%3E%3Cg transform='translate(128 288)'%3E%3Cellipse cx='0' cy='0' rx='20' ry='12'/%3E%3Cpath d='M -14 -4 C -10 -8 10 -8 14 -4'/%3E%3Ccircle cx='-4' cy='-1' r='1.2' fill='black'/%3E%3Ccircle cx='4' cy='-1' r='1.2' fill='black'/%3E%3Cpath d='M -6 6 L -8 12 M 6 6 L 8 12'/%3E%3C/g%3E%3Cg transform='translate(218 292)'%3E%3Cellipse cx='0' cy='-6' rx='12' ry='15'/%3E%3Cellipse cx='-4.5' cy='-4' r='3.5' ry='5' fill='black'/%3E%3Cellipse cx='4.5' cy='-4' r='3.5' ry='5' fill='black'/%3E%3Cpath d='M -4 6 Q 0 10 4 6'/%3E%3Cpath d='M -8 10 L -10 22 L -6 22 Z'/%3E%3Cpath d='M 8 10 L 10 22 L 6 22 Z'/%3E%3Ctext x='14' y='2' font-size='6' fill='%231a1a1a' opacity='0.7'%3E✌%3C/text%3E%3C/g%3E%3Cg transform='translate(348 298)'%3E%3Ccircle cx='0' cy='0' r='28'/%3E%3Cpath d='M -18 -8 Q -12 -12 -8 -8 Q -4 -4 -8 0 Q -12 4 -18 0 Q -16 -4 -18 -8'/%3E%3Cpath d='M 8 -10 Q 14 -8 16 -4 Q 12 0 8 -4'/%3E%3Ccircle cx='-8' cy='-2' r='1.5' fill='black'/%3E%3Ccircle cx='8' cy='-4' r='1.2' fill='black'/%3E%3Cellipse cx='0' cy='18' rx='36' ry='10' fill='none' stroke-dasharray='1 2'/%3E%3C/g%3E%3Ccircle cx='28' cy='28' r='1.1' fill='white' fill-opacity='0.9'/%3E%3Ccircle cx='88' cy='18' r='0.9' fill='white'/%3E%3Ccircle cx='188' cy='38' r='0.8' fill='white'/%3E%3Ccircle cx='320' cy='28' r='1' fill='white'/%3E%3C/g%3E%3C/svg%3E"),
+        radial-gradient(ellipse 200px 70px at 50% 7%, color-mix(in srgb, var(--accent) 6%, transparent) 0, transparent 70%),
+        radial-gradient(circle at 18% 22%, rgba(255,255,255,.98) 1.4px, transparent 2px),
+       radial-gradient(circle at 73% 18%, rgba(255,255,255,.8) 1.2px, transparent 1.8px),
+       radial-gradient(circle at 42% 38%, rgba(255,255,255,.65) 1px, transparent 1.6px),
+       radial-gradient(circle at 85% 52%, rgba(255,255,255,.85) 1.2px, transparent 1.8px),
+       radial-gradient(circle at 28% 68%, rgba(255,255,255,.6) 1px, transparent 1.5px),
+       linear-gradient(color-mix(in srgb, var(--line) 16%, transparent) 1px, transparent 1px),
+       linear-gradient(90deg, color-mix(in srgb, var(--line) 16%, transparent) 1px, transparent 1px);
+     background-size: 400px 400px, 950px 950px, 240px 240px, 260px 260px, 220px 220px, 280px 280px, 230px 230px, 38px 38px, 38px 38px;
+     background-color:var(--paper);
+   }
+   :root[data-look="alien"] .node{
+     border-radius:12px;
+     border:1.5px solid color-mix(in srgb, var(--accent) 55%, var(--ink));
+     box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 28%, transparent);
+   }
+   :root[data-look="alien"] .node.root{
+     border-radius:14px;
+     border-width:2px;
+     box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 0 26px color-mix(in srgb, var(--accent) 42%, transparent);
+   }
+   :root[data-look="alien"] .nodebar{
+     border-radius:10px;
+     border:1.5px solid var(--accent);
+     box-shadow:0 0 12px color-mix(in srgb, var(--accent) 22%, transparent);
+   }
+   :root[data-look="alien"] .side{border-right:1.5px solid var(--accent); box-shadow:inset -1px 0 0 color-mix(in srgb, var(--accent) 14%, transparent)}
+   :root[data-look="alien"] .vf-card{ border-radius:10px; border:1.5px solid var(--accent); box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent), var(--shadow-lg); }
+   :root[data-look="alien"] .row-pop,
+   :root[data-look="alien"] .picker,
+   :root[data-look="alien"] .donate-card,
+   :root[data-look="alien"] .export-pop{ border-radius:10px; border:1.5px solid var(--accent); }
+   :root[data-look="alien"] .search-wrap{ border-radius:8px; border:1.5px solid var(--accent); }
+   :root[data-look="alien"] .minimap{ border-radius:8px; border:1.5px solid var(--accent); box-shadow:0 0 14px color-mix(in srgb, var(--accent) 24%, transparent); }
+   :root[data-look="alien"] .toast{ border-radius:8px; border:1.5px solid var(--accent); }
+   :root[data-look="alien"] .breadcrumb{
+     background:var(--paper); border:1.5px solid var(--accent);
+     box-shadow:0 0 12px color-mix(in srgb, var(--accent) 18%, transparent);
+     font-family:"Space Mono",monospace; letter-spacing:0.06em; text-transform:uppercase; font-size:11.5px;
+   }
+
+  /* ===== "A Psycho" — midnight slasher =====
+      Grindhouse: high contrast, VHS tracking lines, blood spatter and a glitch.
+      Oswald is condensed and tense like a thriller poster. No palette override. */
+   :root[data-look="psycho"]{ --sans:"Oswald",system-ui,sans-serif; --serif:"Oswald",system-ui,sans-serif; }
+    :root[data-look="psycho"] .stage{
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='480' viewBox='0 0 480 480'%3E%3Cg opacity='0.09' fill='none' stroke='%231a1a1a' stroke-width='1.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='translate(88 96) rotate(-10)'%3E%3Cpath d='M -14 -8 Q -18 -18 0 -20 Q 18 -18 14 -8 Q 10 8 0 12 Q -10 8 -14 -8'/%3E%3Ccircle cx='-5' cy='-2' r='2.8' fill='black' stroke='none'/%3E%3Ccircle cx='5' cy='-2' r='2.8' fill='black' stroke='none'/%3E%3Cpath d='M -6 6 Q 0 9 6 6' fill='none' stroke='%23ff0033' stroke-width='1'/%3E%3Cpath d='M -16 -12 L -18 -18 M -10 -14 L -12 -20 M 10 -14 L 12 -20 M 16 -12 L 18 -18'/%3E%3C/g%3E%3Cg transform='translate(318 64) rotate(14)'%3E%3Cpath d='M -22 0 Q 0 -14 22 0 Q 0 14 -22 0'/%3E%3Cpath d='M -10 0 A 10 10 0 0 0 10 0 A 7 7 0 0 1 -7 3 A 4 4 0 0 0 7 -1' stroke='%23ff0033' stroke-width='0.9'/%3E%3Ccircle cx='0' cy='0' r='1.6' fill='black' stroke='none'/%3E%3C/g%3E%3Cg transform='translate(428 178) rotate(-16)'%3E%3Cpath d='M -9 -7 C -11 -11 -7 -15 0 -15 C 7 -15 11 -11 9 -7 L 7 4 L 5 8 L -5 8 L -7 4 Z'/%3E%3Ccircle cx='-3.5' cy='-2' r='1.9' fill='black' stroke='none'/%3E%3Ccircle cx='3.5' cy='-2' r='1.9' fill='black' stroke='none'/%3E%3Cpath d='M -1 2 L 0 4 L 1 2' fill='none'/%3E%3Cpath d='M -5 6 H -3 M -1 6 H 1 M 3 6 H 5'/%3E%3C/g%3E%3Cg transform='translate(196 214) rotate(8)'%3E%3Cpath d='M -7 -10 L -7 -4 L -10 -2 L -10 9 L 10 9 L 10 -2 L 7 -4 L 7 -10 Z'/%3E%3Crect x='-4.5' y='-13' width='9' height='3.2' rx='0.6'/%3E%3Ctext x='0' y='4' font-family='monospace' font-size='7' text-anchor='middle' fill='%23ff0033' stroke='none' opacity='0.9'%3E%C3%97%3C/text%3E%3C/g%3E%3Cg transform='translate(72 322) rotate(-12)'%3E%3Cpath d='M -12 -28 C -14 -32 -8 -38 0 -38 C 8 -38 14 -32 12 -28 L 8 28 L -8 28 Z'/%3E%3Cline x1='-10' y1='-18' x2='10' y2='-16'/%3E%3Cline x1='-11' y1='-8' x2='11' y2='-6'/%3E%3Cline x1='-10' y1='2' x2='10' y2='4'/%3E%3Cline x1='-8' y1='12' x2='8' y2='14'/%3E%3Ccircle cx='0' cy='-32' r='7'/%3E%3Ccircle cx='-2.2' cy='-33' r='1' fill='black' stroke='none'/%3E%3Ccircle cx='2.2' cy='-33' r='1' fill='black' stroke='none'/%3E%3C/g%3E%3Cg transform='translate(356 348) rotate(18)'%3E%3Cpath d='M -11 -6 C -15 -10 -12 -16 0 -14 C 12 -16 15 -10 11 -6 C 15 -2 12 6 0 8 C -12 6 -15 -2 -11 -6' fill='none'/%3E%3Cpath d='M 0 -14 L 0 8' stroke='%23ff0033' stroke-width='0.7'/%3E%3Cpath d='M -6 -8 C -8 -4 -6 0 -4 2'/%3E%3Cpath d='M 6 -8 C 8 -4 6 0 4 2'/%3E%3C/g%3E%3Cg transform='translate(250 30) rotate(20)'%3E%3Cpath d='M 0 -4 L 1.2 -1.2 L 4 0 L 1.2 1.2 L 0 4 L -1.2 1.2 L -4 0 L -1.2 -1.2 Z' fill='%23ff0033' stroke='none' opacity='0.8'/%3E%3C/g%3E%3Cg transform='translate(30 210) rotate(-15)'%3E%3Cpath d='M -3 0 Q 0 -3 3 0 Q 0 3 -3 0' stroke='%23ff0033' stroke-width='0.7'/%3E%3C/g%3E%3Cg transform='translate(460 60) rotate(25)'%3E%3Cpath d='M -3 -3 L 3 3 M 3 -3 L -3 3' stroke='%23ff0033' stroke-width='0.7'/%3E%3C/g%3E%3Cg transform='translate(150 160) rotate(-8)'%3E%3Cpath d='M 0 -5 Q 2 0 0 5' stroke='%23ff0033' stroke-width='0.7'/%3E%3C/g%3E%3Cg transform='translate(390 260) rotate(12)'%3E%3Cpath d='M -4 0 H 4 M 0 -4 V 4' stroke='%23ff0033' stroke-width='0.7'/%3E%3C/g%3E%3Cg transform='translate(250 380) rotate(-20)'%3E%3Ccircle cx='0' cy='0' r='2.5' stroke='%23ff0033' stroke-width='0.7'/%3E%3C/g%3E%3Cg transform='translate(30 460) rotate(10)'%3E%3Cpath d='M -3 -2 Q 0 2 3 -2' stroke='%23ff0033' stroke-width='0.7'/%3E%3C/g%3E%3Ctext x='150' y='448' font-family='monospace' font-size='11' fill='%23ff0033' stroke='none' opacity='0.8' transform='rotate(-14 150 448)'%3EPSY%3C/text%3E%3Cpath d='M 452 440 Q 458 448 452 456 Q 446 448 452 440' stroke='%23ff0033' stroke-width='0.8' opacity='0.8' fill='none'/%3E%3C/g%3E%3C/svg%3E"),
+        repeating-linear-gradient(0deg, transparent 0 2px, color-mix(in srgb, #ff0033 5%, transparent) 3px, transparent 4px),
+        linear-gradient(90deg, transparent 0 1px, color-mix(in srgb, var(--line) 10%, transparent) 1px);
+      background-size:480px 480px, 100% 100%, 40px 40px;
+      background-color:var(--paper);
+    }
+    :root[data-look="psycho"] .node{
+     border-radius:4px;
+     border:2px solid var(--ink);
+     box-shadow:4px 4px 0 var(--ink);
+     transform:rotate(-0.4deg);
+   }
+   :root[data-look="psycho"] .node:nth-child(even){
+     transform:rotate(0.4deg);
+   }
+   :root[data-look="psycho"] .node.root{
+     border-radius:6px;
+     border-width:3px;
+     box-shadow:5px 5px 0 var(--ink);
+     transform:rotate(0deg);
+     font-weight:700; letter-spacing:0.02em; text-transform:uppercase;
+   }
+   :root[data-look="psycho"] .nodebar{
+     border-radius:4px;
+     border:2px solid var(--ink);
+     box-shadow:4px 4px 0 var(--ink);
+     transform:rotate(0.3deg);
+   }
+   :root[data-look="psycho"] .side{border-right:2px solid var(--ink); box-shadow:4px 0 0 var(--ink);}
+   :root[data-look="psycho"] .vf-card{ border-radius:4px; border:2px solid var(--ink); box-shadow:4px 4px 0 var(--ink); transform:rotate(-0.2deg); }
+   :root[data-look="psycho"] .row-pop,
+   :root[data-look="psycho"] .picker,
+   :root[data-look="psycho"] .donate-card,
+   :root[data-look="psycho"] .export-pop{ border-radius:4px; border:2px solid var(--ink); box-shadow:3px 3px 0 var(--ink); }
+   :root[data-look="psycho"] .search-wrap{ border-radius:4px; border:2px solid var(--ink); box-shadow:2px 2px 0 var(--ink); }
+   :root[data-look="psycho"] .minimap{ border-radius:4px; border:2px solid var(--ink); box-shadow:3px 3px 0 var(--ink); }
+   :root[data-look="psycho"] .toast{ border-radius:4px; border:2px solid var(--ink); box-shadow:3px 3px 0 var(--ink); font-weight:700; letter-spacing:0.03em; text-transform:uppercase; }
+   :root[data-look="psycho"] .breadcrumb{
+     background:var(--paper); border:2px solid var(--ink); box-shadow:3px 3px 0 var(--ink);
+     font-family:"Oswald",system-ui,sans-serif; letter-spacing:0.08em; text-transform:uppercase;
+   }
 
 /* Forest — birch grove: staggered vertical trunk lines on the canvas,
      rounded asymmetric corners, teal-green chrome. Fredoka is rounded and
@@ -3252,10 +3493,19 @@ body.ui-zen .search-wrap.open{background:var(--paper-2);border:1px solid var(--c
 body.ui-zen .topbar:has(.search-wrap.open){max-width:98vw}
 body.ui-zen .topbar:has(.search-wrap.open) .title-edit{min-width:60px;max-width:160px}
 /* While the find field is open the least-used actions step aside, so the
-   token counter and pin stay on the first row instead of wrapping. The wrap
-   rule above remains as the safety net for very narrow windows. */
+   token counter and pin stay on the first row instead of being clipped.
+   Present (▶) and Tabbed workspace (▭) are the primary reclaim per spec;
+   Donate (♥) is also low-priority while searching and avoids the ~2px clip
+   at 1024px / ~50px at 960px that otherwise hides the pin. */
 body.ui-zen .topbar:has(.search-wrap.open) #presentBtn,
-body.ui-zen .topbar:has(.search-wrap.open) #tabsBtn{display:none}
+body.ui-zen .topbar:has(.search-wrap.open) #tabsBtn,
+body.ui-zen .topbar:has(.search-wrap.open) #donateBtn{display:none}
+@media (max-width:1024px){
+  /* 960px still clips the pin by ~20px even after the three above; reclaim
+     one more low-priority control only on narrow windows so wide screens
+     keep the full bar. */
+  body.ui-zen .topbar:has(.search-wrap.open) #varsBtn{display:none}
+}
 body.ui-zen .save-pill{display:flex;position:absolute;top:22px;right:14px;z-index:30;margin:0}
 body.ui-zen .token-total{background:none;border:none;box-shadow:none;border-radius:0;padding:6px 4px;margin-left:4px}
 body.ui-zen .breadcrumb{display:none}
