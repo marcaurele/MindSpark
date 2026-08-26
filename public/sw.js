@@ -13,6 +13,10 @@
  *     a manual CACHE bump would have released it. That is not a theoretical
  *     risk: it silently shipped a stale app.js and made a deployed bug fix
  *     look like it had not worked.
+ *   - Bundled DATA (json) is network-first for the same reason. quotes.json,
+ *     quote-providers.json and demo-map.json have fixed URLs too, so serving
+ *     them cache-first pinned every client to whatever shipped the day it first
+ *     loaded them — the same trap as app.js, one size down.
  *   - Only genuinely immutable assets (icons) stay cache-first.
  *   - /api/* and cross-origin requests are never touched. Map data lives in
  *     SQLite or the user's own GitHub repo; serving a stale copy of it would
@@ -28,6 +32,7 @@ const SHELL = [
   './templates.js',
   './styles.css',
   './quotes.json',
+  './quote-providers.json',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
@@ -67,8 +72,14 @@ self.addEventListener('fetch', event => {
 
   const isHTML = request.mode === 'navigate' ||
     (request.headers.get('accept') || '').includes('text/html');
-  // Treat app code like HTML: it changes on every deploy and its URL never does.
-  const isAppCode = /\.(?:js|mjs|css|webmanifest)$/.test(url.pathname);
+  // Treat app code AND bundled data like HTML: both change on deploy and their
+  // URLs never do. `json` belongs here because same-origin .json is shipped data
+  // (quotes, demo map) — never a user's map, which lives behind /api/ or on the
+  // GitHub API, both excluded above. `html` is here too so the network-first
+  // rule holds however the request is made: isHTML above only catches a
+  // navigation or an explicit Accept: text/html, so a plain fetch('./index.html')
+  // would otherwise fall through to the cache-first branch below.
+  const isAppCode = /\.(?:html|js|mjs|css|json|webmanifest)$/.test(url.pathname);
 
   if (isHTML || isAppCode) {
     // Network-first: always prefer a fresh shell, fall back when offline.

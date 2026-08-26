@@ -725,8 +725,10 @@ function render(){
     if(zd[id]) el.setAttribute('data-depth', zd[id]);   // zebra parity for uncoloured nodes
     el.style.left=n.x+'px'; el.style.top=n.y+'px';
     if(id===map.rootId){
-      el.style.background = colorFor(map.color||'#e0613a');
-      el.style.color = pickContrast(colorFor(map.color||'#e0613a'));
+      const _isInk = (map.style||'modern')==='ink';
+      const _base = map.color||'#e0613a';
+      el.style.background = _isInk ? _base : colorFor(_base);
+      el.style.color = pickContrast(_isInk ? _base : colorFor(_base));
     } else if(n.color && n.color!=='#fff' && n.color!=='#ffffff'){
       el.style.background = n.color;
       el.style.color = pickContrast(n.color);
@@ -1402,6 +1404,17 @@ function mixHex(a,b,t){
   const bl=Math.round((pa&255)*(1-t)+(pb&255)*t);
   return '#'+((r<<16)|(g<<8)|bl).toString(16).padStart(6,'0');
 }
+// Shared: stair sub-branch path (drawEdges + exportPNG both need the exact
+// same geometry — horizontal stem from parent's side to child's centre line,
+// then a vertical attachment stub ending at the child's near edge).
+function stairEdgePath(p, n){
+  const pcx=p.x+(p.w||0)/2, pcy=p.y+(p.h||0)/2;
+  const ncx=n.x+(n.w||0)/2, ncy=n.y+(n.h||0)/2;
+  const sx = ncx < pcx ? p.x : p.x+(p.w||0);
+  const sy = pcy;
+  const edgeY = ncy >= pcy ? n.y : n.y + (n.h||0);
+  return `M${sx},${sy} L${ncx},${sy} L${ncx},${edgeY}`;
+}
 function drawEdges(hidden){
   const style=map.style||'modern';
   const layout=map.layout||'balanced';
@@ -1419,6 +1432,12 @@ function drawEdges(hidden){
       const ncy=n.y+(n.h||0)/2;
       const sx=pcx, sy = ncy<pcy ? p.y : p.y+(p.h||0);
       d = `M${sx},${sy} L${sx},${ncy} L${n.x},${ncy}`;
+    } else if(layout==='stair' && n.parent!==map.rootId){
+      // Stair sub-branch: horizontal stem from parent side to child's centre line,
+      // then vertical with a short attachment stub to the child's edge. The 10px
+      // vertical gap (indent 30 vs h/2 20) keeps the child's top off the main
+      // horizontal branch so the attachment reads as a distinct step.
+      d = stairEdgePath(p, n);
     } else if(layout==='radial'){
       // Spokes. The default bezier attaches to a card's left or right edge,
       // which on a radial map sends a connector for a node directly ABOVE the
@@ -1454,6 +1473,15 @@ function drawEdges(hidden){
       d = `M${pcx},${pcy} L${ncx},${ncy}`;
     } else {
       if(layout==='down'){
+        horizontal=false;
+        x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
+        x2=n.x+(n.w||0)/2; y2=n.y;
+      } else if(layout==='up'){
+        horizontal=false;
+        x1=p.x+(p.w||0)/2; y1=p.y;
+        x2=n.x+(n.w||0)/2; y2=n.y+(n.h||0);
+      } else if(layout==='stair'){
+        // root → chain item: vertical spine like down
         horizontal=false;
         x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
         x2=n.x+(n.w||0)/2; y2=n.y;
@@ -1549,7 +1577,8 @@ function edgePath(x1,y1,x2,y2,leftSide,horizontal,style){
         return `M${x1},${y1} C${x1+(leftSide?-dx:dx)},${y1} ${x2+(leftSide?dx:-dx)},${y2} ${x2},${y2}`;
       } else {
         const dy=Math.abs(y2-y1)*0.5;
-        return `M${x1},${y1} C${x1},${y1+dy} ${x2},${y2-dy} ${x2},${y2}`;
+        const s = y2>y1 ? 1 : -1;
+        return `M${x1},${y1} C${x1},${y1+s*dy} ${x2},${y2-s*dy} ${x2},${y2}`;
       }
     }
   }
@@ -1587,9 +1616,9 @@ const childrenOf=id => _ci
 function zebraDepth(){
   const d={}; if(!map) return d;
   const rid=map.rootId; if(!rid || !map.nodes[rid]) return d;
-  d[rid]=0; const q=[rid];
-  while(q.length){
-    const id=q.shift();
+  d[rid]=0; const q=[rid]; let qi=0;
+  while(qi<q.length){
+    const id=q[qi++];
     for(const c of childrenOf(id)){
       if(d[c]!==undefined) continue;     // guard against cyclic parents
       d[c]=d[id]+1; q.push(c);
@@ -1652,35 +1681,73 @@ function shiftSubtreeBy(id,dx,dy){ const n=map.nodes[id]; if(!n) return; n.x+=dx
 function resolveOverlaps(anchorId){
   if(!map) return;
   const GAP=16;
-  const vertical = (map.layout||'balanced')!=='down';
+  const _lo = map.layout||'balanced';
+  const vertical = _lo!=='down' && _lo!=='up';
   const hidden=hiddenSet();
   const ids=Object.keys(map.nodes).filter(id=>!hidden.has(id));
+  if(ids.length < 2) return;
   const anchorSet = anchorId ? _subtreeSet(anchorId) : new Set();
+  // Cache boxes per iteration to avoid recomputing _nbox for same id many times
   let iterations=0;
-  while(iterations++ < 80){
+  while(iterations++ < 40){
     let movedAny=false;
-    for(let i=0;i<ids.length;i++){
-      for(let j=i+1;j<ids.length;j++){
-        const A=ids[i], B=ids[j];
-        if(map.nodes[A].parent===B || map.nodes[B].parent===A) continue;
-        const a=_nbox(A), b=_nbox(B);
-        if(!_overlap(a,b,GAP)) continue;
-        let mover;
-        if(anchorSet.has(A) && !anchorSet.has(B)) mover=B;
-        else if(anchorSet.has(B) && !anchorSet.has(A)) mover=A;
-        else mover = vertical ? (a.y<=b.y?B:A) : (a.x<=b.x?B:A);
-        const other = (mover===A)?B:A;
-        const mb=_nbox(mover), ob=_nbox(other);
-        if(vertical){
-          const dir = (mb.y >= ob.y) ? 1 : -1;
-          const push = dir>0 ? (ob.y+ob.h+GAP - mb.y) : (mb.y+mb.h+GAP - ob.y);
-          if(push>0){ shiftSubtreeBy(mover, 0, dir*push); movedAny=true; }
-        } else {
-          const dir = (mb.x >= ob.x) ? 1 : -1;
-          const push = dir>0 ? (ob.x+ob.w+GAP - mb.x) : (mb.x+mb.w+GAP - ob.x);
-          if(push>0){ shiftSubtreeBy(mover, dir*push, 0); movedAny=true; }
+    // Build cache for this iteration
+    const boxCache = new Map();
+    const getBox = id => {
+      if(!boxCache.has(id)) boxCache.set(id, _nbox(id));
+      return boxCache.get(id);
+    };
+    // Spatial hash: bucket by 200px cells to prune distant pairs
+    const cellSize = 260;
+    const buckets = new Map();
+    for(const id of ids){
+      const b=getBox(id);
+      const cx=Math.floor((b.x+b.w/2)/cellSize), cy=Math.floor((b.y+b.h/2)/cellSize);
+      const key=cx+','+cy;
+      if(!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(id);
+    }
+    const checked = new Set();
+    const checkPair = (A,B)=>{
+      const key = A<B ? A+','+B : B+','+A;
+      if(checked.has(key)) return;
+      checked.add(key);
+      if(map.nodes[A].parent===B || map.nodes[B].parent===A) return;
+      const a=getBox(A), b=getBox(B);
+      if(!_overlap(a,b,GAP)) return;
+      let mover;
+      if(anchorSet.has(A) && !anchorSet.has(B)) mover=B;
+      else if(anchorSet.has(B) && !anchorSet.has(A)) mover=A;
+      else mover = vertical ? (a.y<=b.y?B:A) : (a.x<=b.x?B:A);
+      const other = (mover===A)?B:A;
+      const mb=getBox(mover), ob=getBox(other);
+      if(vertical){
+        const dir = (mb.y >= ob.y) ? 1 : -1;
+        const push = dir>0 ? (ob.y+ob.h+GAP - mb.y) : (mb.y+mb.h+GAP - ob.y);
+        if(push>0){ shiftSubtreeBy(mover, 0, dir*push); movedAny=true; boxCache.delete(mover); }
+      } else {
+        const dir = (mb.x >= ob.x) ? 1 : -1;
+        const push = dir>0 ? (ob.x+ob.w+GAP - mb.x) : (mb.x+mb.w+GAP - ob.x);
+        if(push>0){ shiftSubtreeBy(mover, dir*push, 0); movedAny=true; boxCache.delete(mover); }
+      }
+    };
+    for(const [key, cellIds] of buckets){
+      // Check within cell and 8 neighbours
+      const [cx,cy]=key.split(',').map(Number);
+      for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++){
+        const nkey=(cx+dx)+','+(cy+dy);
+        const nCell=buckets.get(nkey);
+        if(!nCell) continue;
+        for(const A of cellIds) for(const B of nCell){
+          if(A>=B) continue;
+          checkPair(A,B);
+          if(movedAny && checked.size>2000) break;
         }
       }
+    }
+    // Fallback: if no moves but buckets pruned too aggressively, do one full scan every 5 iters
+    if(!movedAny && iterations%5===0){
+      for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){ checkPair(ids[i],ids[j]); if(movedAny) break; }
     }
     if(!movedAny) break;
   }
@@ -1695,7 +1762,7 @@ function resolveResizeCollisions(resizedId){
   const r = map.nodes[resizedId];
   if(!r.parent) return;                       // root: no siblings to nudge
   const layout = map.layout || 'balanced';
-  const vertical = (layout === 'down');       // down layout stacks horizontally
+  const vertical = (layout === 'down' || layout === 'up');       // down/up stack horizontally
   const gap = vertical ? DOWN_HGAP : VGAP;
 
   // Helper: bounding box of a single node
@@ -1729,7 +1796,7 @@ function resolveResizeCollisions(resizedId){
   const siblings = childrenOf(r.parent).filter(c => c !== resizedId && map.nodes[c].side === r.side);
   if(!siblings.length) return;
 
-  // Resized-node centre on the stacking axis (y for horizontal layouts, x for down)
+  // Resized-node centre on the stacking axis (y for horizontal layouts, x for down/up)
   const rb = box(resizedId);
   const rCentre = vertical ? rb.x + rb.w/2 : rb.y + rb.h/2;
   // Separate siblings into "before" (lower coord) and "after" (higher coord) on
@@ -1834,12 +1901,13 @@ function flipAnimateNodes(before){
    ------------------------------------------------------------ */
 const LAYOUT_CONFIG_DEFAULTS = {
   // The four tree layouts share a shape (gap between depth levels, gap between
-  // siblings) but not values: 'down' stacks generations vertically, so its
-  // larger gap is the vertical one.
+  // siblings) but not values: 'down'/'up' stack generations vertically, so their
+  // larger gap is the vertical one. 'up' is the exact vertical mirror of 'down'.
   balanced: { hGap:70, vGap:22 },
   right:    { hGap:70, vGap:22 },
   left:     { hGap:70, vGap:22 },
   down:     { hGap:38, vGap:70 },
+  up:       { hGap:38, vGap:70 },
   radial: { ring:180, startAngle:-90, sweep:360 },
   grid:   { columns:3, gapX:60, gapY:60, rowGap:14, indent:24 },
   timeline: {
@@ -1848,6 +1916,13 @@ const LAYOUT_CONFIG_DEFAULTS = {
     indent: 26,         // sub-topic inset from its main topic's left edge
     alternate: true,    // alternate sub-topics above/below, or keep one side
     start: 'above',     // which side the first main topic's sub-topics take
+  },
+  stair: {
+    gap: 45,            // vertical gap between consecutive steps — slight decrease for tighter sibling spine (Supervised ↔ Unsupervised)
+    stem: 24,           // clearance between the spine and a sub-topic block
+    indent: 42,         // sub-topic inset from its step's top edge (h/2 + 22px gap between the horizontal branch and the child's top edge)
+    alternate: true,    // alternate sub-topics left/right per step (like timeline)
+    start: 'above',     // which side the first step's sub-topics take
   },
   matrix: { colGap:40, rowGap:24, cellGap:10, headGap:60 },
   fishbone: {
@@ -1866,9 +1941,11 @@ const LAYOUT_CONFIG_BOUNDS = {
   right:    { hGap:[8,400], vGap:[4,300] },
   left:     { hGap:[8,400], vGap:[4,300] },
   down:     { hGap:[8,400], vGap:[4,300] },
+  up:       { hGap:[8,400], vGap:[4,300] },
   radial:   { ring:[60,600], startAngle:[-360,360], sweep:[30,360] },
   grid:     { columns:[1,8], gapX:[8,300], gapY:[8,300], rowGap:[0,120], indent:[0,120] },
   timeline: { gap:[8,400], stem:[0,300], indent:[0,300] },
+  stair:    { gap:[8,400], stem:[0,300], indent:[0,300] },
   matrix:   { colGap:[8,300], rowGap:[8,300], cellGap:[0,120], headGap:[8,300] },
   fishbone: { gap:[8,400], stem:[0,300], indent:[0,300], angle:[10,170] },
 };
@@ -1890,7 +1967,7 @@ function validateLayoutConfig(raw){
       const [lo,hi] = bounds[key];
       out[engine][key] = Math.min(hi, Math.max(lo, Math.round(v)));
     }
-    if(engine === 'timeline' || engine === 'fishbone'){
+    if(engine === 'timeline' || engine === 'fishbone' || engine === 'stair'){
       if(typeof sec.alternate === 'boolean') out[engine].alternate = sec.alternate;
       if(sec.start === 'above' || sec.start === 'below') out[engine].start = sec.start;
     }
@@ -1934,12 +2011,16 @@ function layoutChain(nodes, rootId, kidsOf, opts){
   const getMain  = n => horiz ? n.x : n.y;
   const getCross = n => horiz ? n.y : n.x;
 
-  // Sub-tree extent along the cross axis (siblings stack there).
+  // Sub-tree extent along the cross axis (siblings stack there). Memoized per layout pass.
+  const extentCache = new Map();
   const extent = id => {
+    if(extentCache.has(id)) return extentCache.get(id);
     const n = nodes[id], cs = kidsOf(id);
-    if(!cs.length || n.collapsed) return crossSize(n);
+    if(!cs.length || n.collapsed){ const v=crossSize(n); extentCache.set(id,v); return v; }
     let s = 0; cs.forEach((c,i)=>{ s += extent(c) + (i ? gapCross : 0); });
-    return Math.max(crossSize(n), s);
+    const v = Math.max(crossSize(n), s);
+    extentCache.set(id,v);
+    return v;
   };
   // Ordinary tree placement, used for everything below a chain item.
   const place = (id, main, crossTop) => {
@@ -1947,13 +2028,39 @@ function layoutChain(nodes, rootId, kidsOf, opts){
     setPos(n, main, crossTop + (extent(id) - crossSize(n)) / 2);
     const cs = kidsOf(id);
     if(!cs.length || n.collapsed) return;
-    let cross = crossTop;
+    // Center the children's block so that the visual centers align with the parent.
+    // For varying child widths, left-aligned placement makes the average center off by (w2-w1)/4 etc.
+    // Compute the total span of centers and shift to align average with parent center.
+    const sum = cs.reduce((s,c,i)=>s+extent(c)+(i?gapCross:0),0);
+    const offset = (extent(id) - sum)/2;
+    let cross = crossTop + offset;
+    const childCenters = [];
+    const childIds = [];
     cs.forEach(c => {
       const cm = dir > 0 ? getMain(n) + mainSize(n) + gapMain
                          : getMain(n) - mainSize(nodes[c]) - gapMain;
       place(c, cm, cross);
+      // Record visual center after placement (actual x+w/2 or y+h/2)
+      const child = nodes[c];
+      childCenters.push(horiz ? child.y + child.h/2 : child.x + child.w/2);
+      childIds.push(c);
       cross += extent(c) + gapCross;
     });
+    // For varying child widths, the average visual center is off from the block center.
+    // Shift the whole block so that average aligns with parent center (crossTop + extent/2).
+    if(cs.length>1){
+      const avg = childCenters.reduce((a,b)=>a+b,0)/childCenters.length;
+      const desired = crossTop + extent(id)/2;
+      const shift = desired - avg;
+      if(Math.abs(shift) > 0.5){
+        const shiftSubtree = (cid, dx) => {
+          const nn = nodes[cid];
+          if(horiz) nn.y += dx; else nn.x += dx;
+          kidsOf(cid).forEach(ch => shiftSubtree(ch, dx));
+        };
+        childIds.forEach(cid => shiftSubtree(cid, shift));
+      }
+    }
   };
   // Furthest point a placed sub-tree reaches along the chain direction, so the
   // next chain item can clear it.
@@ -2016,16 +2123,19 @@ function layoutRadial(nodes, rootId, kidsOf, opts){
   const ring   = opts.ring   != null ? opts.ring   : 180;   // base radius per level
   const start  = (opts.startAngle != null ? opts.startAngle : -90) * Math.PI / 180;
   const sweep  = (opts.sweep      != null ? opts.sweep      : 360) * Math.PI / 180;
-  const pad    = 14;   // angular gap between neighbouring cards on a ring
-  const padV   = 16;   // radial gap between a card and its parent
+  const pad    = opts.pad    != null ? opts.pad    : 14;   // angular gap between neighbouring cards on a ring
+  const padV   = opts.padV   != null ? opts.padV   : 16;   // radial gap between a card and its parent
 
   // Leaf count drives the wedge share. Counting leaves rather than nodes keeps
   // a long thin branch from crowding out a wide shallow one.
+  const leavesCache = new Map();
   const leaves = id => {
+    if(leavesCache.has(id)) return leavesCache.get(id);
     const n = nodes[id];
     const cs = n.collapsed ? [] : kidsOf(id);
-    if(!cs.length) return 1;
+    if(!cs.length){ leavesCache.set(id,1); return 1; }
     let s = 0; cs.forEach(c => { s += leaves(c); });
+    leavesCache.set(id,s);
     return s;
   };
   const rootLeaves = leaves(rootId);
@@ -2382,6 +2492,7 @@ const TREE_LAYOUTS = {
   right:    { axis:'x', dir: 1, split:'one-side', rootAnchor:'origin' },
   left:     { axis:'x', dir:-1, split:'one-side', rootAnchor:'origin' },
   down:     { axis:'y', dir: 1, split:'one-side', rootAnchor:'centered', sideName:'down' },
+  up:       { axis:'y', dir:-1, split:'one-side', rootAnchor:'centered', sideName:'up' },
 };
 function treeLayoutOpts(name, hGap, vGap){
   const base = TREE_LAYOUTS[name];
@@ -3197,7 +3308,7 @@ function pushHistory(){
   if(history.length && hpos>=0 && history[hpos]===snapshot) return;   // nothing actually changed — don't save/flash "Saving…" for no reason
   history=history.slice(0,hpos+1);
   history.push(snapshot);
-  if(history.length>60) history.shift();
+  if(history.length>50) history.shift();
   hpos=history.length-1;
   updateUndo();
   scheduleSave();                              // any change to history persists
@@ -3245,6 +3356,16 @@ function placeNewNodeNear(id){
   if(layout==='down'){
     // Horizontal stacking: new node goes to the right of the rightmost sibling
     const childY=parent.y+(parent.h||40)+DOWN_VGAP;
+    if(sibs.length){
+      let maxRight=-Infinity, y=childY;
+      sibs.forEach(s=>{ const sn=map.nodes[s]; maxRight=Math.max(maxRight, sn.x+(sn.w||120)); y=sn.y; });
+      n.x=maxRight+DOWN_HGAP; n.y=y;
+    } else {
+      n.x=parent.x+((parent.w||120)-nw)/2; n.y=childY;
+    }
+  } else if(layout==='up'){
+    // Mirror of down: children grow upward, siblings stack horizontally
+    const childY=parent.y-nh-DOWN_VGAP;
     if(sibs.length){
       let maxRight=-Infinity, y=childY;
       sibs.forEach(s=>{ const sn=map.nodes[s]; maxRight=Math.max(maxRight, sn.x+(sn.w||120)); y=sn.y; });
@@ -4152,20 +4273,30 @@ async function searchAllMaps(query){
   const q=(query||'').trim().toLowerCase();
   if(!q) return [];
   let idx=[]; try{ idx=await Store.list(); }catch(e){ idx=[]; }
+  if(!idx.length) return [];
   const results=[];
-  for(const meta of idx){
-    let m=null;
-    try{ m = (meta.id===(map&&map.id)) ? map : await Store.get(meta.id); }catch(e){ continue; }
-    if(!m||!m.nodes) continue;
-    for(const n of Object.values(m.nodes)){
-      const plain=nodeTextPlain(n.text||'').toLowerCase();
-      const notes=(n.notes||'').replace(/<[^>]*>/g,' ').toLowerCase();
-      if(plain.includes(q) || notes.includes(q)){
-        const src=plain.includes(q)?nodeTextPlain(n.text||''):(n.notes||'').replace(/<[^>]*>/g,' ');
-        const at=src.toLowerCase().indexOf(q);
-        const snippet=(at>30?'…':'')+src.slice(Math.max(0,at-30), at+q.length+40).trim()+'…';
-        results.push({ mapId:m.id, mapTitle:m.title||'Untitled', nodeId:n.id, snippet });
-        if(results.length>=200) return results;
+  const CONCURRENCY = 6;
+  // Process in batches to avoid firing 50+ parallel GitHub requests (rate limit)
+  for(let i=0;i<idx.length && results.length<200;i+=CONCURRENCY){
+    const batch = idx.slice(i, i+CONCURRENCY);
+    const maps = await Promise.all(batch.map(async meta=>{
+      try{
+        const m = (meta.id===(map&&map.id)) ? map : await Store.get(meta.id);
+        return m && m.nodes ? m : null;
+      }catch(e){ return null; }
+    }));
+    for(const m of maps){
+      if(!m) continue;
+      for(const n of Object.values(m.nodes)){
+        const plain=nodeTextPlain(n.text||'').toLowerCase();
+        const notes=(n.notes||'').replace(/<[^>]*>/g,' ').toLowerCase();
+        if(plain.includes(q) || notes.includes(q)){
+          const src=plain.includes(q)?nodeTextPlain(n.text||''):(n.notes||'').replace(/<[^>]*>/g,' ');
+          const at=src.toLowerCase().indexOf(q);
+          const snippet=(at>30?'…':'')+src.slice(Math.max(0,at-30), at+q.length+40).trim()+'…';
+          results.push({ mapId:m.id, mapTitle:m.title||'Untitled', nodeId:n.id, snippet });
+          if(results.length>=200) return results;
+        }
       }
     }
   }
@@ -4890,6 +5021,13 @@ function placeReparentedSubtree(childId, parentId){
       sibs.forEach(s=>{ const sn=map.nodes[s]; maxRight=Math.max(maxRight,sn.x+(sn.w||120)); y=sn.y; });
       tx=maxRight+DOWN_HGAP; ty=y;
     } else { tx=parent.x+((parent.w||120)-cw)/2; ty=childY; }
+  } else if(layout==='up'){
+    const childY=parent.y-ch-DOWN_VGAP;
+    if(sibs.length){
+      let maxRight=-Infinity, y=childY;
+      sibs.forEach(s=>{ const sn=map.nodes[s]; maxRight=Math.max(maxRight,sn.x+(sn.w||120)); y=sn.y; });
+      tx=maxRight+DOWN_HGAP; ty=y;
+    } else { tx=parent.x+((parent.w||120)-cw)/2; ty=childY; }
   } else {
     const dir=child.side==='left'?-1:1;
     if(sibs.length){
@@ -5283,6 +5421,11 @@ function navTarget(id, key){
     if(key==='ArrowUp')    return parent || sibAt(-1);
     if(key==='ArrowLeft')  return sibAt(-1);
     if(key==='ArrowRight') return sibAt(1);
+  } else if(layout==='up'){
+    if(key==='ArrowUp')    return firstVisible(kids) || sibAt(1);
+    if(key==='ArrowDown')  return parent || sibAt(-1);
+    if(key==='ArrowLeft')  return sibAt(-1);
+    if(key==='ArrowRight') return sibAt(1);
   } else {
     const side=n.side; // 'root', 'left', 'right'
     if(key==='ArrowLeft'){
@@ -5639,6 +5782,29 @@ function closeRowMenu(){
     _rowPopOut=null;
   }
 }
+// Shared: position a fixed .row-pop portal below its trigger button,
+// right-aligned to the owning row, flipped above when out of room, clamped
+// to the viewport with an 8px margin (all divided by UI zoom). Used by
+// openRowMenu / openSharedRowMenu / openSharedByMeRowMenu.
+function positionRowPop(pop, btn){
+  const rb = btn.getBoundingClientRect();
+  const pr = pop.getBoundingClientRect();
+  const _z=_uiZ();
+  const row = btn.closest('.map-item') || btn.parentElement;
+  const rowRect = row.getBoundingClientRect();
+  let left = rowRect.right - pr.width - 4;
+  let top = rb.bottom + 2;
+  if((rb.bottom + pr.height)/_z + 10 > window.innerHeight){ top = rb.top - pr.height - 2; pop.classList.add('flip-up'); }
+  const margin=8;
+  if(left < margin) left = margin;
+  if(left + pr.width > window.innerWidth - margin) left = window.innerWidth - pr.width - margin;
+  if(top < margin) top = margin;
+  if(top + pr.height > window.innerHeight - margin) top = window.innerHeight - pr.height - margin;
+  pop.style.left = (left/_z)+'px';
+  pop.style.top = (top/_z)+'px';
+  pop.style.visibility='';
+}
+
 function openRowMenu(btn, m){
   if(_rowPop && _rowPop._for===m.id){ closeRowMenu(); return; }   // toggle off
   if(typeof closeAllMenus==='function') closeAllMenus();
@@ -5651,25 +5817,7 @@ function openRowMenu(btn, m){
   // (like Notion/VS Code context menus) and stays above .side-foot.
   pop.style.visibility='hidden'; pop.style.left='-9999px'; pop.style.top='-9999px';
   document.body.appendChild(pop);
-  const rb = btn.getBoundingClientRect();
-  const pr = pop.getBoundingClientRect();
-  const _z=_uiZ();
-  // Position below button, right-aligned to the row's right edge (4px inset like before)
-  const row = btn.closest('.map-item') || btn.parentElement;
-  const rowRect = row.getBoundingClientRect();
-  let left = rowRect.right - pr.width - 4;
-  let top = rb.bottom + 2;
-  // flip above if not enough room below
-  if((rb.bottom + pr.height)/_z + 10 > window.innerHeight){ top = rb.top - pr.height - 2; pop.classList.add('flip-up'); }
-  // clamp to viewport (8px margin) — handles zoom scaling
-  const margin=8;
-  if(left < margin) left = margin;
-  if(left + pr.width > window.innerWidth - margin) left = window.innerWidth - pr.width - margin;
-  if(top < margin) top = margin;
-  if(top + pr.height > window.innerHeight - margin) top = window.innerHeight - pr.height - margin;
-  pop.style.left = (left/_z)+'px';
-  pop.style.top = (top/_z)+'px';
-  pop.style.visibility='';
+  positionRowPop(pop, btn);
   pop.querySelector('[data-a="pin"]').onclick=ev=>{ ev.stopPropagation(); closeRowMenu(); togglePin(m.id); };
   pop.querySelector('[data-a="dup"]').onclick=ev=>{ ev.stopPropagation(); closeRowMenu(); duplicateMap(m.id); };
   pop.querySelector('[data-a="del"]').onclick=async ev=>{ ev.stopPropagation(); closeRowMenu();
@@ -8399,36 +8547,97 @@ async function exportPNG(){
   drawLookBg();
   ctx.translate(-minx+pad,-miny+pad);
 
-  // Edges — match map style: bezier (modern/bubble/dashed/minimal),
-  // step (classic), straight (sketch), jagged (zigzag)
+  // Edges — mirror drawEdges() exactly so every layout + style matches live
   ctx.lineCap='round'; ctx.lineJoin='round';
+  const _sc = (typeof STYLE_CONFIG_DEFAULTS!=='undefined' && STYLE_CONFIG_DEFAULTS[mapStyle])
+    ? { ...STYLE_CONFIG_DEFAULTS[mapStyle], ...((map.styleConfig||{})[mapStyle]||{}) }
+    : null;
   ids.forEach(i=>{
     const n=map.nodes[i]; if(!n.parent||hidden.has(n.parent)) return;
     const p=map.nodes[n.parent]; if(!p) return;
-    let x1,y1,x2,y2,leftSide=(n.side==='left'),horizontal=true;
-    if(mapLayout==='down'){
-      horizontal=false;
-      x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
-      x2=n.x+(n.w||0)/2; y2=n.y;
+    // Reproduce drawEdges() branching: timeline/radial/grid/matrix/down vs generic
+    let d=null, x1,y1,x2,y2,leftSide=(n.side==='left'),horizontal=true;
+    if(mapLayout==='timeline' && n.parent!==map.rootId){
+      const pcx=p.x+(p.w||0)/2, pcy=p.y+(p.h||0)/2;
+      const ncy=n.y+(n.h||0)/2;
+      const sx=pcx, sy = ncy<pcy ? p.y : p.y+(p.h||0);
+      d = `M${sx},${sy} L${sx},${ncy} L${n.x},${ncy}`;
+    } else if(mapLayout==='stair' && n.parent!==map.rootId){
+      d = stairEdgePath(p, n);
+    } else if(mapLayout==='radial'){
+      const pcx=p.x+(p.w||0)/2, pcy=p.y+(p.h||0)/2;
+      const ncx=n.x+(n.w||0)/2, ncy=n.y+(n.h||0)/2;
+      d = `M${pcx},${pcy} L${ncx},${ncy}`;
+    } else if(mapLayout==='grid'){
+      if(n.parent===map.rootId){
+        const sx=p.x+(p.w||0)/2, sy=p.y+(p.h||0);
+        const tx=n.x+(n.w||0)/2, ty=n.y;
+        const mid=(sy+ty)/2;
+        d = `M${sx},${sy} L${sx},${mid} L${tx},${mid} L${tx},${ty}`;
+      } else {
+        const sx=p.x+12, sy=p.y+(p.h||0);
+        const ty=n.y+(n.h||0)/2;
+        d = `M${sx},${sy} L${sx},${ty} L${n.x},${ty}`;
+      }
     } else if(mapLayout==='matrix'){
-      horizontal=false;
-      x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
-      x2=n.x+(n.w||0)/2; y2=n.y;
+      const pcx=p.x+(p.w||0)/2, pcy=p.y+(p.h||0);
+      const ncx=n.x+(n.w||0)/2, ncy=n.y;
+      d = `M${pcx},${pcy} L${ncx},${ncy}`;
     } else {
-      x1=leftSide ? p.x : p.x+(p.w||0); y1=p.y+(p.h||0)/2;
-      x2=leftSide ? n.x+(n.w||0) : n.x;  y2=n.y+(n.h||0)/2;
+      if(mapLayout==='down'){
+        horizontal=false;
+        x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
+        x2=n.x+(n.w||0)/2; y2=n.y;
+      } else if(mapLayout==='up'){
+        horizontal=false;
+        x1=p.x+(p.w||0)/2; y1=p.y;
+        x2=n.x+(n.w||0)/2; y2=n.y+(n.h||0);
+      } else if(mapLayout==='stair'){
+        horizontal=false;
+        x1=p.x+(p.w||0)/2; y1=p.y+(p.h||0);
+        x2=n.x+(n.w||0)/2; y2=n.y;
+      } else {
+        x1=leftSide ? p.x : p.x+(p.w||0); y1=p.y+(p.h||0)/2;
+        x2=leftSide ? n.x+(n.w||0) : n.x;  y2=n.y+(n.h||0)/2;
+      }
     }
-    let col=themeEdge, wid=2.2;
-    if(mapStyle==='bubble'){ col=accent; wid=3; }
-    else if(mapStyle==='sketch'){ col=themeInk; wid=1.6; }
-    else if(mapStyle==='classic'){ wid=1.6; }
-    else if(mapStyle==='minimal'){ wid=1.1; }
-    else if(mapStyle==='neon'){ col=accent; wid=2.4; }
+    // Style: respect styleConfig, fallback to theme defaults like CSS does
+    let col = (_sc && _sc.edgeColor) ? _sc.edgeColor : null;
+    let wid = _sc ? _sc.edgeWidth : null;
+    if(col==null){
+      if(mapStyle==='bubble' || mapStyle==='neon' || mapStyle==='circuit') col=accent;
+      else if(mapStyle==='sketch' || mapStyle==='ink') col=themeInk;
+      else col=themeEdge;
+    }
+    if(wid==null){
+      if(mapStyle==='bubble') wid=3;
+      else if(mapStyle==='sketch') wid=1.6;
+      else if(mapStyle==='classic') wid=1.6;
+      else if(mapStyle==='minimal') wid=1.1;
+      else if(mapStyle==='neon') wid=2.4;
+      else if(mapStyle==='ink') wid=2.6;
+      else if(mapStyle==='clay') wid=1.6;
+      else wid=2.2;
+    }
+    let dash = null;
+    if(_sc && _sc.dash) dash = _sc.dash>0 ? [ _sc.dash, Math.max(2, Math.round(_sc.dash*0.7)) ] : [];
+    else if(mapStyle==='dashed') dash=[7,5];
+    else dash=[];
     ctx.strokeStyle=col; ctx.lineWidth=wid;
-    ctx.setLineDash(mapStyle==='dashed' ? [7,5] : []);
+    ctx.setLineDash(dash||[]);
     if(mapStyle==='neon'){ ctx.shadowColor=col; ctx.shadowBlur=8; }
     ctx.beginPath();
-    if(mapStyle==='classic'){
+    if(d!==null){
+      // Reconstruct SVG path commands on canvas
+      const parts=d.split(/(?=[MLC])/); // split before each command
+      let first=true;
+      for(const seg of parts){
+        const c=seg[0]; const nums=seg.slice(1).trim().split(/[\s,]+/).map(Number);
+        if(c==='M'){ ctx.moveTo(nums[0],nums[1]); }
+        else if(c==='L'){ ctx.lineTo(nums[0],nums[1]); }
+        else if(c==='C'){ ctx.bezierCurveTo(nums[0],nums[1],nums[2],nums[3],nums[4],nums[5]); }
+      }
+    } else if(mapStyle==='classic'){
       if(horizontal){ const mid=(x1+x2)/2; ctx.moveTo(x1,y1); ctx.lineTo(mid,y1); ctx.lineTo(mid,y2); ctx.lineTo(x2,y2); }
       else { const mid=(y1+y2)/2; ctx.moveTo(x1,y1); ctx.lineTo(x1,mid); ctx.lineTo(x2,mid); ctx.lineTo(x2,y2); }
     } else if(mapStyle==='sketch'){
@@ -8442,8 +8651,6 @@ async function exportPNG(){
         horizontal ? ctx.lineTo(along, y1+off) : ctx.lineTo(x1+off, along);
       }
       ctx.lineTo(x2,y2);
-    } else if(mapLayout==='matrix'){
-      ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
     } else {
       if(horizontal){
         const dx=Math.abs(x2-x1)*0.5;
@@ -8481,8 +8688,10 @@ async function exportPNG(){
     ctx.restore();
   }
 
-  // Nodes — also match shape per style
-  const nodeRadius = (mapStyle==='bubble') ? 999 : (mapStyle==='classic' || mapStyle==='sketch') ? 4 : (mapStyle==='minimal' || mapStyle==='zigzag') ? 2 : 12;
+  // Nodes — radius per style, respecting styleConfig like live CSS (modern 12, classic 4/6 root, bubble 999, sketch 3, dashed 14, minimal 6/8 root, zigzag 2, neon 10)
+  const _styleCfg = (typeof STYLE_CONFIG_DEFAULTS!=='undefined' && STYLE_CONFIG_DEFAULTS[mapStyle])
+    ? { ...STYLE_CONFIG_DEFAULTS[mapStyle], ...((map.styleConfig||{})[mapStyle]||{}) } : null;
+  const _baseRadius = _styleCfg ? _styleCfg.radius : (mapStyle==='bubble'?999: mapStyle==='classic'?4: mapStyle==='sketch'?3: mapStyle==='dashed'?14: mapStyle==='minimal'?6: mapStyle==='zigzag'?2: mapStyle==='neon'?10:12);
   const roll = computeRollups();
   // Small pill badge (task-progress / token-count), matching the on-screen corner style.
   const drawPillBadge = (text, x, yTop, bg, fg) => {
@@ -8499,21 +8708,64 @@ async function exportPNG(){
   ids.forEach(i=>{
     const n=map.nodes[i]; const isRoot=(i===map.rootId);
     const w=n.w||120, h=n.h||40;
-    const r = Math.min(nodeRadius, h/2);
+    const baseR = _baseRadius;
+    const radius = isRoot ? (mapStyle==='classic' ? 6 : mapStyle==='minimal' ? 8 : baseR) : baseR;
+    const r = Math.min(radius, h/2);
+    // Detect formula early for border/badges/text
+    let _isFormula=false, _formulaVal=null;
+    try{
+      const _plainEarly = (typeof nodeTextPlain==='function' ? nodeTextPlain(n.text||'') : String(n.text||'')).trim();
+      if(_plainEarly.startsWith('=')){
+        _isFormula=true;
+        _formulaVal = (typeof computeNodeValue==='function' ? computeNodeValue(i) : null);
+      }
+    }catch(e){}
     roundRect(ctx, n.x, n.y, w, h, r);
     if(isRoot){
-      ctx.fillStyle = map.color || accent;
+      const _hex = map.color || accent;
+      if(mapStyle==='ink'){
+        ctx.fillStyle = _hex;
+      } else {
+        try{
+          const _dark = (typeof shade==='function' ? shade(_hex, -22) : _hex);
+          const _grad = ctx.createLinearGradient(n.x, n.y, n.x+w, n.y+h);
+          _grad.addColorStop(0, _hex);
+          _grad.addColorStop(1, _dark);
+          ctx.fillStyle = _grad;
+        } catch(e){ ctx.fillStyle = _hex; }
+      }
     } else {
-      ctx.fillStyle = n.color
-        || (zd[i] && zd[i]%2===1 ? zebraA : (zd[i] ? zebraB : themeNodeBg));
+      const _hasColor = n.color && n.color!=='#fff' && n.color!=='#ffffff';
+      ctx.fillStyle = _hasColor ? n.color
+        : (zd[i] && zd[i]%2===1 ? zebraA : (zd[i] ? zebraB : themeNodeBg));
     }
     ctx.fill();
-    if(!isRoot && mapStyle !== 'bubble'){
+    const shouldStroke = (() => {
+      if(mapStyle==='bubble') return false;
+      if(mapStyle==='sketch' && isRoot) return false;
+      if((mapStyle==='modern' || mapStyle==='dashed') && isRoot) return false;
+      return true;
+    })();
+    if(shouldStroke){
       if(mapStyle==='minimal'){ ctx.strokeStyle=themeLine; ctx.lineWidth=1; }
       else if(mapStyle==='neon'){ ctx.strokeStyle=accent; ctx.lineWidth=1.2; ctx.shadowColor=accent; ctx.shadowBlur=10; }
-      else { ctx.strokeStyle = mapStyle==='sketch' ? themeInk : themeLine; ctx.lineWidth = mapStyle==='sketch' ? 2 : 1.5; }
+      else if(mapStyle==='zigzag'){ ctx.strokeStyle=themeLine; ctx.lineWidth=2; }
+      else if(mapStyle==='sketch'){ ctx.strokeStyle=themeInk; ctx.lineWidth=2; }
+      else if(mapStyle==='classic'){ ctx.strokeStyle=themeLine; ctx.lineWidth=1.5; }
+      else if(mapStyle==='dashed'){ ctx.strokeStyle=themeLine; ctx.lineWidth=1.5; }
+      else if(mapStyle==='circuit'){ ctx.strokeStyle=accent; ctx.lineWidth=1.5; ctx.shadowColor=accent; ctx.shadowBlur=6; }
+      else if(mapStyle==='blueprint'){ ctx.strokeStyle=themeInk; ctx.lineWidth=1.5; ctx.setLineDash([6,4]); }
+      else if(mapStyle==='clay'){ ctx.strokeStyle=themeLine; ctx.lineWidth=1; ctx.shadowColor=themeInk; ctx.shadowBlur=8; }
+      else if(mapStyle==='ink'){ ctx.strokeStyle=themeInk; ctx.lineWidth=3; }
+      else if(mapStyle==='paper'){ ctx.strokeStyle=themeLine; ctx.lineWidth=1; }
+      else { ctx.strokeStyle=themeLine; ctx.lineWidth=1.5; }
       ctx.stroke();
+      if(mapStyle==='blueprint') ctx.setLineDash([]);
+      if(mapStyle==='ink'){ ctx.save(); ctx.shadowColor=themeInk; ctx.shadowBlur=0; ctx.strokeStyle=themeInk; ctx.lineWidth=1; ctx.globalAlpha=0.18; ctx.strokeRect(n.x+2, n.y+2, w, h); ctx.restore(); }
       ctx.shadowBlur = 0;
+    }
+    if(_isFormula && _formulaVal && _formulaVal.error){
+      ctx.strokeStyle='#e5484d'; ctx.lineWidth=1.5; ctx.stroke();
     }
     // Reference node — distinct left border + italic, like live .node.ref-node
     if(n.ref){
@@ -8526,24 +8778,30 @@ async function exportPNG(){
       ctx.restore();
     }
     // Text — pick a color that contrasts with the node background, and exact font
-    // matching the live look (I am) — --sans/--serif + handwritten/sketchpad scale + lookConfig nodeSize
-    const bg = isRoot ? (map.color || accent) : (n.color || themeNodeBg);
-    const textFill = n.textColor || (isRoot ? pickContrast(bg) : (n.color ? pickContrast(n.color) : themeInk));
+    // matching the live look — --sans/--serif + handwritten/sketchpad scale + lookConfig nodeSize
+    const _hasColor2 = n.color && n.color!=='#fff' && n.color!=='#ffffff';
+    const _zebraBg = zd[i] && zd[i]%2===1 ? zebraA : (zd[i] ? zebraB : themeNodeBg);
+    const bg = isRoot ? (map.color || accent) : (_hasColor2 ? n.color : _zebraBg);
+    const textFill = n.textColor || (isRoot ? pickContrast(bg) : (_hasColor2 ? pickContrast(n.color) : themeInk));
     const sans = css('--sans') || '"Bricolage Grotesque",system-ui,sans-serif';
     const serif = css('--serif') || sans;
     let fontPx = n.fontSize || (isRoot ? 19 : 15);
-    // look font-size scaling (handwritten 1.2em, sketchpad 1.15em) + lookConfig nodeSize
+    // look font-size scaling (handwritten 1.2em) + lookConfig nodeSize
     const lookScale = (look==='handwritten' ? 1.2 : look==='sketchpad' ? 1.15 : 1) * (parseFloat(css('--look-node-size')) || 1);
     if(!n.fontSize) fontPx = Math.round(fontPx * lookScale);
     const fontFamily = isRoot ? serif : sans;
     ctx.textBaseline='middle';
-    const insetX = isRoot ? 22 : 15;
+    // Padding per style: bubble has wider pads (11/22 vs 9/15), others use default
+    const insetX = (() => {
+      if(mapStyle==='bubble') return isRoot ? 26 : 22;
+      return isRoot ? 22 : 15;
+    })();
     // Node image — drawn first, at the top, so text/checkbox center in the space below it
     let imgDrawH = 0;
     const img = imgMap[i];
     if(img){
       const contentW = w - insetX*2;
-      imgDrawH = Math.min(200, contentW * (img.naturalHeight/img.naturalWidth || 1));
+      imgDrawH = Math.min(280, contentW * (img.naturalHeight/img.naturalWidth || 1));
       const imgY = n.y + (isRoot?14:10);
       ctx.save();
       roundRect(ctx, n.x+insetX, imgY, contentW, imgDrawH, 8);
@@ -8551,6 +8809,24 @@ async function exportPNG(){
       ctx.drawImage(img, n.x+insetX, imgY, contentW, imgDrawH);
       ctx.restore();
       imgDrawH += (isRoot?14:10)+6;   // top offset + the CSS's 6px margin-bottom, so text centers below it correctly
+    }
+    // Formula / frontmatter badges — match live ::before pseudo-elements
+    if(_isFormula){
+      ctx.save();
+      ctx.fillStyle = (_formulaVal && _formulaVal.error) ? '#e5484d' : accent;
+      ctx.beginPath(); ctx.arc(n.x-7+8, n.y-7+8, 8, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font='bold 7px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('fx', n.x-7+8, n.y-7+8+0.5);
+      ctx.restore();
+    } else if(n.frontmatter){
+      const _fw = ctx.measureText('YAML').width + 10;
+      ctx.save();
+      ctx.fillStyle = css('--teal') || '#2f6f6a';
+      roundRect(ctx, n.x+8, n.y-9, _fw, 12, 4);
+      ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font='bold 7px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('YAML', n.x+8+_fw/2, n.y-9+6);
+      ctx.restore();
     }
     const textCenterY = n.y + imgDrawH + (h-imgDrawH)/2;
     // Highlight (background per text) — node-wide for the canvas export
@@ -8588,22 +8864,53 @@ async function exportPNG(){
     ctx.save();
     roundRect(ctx, n.x, n.y, w, h, r);
     ctx.clip();
-    // Special node types: hr (horizontal rule) and html block (code/table)
+    // Special node types: hr, block html, formula (=SUM...), or rich text
     let htmlForExport = n.text||'';
     if(n.hr){
-      // hr-node: 54px line centered, like live .node.hr-node .node-hr
-      ctx.strokeStyle = textFill; ctx.globalAlpha=0.6; ctx.lineWidth=2;
+      // hr-node: 54px line centered, like live .node.hr-node .node-hr (uses --ink-soft)
+      const _hrCol = css('--ink-soft') || textFill;
+      ctx.strokeStyle = _hrCol; ctx.globalAlpha=0.6; ctx.lineWidth=2;
       ctx.beginPath(); ctx.moveTo(n.x + w/2 - 27, textCenterY); ctx.lineTo(n.x + w/2 + 27, textCenterY); ctx.stroke();
       ctx.globalAlpha=1;
       ctx.restore();
-      // still draw badges below (notes, progress etc.) outside clip
-      // fall through to badge drawing after restore, so skip text
+    } else if(_isFormula){
+      // Formula node: show computed result (or #ERROR), like live .formula-node
+      const _isTaskDone = n.task==='done';
+      const _prevAlpha = ctx.globalAlpha;
+      if(_isTaskDone) ctx.globalAlpha = 0.62;
+      let _txt='', _col=textFill;
+      if(_formulaVal && typeof _formulaVal==='object' && _formulaVal.error){
+        _txt='#ERROR'; _col='#e5484d';
+        // live also tints border red; reflect by stroking already-clipped border would be outside clip, so skip
+      } else {
+        try{ _txt = (typeof formatFormulaResult==='function' ? formatFormulaResult(_formulaVal) : String(_formulaVal)); } catch(e){ _txt=String(_formulaVal); }
+      }
+      ctx.fillStyle=_col;
+      // Use same font handling as live formula (tabular nums, but canvas can't easily set that)
+      const _f = (_isTaskDone||!!n.strike ? 'line-through ' : '') + (n.underline?'underline ':'') + ((!!n.bold||isRoot)?'bold ':'500 ') + (n.italic||!!n.ref?'italic ':'') + fontPx+'px '+fontFamily;
+      // Simple center/align draw for formula result (single line)
+      ctx.font=((!!n.bold||isRoot)?'bold ':'500 ') + (n.italic||!!n.ref?'italic ':'') + fontPx+'px '+fontFamily;
+      ctx.textAlign = n.align==='left' ? 'left' : n.align==='right' ? 'right' : 'center';
+      const _fx = n.align==='left' ? textX : n.align==='right' ? textX+textMaxWidth : textX+textMaxWidth/2;
+      // Draw with strike-through if needed
+      ctx.fillText(_txt, _fx, textCenterY);
+      if(n.underline || _isTaskDone || n.strike){
+        const _w = ctx.measureText(_txt).width;
+        const _x0 = n.align==='left' ? _fx : n.align==='right' ? _fx-_w : _fx-_w/2;
+        ctx.strokeStyle=_col; ctx.lineWidth=Math.max(1,fontPx/15); ctx.beginPath();
+        const _ly = _isTaskDone||n.strike ? (textCenterY - fontPx*0.18) : (textCenterY + fontPx*0.38);
+        ctx.moveTo(_x0, _ly); ctx.lineTo(_x0+_w, _ly); ctx.stroke();
+      }
+      if(_isTaskDone) ctx.globalAlpha=_prevAlpha;
+      ctx.textAlign='start';
+      ctx.restore();
     } else {
       if(n.html){
-        // block node: use html content, strip outer wrapper but keep inner
         htmlForExport = n.html;
-        // frontmatter badge already handled via live, but text is html
       }
+      const _isTaskDone = n.task==='done';
+      const _prevAlpha = ctx.globalAlpha;
+      if(_isTaskDone) ctx.globalAlpha = 0.62;
       if(containsMath(htmlForExport)){
         drawNodeMath(ctx, htmlForExport, {
           x: textX, y: textCenterY, maxWidth: textMaxWidth,
@@ -8622,11 +8929,12 @@ async function exportPNG(){
       baseBold: !!n.bold || isRoot,
       baseItalic: !!n.italic || !!n.ref,
       baseUnderline: !!n.underline,
-      baseStrike: !!n.strike,
+      baseStrike: !!n.strike || _isTaskDone,
       align: n.align || 'center',
       listType: n.listType || null
     });
       }
+      if(_isTaskDone) ctx.globalAlpha = _prevAlpha;
       ctx.restore();
     }
     // Notes indicator — sticky note, like live .notes-mark
@@ -8692,13 +9000,14 @@ function drawFormattedText(ctx, html, opts){
   tmp.innerHTML = (html || '').toString();
   const runs = [];
   // legacy listType (whole-node bullets) — render as if each line of plain text
-  // were wrapped in a <li>
+  // were wrapped in a <li>. Prefix marker is unformatted (like live .list-marker opacity .7) — not bold/italic.
   if(listType && !INLINE_HTML_RE.test(html||'')){
     const lines = (html||'').split('\n');
     lines.forEach((line, i)=>{
       const prefix = listType==='ol' ? `${i+1}. ` : '• ';
-      runs.push({ text:prefix+line, bold:baseBold, italic:baseItalic, underline:baseUnderline, strike:baseStrike });
-      if(i < lines.length-1) runs.push({ text:'\n', bold:false,italic:false,underline:false,strike:false });
+      runs.push({ text:prefix, bold:false, italic:false, underline:false, strike:false, link:false });
+      if(line) runs.push({ text:line, bold:baseBold, italic:baseItalic, underline:baseUnderline, strike:baseStrike, link:false });
+      if(i < lines.length-1) runs.push({ text:'\n', bold:false,italic:false,underline:false,strike:false, link:false });
     });
   } else {
     const walk = (node, st) => {
@@ -8741,13 +9050,13 @@ function drawFormattedText(ctx, html, opts){
           if(tag==='a'){ next.link = true; next.underline = true; }
           if(tag==='br'){ runs.push({ text:'\n', ...st }); return; }
           if(tag==='li'){
-            // Push bullet/number prefix
+            // Push bullet/number prefix — unformatted like live native bullets (not bold/italic)
             const isOL = child.parentElement && child.parentElement.tagName==='OL';
             const idx = child.parentElement ? Array.from(child.parentElement.children).indexOf(child)+1 : 1;
-            runs.push({ text:(isOL ? `${idx}. ` : '• '), ...st });
+            runs.push({ text:(isOL ? `${idx}. ` : '• '), bold:false, italic:false, underline:false, strike:false, link:false });
           }
           walk(child, next);
-          if(tag==='li' || tag==='p' || tag==='div') runs.push({ text:'\n', ...st });
+          if(['li','p','div','h1','h2','h3','blockquote','pre','ul','ol','table','tr'].includes(tag)) runs.push({ text:'\n', ...st });
         }
       });
     };
@@ -9281,6 +9590,10 @@ const LOOKS = [
   {id:'coffee-shop', name:'at Coffee<br>Shop', font:'"Nunito",sans-serif'},
   {id:'handwritten', name:'back to<br>School', font:'"Caveat",cursive'},
   {id:'lab',         name:'in the<br>Lab',     font:'"JetBrains Mono",monospace'},
+  {id:'scientist',   name:'the<br>Scientist',  font:'"Space Mono",monospace'},
+  {id:'architect',   name:'the<br>Architect',  font:'"Space Grotesk",sans-serif'},
+  {id:'alien',       name:'an<br>Alien',       font:'"Space Mono",monospace'},
+  {id:'psycho',      name:'a<br>Psycho',       font:'"Oswald",system-ui,sans-serif'},
   {id:'forest',      name:'in the<br>Forest',   font:'"Fredoka",system-ui,sans-serif'},
   {id:'beach',       name:'at the<br>Beach',    font:'"Oswald",system-ui,sans-serif'},
   {id:'studio',      name:'in the<br>Studio',   font:'"Fraunces",serif'},
@@ -9295,7 +9608,12 @@ const MAP_STYLES = [
   {id:'dashed',  name:'Dashed',  desc:'Curved branches drawn as dashes'},
   {id:'minimal', name:'Minimal', desc:'Flat hairline cards, slim branches'},
   {id:'zigzag',  name:'Zigzag',  desc:'Squared cards, jagged branch lines'},
-  {id:'neon',    name:'Neon',    desc:'Glowing cards, luminous branches'}
+  {id:'neon',    name:'Neon',    desc:'Glowing cards, luminous branches'},
+  {id:'circuit', name:'Circuit', desc:'Squared boards, dotted circuits with joint dots'},
+  {id:'blueprint', name:'Blueprint', desc:'Transparent wireframes, double-line drafts'},
+  {id:'clay', name:'Clay', desc:'Inflated clay, soft inset shadows'},
+  {id:'ink', name:'Ink', desc:'Bold comic, heavy ink borders, hard shadow'},
+  {id:'paper', name:'Paper', desc:'Ruled paper with soft stack shadow'}
 ];
 // Per-style tunables, keyed by style id on the map as map.styleConfig — the
 // same pattern as layoutConfig. Defaults mirror what the CSS and the export
@@ -9309,6 +9627,11 @@ const STYLE_CONFIG_DEFAULTS = {
   minimal: { edgeWidth:1.1, edgeColor:'', radius:6,   cardPad:0,  glow:0,  dash:0 },
   zigzag:  { edgeWidth:2,   edgeColor:'', radius:2,   cardPad:0,  glow:0,  dash:0 },
   neon:    { edgeWidth:2.4, edgeColor:'', radius:10,  cardPad:0,  glow:16, dash:0 },
+  circuit: { edgeWidth:1.4, edgeColor:'', radius:4,   cardPad:2,  glow:8,  dash:3 },
+  blueprint:{ edgeWidth:1.2, edgeColor:'', radius:11,  cardPad:0,  glow:0,  dash:6 },
+  clay:    { edgeWidth:1.6, edgeColor:'', radius:16,  cardPad:6,  glow:12, dash:0 },
+  ink:     { edgeWidth:2.6, edgeColor:'', radius:8,   cardPad:0,  glow:0,  dash:0 },
+  paper:   { edgeWidth:1.5, edgeColor:'', radius:6,   cardPad:4,  glow:0,  dash:0 },
 };
 const STYLE_CONFIG_BOUNDS = {
   edgeWidth:[1,8], edgeColor:[0,40], radius:[0,999], cardPad:[0,80], glow:[0,80], dash:[0,60],
@@ -9374,6 +9697,10 @@ const LOOK_CONFIG_DEFAULTS = {
   'coffee-shop':{ font:'"Nunito",sans-serif',                        nodeSize:1, radius:18 },
   handwritten:  { font:'"Caveat",cursive',                           nodeSize:1, radius:20 },
   lab:          { font:'"JetBrains Mono",monospace',                 nodeSize:1, radius:4  },
+  scientist:    { font:'"Space Mono",monospace',                     nodeSize:1, radius:4  },
+  architect:    { font:'"Space Grotesk",sans-serif',                 nodeSize:1, radius:6  },
+  alien:        { font:'"Space Mono",monospace',                     nodeSize:1, radius:12 },
+  psycho:       { font:'"Oswald",system-ui,sans-serif',              nodeSize:1, radius:4  },
   forest:       { font:'"Fredoka",system-ui,sans-serif',             nodeSize:1, radius:16 },
   beach:        { font:'"Oswald",system-ui,sans-serif',              nodeSize:1, radius:24 },
   studio:       { font:'"Fraunces",serif',                           nodeSize:1, radius:8  },
@@ -9594,7 +9921,7 @@ const LAYOUT_PARAMS = {
     gap:[8,400], stem:[0,300], indent:[0,300], gapMain:[8,400], gapCross:[4,300],
     angle:[10,170],
   },
-  radial: { ring:[60,600], startAngle:[-360,360], sweep:[30,360] },
+  radial: { ring:[60,600], startAngle:[-360,360], sweep:[30,360], pad:[0,30], padV:[0,40] },
   matrix: { colGap:[8,300], rowGap:[8,300], cellGap:[0,120], headGap:[8,300] },
   grid:   { columns:[1,8], gapX:[8,300], gapY:[8,300], rowGap:[0,120], indent:[0,120] },
 };
@@ -9605,9 +9932,11 @@ const ENGINE_PARAMS = {
   balanced:{ strategy:'tree',  params:{ axis:'x', dir: 1, split:'balanced', rootAnchor:'origin',   gapMain:70, gapCross:22 } },
   right:   { strategy:'tree',  params:{ axis:'x', dir: 1, split:'one-side', rootAnchor:'origin',   gapMain:70, gapCross:22 } },
   left:    { strategy:'tree',  params:{ axis:'x', dir:-1, split:'one-side', rootAnchor:'origin',   gapMain:70, gapCross:22 } },
-  down:    { strategy:'tree',  params:{ axis:'y', dir: 1, split:'one-side', rootAnchor:'centered', sideName:'down', gapMain:22, gapCross:70 } },
+  down:    { strategy:'tree',  params:{ axis:'y', dir: 1, split:'one-side', rootAnchor:'centered', sideName:'down', gapMain:16, gapCross:40 } },
   timeline:{ strategy:'chain', params:{ axis:'x', dir: 1, gap:70, stem:30, indent:26, alternate:true, start:'above', gapMain:70, gapCross:22 } },
-  radial:  { strategy:'radial',params:{ ring:180, startAngle:-90, sweep:360 } },
+  radial:  { strategy:'radial',params:{ ring:180, startAngle:-90, sweep:360, pad:14, padV:16 } },
+  up:      { strategy:'tree',  params:{ axis:'y', dir:-1, split:'one-side', rootAnchor:'centered', sideName:'up',   gapMain:16, gapCross:40 } },
+  stair:   { strategy:'chain', params:{ axis:'y', dir:1, gap:45, stem:24, indent:42, alternate:true,  start:'above', sideName:'down', gapMain:70, gapCross:40 } },
   grid:    { strategy:'grid',  params:{ columns:3, gapX:60, gapY:60, rowGap:14, indent:24 } },
   matrix:  { strategy:'matrix',params:{ colGap:40, rowGap:24, cellGap:10, headGap:60 } },
   fishbone:{ strategy:'chain', params:{ axis:'x', dir:1, gap:70, stem:30, indent:26,
@@ -9648,7 +9977,7 @@ function resolveLayout(name, params){
   return { strategy, params: { ...base, ...validateLayoutParams(strategy, params) } };
 }
 
-const LAYOUT_ENGINES = ['balanced','right','left','down','timeline','radial','grid','matrix','fishbone'];
+const LAYOUT_ENGINES = ['balanced','right','left','down','up','timeline','stair','radial','grid','matrix','fishbone'];
 const BUILTIN_LAYOUTS = [
   {v:1, id:'balanced', name:'Balanced', desc:'Branches split left & right', engine:'balanced'},
   {v:1, id:'right',    name:'Right',    desc:'All branches grow right',     engine:'right'},
@@ -9656,6 +9985,8 @@ const BUILTIN_LAYOUTS = [
   {v:1, id:'down',     name:'Down',     desc:'Org-chart, top to bottom',    engine:'down'},
   {v:1, id:'timeline', name:'Timeline', desc:'Sequence along an axis, sub-topics alternating',
         engine:'timeline'},
+  {v:1, id:'up',       name:'Up',       desc:'Inverted org, bottom to top', engine:'up'},
+  {v:1, id:'stair',    name:'Stairs',   desc:'Vertical steps descending', engine:'stair'},
   {v:1, id:'radial',   name:'Radial',   desc:'Root at the centre, branches on rings', engine:'radial'},
   {v:1, id:'grid',     name:'Grid',     desc:'Top-level topics as cards, sub-topics as outlines',
         engine:'grid'},
@@ -10737,6 +11068,54 @@ function buildStyleThumb(id){
       <path d="M26,28 L36,22 L44,34 L56,11 M26,28 L36,34 L44,22 L56,47" fill="none" stroke="var(--ink-soft)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
   </span>`;
+  if(id==='circuit') return `<span class="style-thumb">
+    <svg viewBox="0 0 70 60" width="70" height="40">
+      ${rects(2)}
+      <path d="M26,28 C38,28 47,11 56,11 M26,28 C38,28 47,47 56,47" fill="none" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="3 3"/>
+      <circle cx="26" cy="28" r="1.8" fill="var(--accent)"/><circle cx="47" cy="11" r="1.2" fill="var(--accent)"/><circle cx="47" cy="47" r="1.2" fill="var(--accent)"/>
+    </svg>
+  </span>`;
+  if(id==='blueprint') return `<span class="style-thumb">
+    <svg viewBox="0 0 70 60" width="70" height="40">
+      <rect x="${ROOT.x}" y="${ROOT.y}" width="${ROOT.w}" height="${ROOT.h}" rx="3" fill="var(--accent)"/>
+      <rect x="${CH1.x}" y="${CH1.y}" width="${CH1.w}" height="${CH1.h}" rx="3" fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="6 4"/>
+      <rect x="${CH2.x}" y="${CH2.y}" width="${CH2.w}" height="${CH2.h}" rx="3" fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="6 4"/>
+      <path d="M26,28 C38,28 47,11 56,11 M26,28 C38,28 47,47 56,47" fill="none" stroke="var(--ink-soft)" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="6 4"/>
+    </svg>
+  </span>`;
+  if(id==='clay') return `<span class="style-thumb">
+    <svg viewBox="0 0 70 60" width="70" height="40">
+      <defs><filter id="clayF"><feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="var(--ink)" flood-opacity="0.14"/><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="var(--ink)" flood-opacity="0.1"/></filter></defs>
+      ${rects(6)}
+      <rect x="${CH1.x}" y="${CH1.y}" width="${CH1.w}" height="${CH1.h}" rx="6" fill="var(--node-bg,#fff)" stroke="color-mix(in srgb, var(--line) 40%, transparent)" stroke-width="1" filter="url(#clayF)"/>
+      <rect x="${CH2.x}" y="${CH2.y}" width="${CH2.w}" height="${CH2.h}" rx="6" fill="var(--node-bg,#fff)" stroke="color-mix(in srgb, var(--line) 40%, transparent)" stroke-width="1" filter="url(#clayF)"/>
+      <path d="M26,28 C38,28 47,11 56,11 M26,28 C38,28 47,47 56,47" fill="none" stroke="var(--line)" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+  </span>`;
+  if(id==='ink') return `<span class="style-thumb">
+    <svg viewBox="0 0 70 60" width="70" height="40">
+      <rect x="${ROOT.x}" y="${ROOT.y}" width="${ROOT.w}" height="${ROOT.h}" rx="4" fill="var(--accent)"/>
+      <rect x="${CH1.x}" y="${CH1.y}" width="${CH1.w}" height="${CH1.h}" rx="4" fill="var(--node-bg,#fff)" stroke="var(--ink)" stroke-width="2.2"/>
+      <rect x="${CH2.x}" y="${CH2.y}" width="${CH2.w}" height="${CH2.h}" rx="4" fill="var(--node-bg,#fff)" stroke="var(--ink)" stroke-width="2.2"/>
+      <rect x="${CH1.x+1}" y="${CH1.y+1}" width="${CH1.w}" height="${CH1.h}" rx="4" fill="none" stroke="var(--ink)" stroke-width="0.7" opacity="0.18"/>
+      <rect x="${CH2.x+1}" y="${CH2.y+1}" width="${CH2.w}" height="${CH2.h}" rx="4" fill="none" stroke="var(--ink)" stroke-width="0.7" opacity="0.18"/>
+      <path d="M26,28 C38,28 47,11 56,11 M26,28 C38,28 47,47 56,47" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="square"/>
+    </svg>
+  </span>`;
+  if(id==='paper') return `<span class="style-thumb">
+    <svg viewBox="0 0 70 60" width="70" height="40">
+      <rect x="${ROOT.x}" y="${ROOT.y}" width="${ROOT.w}" height="${ROOT.h}" rx="3" fill="var(--accent)"/>
+      <rect x="${CH1.x}" y="${CH1.y}" width="${CH1.w}" height="${CH1.h}" rx="3" fill="var(--node-bg,#fff)" stroke="var(--line)" stroke-width="1"/>
+      <line x1="${CH1.x+2}" y1="${CH1.y+4}" x2="${CH1.x+12}" y2="${CH1.y+4}" stroke="var(--line)" stroke-width="0.7" opacity="0.5"/>
+      <line x1="${CH1.x+2}" y1="${CH1.y+7}" x2="${CH1.x+12}" y2="${CH1.y+7}" stroke="var(--line)" stroke-width="0.7" opacity="0.5"/>
+      <rect x="${CH2.x}" y="${CH2.y}" width="${CH2.w}" height="${CH2.h}" rx="3" fill="var(--node-bg,#fff)" stroke="var(--line)" stroke-width="1"/>
+      <line x1="${CH2.x+2}" y1="${CH2.y+4}" x2="${CH2.x+12}" y2="${CH2.y+4}" stroke="var(--line)" stroke-width="0.7" opacity="0.5"/>
+      <line x1="${CH2.x+2}" y1="${CH2.y+7}" x2="${CH2.x+12}" y2="${CH2.y+7}" stroke="var(--line)" stroke-width="0.7" opacity="0.5"/>
+      <path d="M26,28 C38,28 47,11 56,11 M26,28 C38,28 47,47 56,47" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M${CH1.x+CH1.w-3},${CH1.y} L${CH1.x+CH1.w},${CH1.y} L${CH1.x+CH1.w},${CH1.y+3} Z" fill="var(--line)" opacity="0.35"/>
+      <path d="M${CH2.x+CH2.w-3},${CH2.y} L${CH2.x+CH2.w},${CH2.y} L${CH2.x+CH2.w},${CH2.y+3} Z" fill="var(--line)" opacity="0.35"/>
+    </svg>
+  </span>`;
   let path;
   if(id==='classic') path='M26,28 L40,28 L40,11 L56,11 M26,28 L40,28 L40,47 L56,47';
   else if(id==='sketch') path='M26,28 L56,11 M26,28 L56,47';
@@ -10785,6 +11164,21 @@ function buildLayoutThumb(id){
     <rect x="28" y="36" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
     <rect x="48" y="36" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
     <path d="M35,18 L35,26 L15,26 L15,36 M35,26 L35,36 M35,26 L55,26 L55,36" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
+  </svg>`;
+  else if(id==='up') svg=`<svg viewBox="0 0 70 60" width="70" height="40">
+    <rect x="28" y="42" width="14" height="12" rx="2" fill="var(--accent)"/>
+    <rect x="8"  y="14" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="28" y="14" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="48" y="14" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <path d="M35,42 L35,34 L15,34 L15,24 M35,34 L35,24 M35,34 L55,34 L55,24" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
+  </svg>`;
+  else if(id==='stair') svg=`<svg viewBox="0 0 70 60" width="70" height="40">
+    <rect x="28" y="4"  width="14" height="12" rx="2" fill="var(--accent)"/>
+    <rect x="38" y="20" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="38" y="32" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <rect x="38" y="44" width="14" height="10" rx="2" fill="var(--node-bg,#fff)" stroke="var(--line)"/>
+    <path d="M35,16 L35,50" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
+    <path d="M35,22 L38,22 M35,34 L38,34 M35,46 L38,46" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>
   </svg>`;
   else if(id==='left') svg=`<svg viewBox="0 0 70 60" width="70" height="40">
     <rect x="50" y="22" width="14" height="12" rx="2" fill="var(--accent)"/>
@@ -12070,22 +12464,7 @@ function openSharedByMeRowMenu(btn, sm){
     '<button data-a="forget" class="danger"><span class="rp-ic">\u2715</span>Remove from list</button>';
   pop.style.visibility='hidden'; pop.style.left='-9999px'; pop.style.top='-9999px';
   document.body.appendChild(pop);
-  const rb = btn.getBoundingClientRect();
-  const pr = pop.getBoundingClientRect();
-  const row = btn.closest('.map-item') || btn.parentElement;
-  const rowRect = row.getBoundingClientRect();
-  const _z=_uiZ();
-  let left = rowRect.right - pr.width - 4;
-  let top = rb.bottom + 2;
-  if((rb.bottom + pr.height)/_z + 10 > window.innerHeight){ top = rb.top - pr.height - 2; pop.classList.add('flip-up'); }
-  const margin=8;
-  if(left < margin) left = margin;
-  if(left + pr.width > window.innerWidth - margin) left = window.innerWidth - pr.width - margin;
-  if(top < margin) top = margin;
-  if(top + pr.height > window.innerHeight - margin) top = window.innerHeight - pr.height - margin;
-  pop.style.left = (left/_z)+'px';
-  pop.style.top = (top/_z)+'px';
-  pop.style.visibility='';
+  positionRowPop(pop, btn);
   const editLink=location.origin+location.pathname+'#shared='+sm.room+':'+sm.token;
   pop.querySelector('[data-a="open"]').onclick=ev=>{ ev.stopPropagation(); closeRowMenu(); openSharedInPlace(sm.room, sm.token); };
   pop.querySelector('[data-a="copyedit"]').onclick=async ev=>{ ev.stopPropagation(); closeRowMenu(); try{ await navigator.clipboard.writeText(editLink); toast('Edit link copied'); }catch(e){} };
@@ -12109,22 +12488,7 @@ function openSharedRowMenu(btn, sm){
     '<button data-a="forget" class="danger"><span class="rp-ic">\u2715</span>Remove from list</button>';
   pop.style.visibility='hidden'; pop.style.left='-9999px'; pop.style.top='-9999px';
   document.body.appendChild(pop);
-  const rb = btn.getBoundingClientRect();
-  const pr = pop.getBoundingClientRect();
-  const row = btn.closest('.map-item') || btn.parentElement;
-  const rowRect = row.getBoundingClientRect();
-  const _z=_uiZ();
-  let left = rowRect.right - pr.width - 4;
-  let top = rb.bottom + 2;
-  if((rb.bottom + pr.height)/_z + 10 > window.innerHeight){ top = rb.top - pr.height - 2; pop.classList.add('flip-up'); }
-  const margin=8;
-  if(left < margin) left = margin;
-  if(left + pr.width > window.innerWidth - margin) left = window.innerWidth - pr.width - margin;
-  if(top < margin) top = margin;
-  if(top + pr.height > window.innerHeight - margin) top = window.innerHeight - pr.height - margin;
-  pop.style.left = (left/_z)+'px';
-  pop.style.top = (top/_z)+'px';
-  pop.style.visibility='';
+  positionRowPop(pop, btn);
   const base=location.origin+location.pathname+'#shared='+room;
   pop.querySelector('[data-a="open"]').onclick=ev=>{ ev.stopPropagation(); closeRowMenu(); openSharedInPlace(room, sm.token); };
   const ce=pop.querySelector('[data-a="copyedit"]'); if(ce) ce.onclick=async ev=>{ ev.stopPropagation(); closeRowMenu(); try{ await navigator.clipboard.writeText(base+':'+sm.token); toast('Edit link copied'); }catch(e){} };
@@ -12520,21 +12884,72 @@ async function _qotdFetch(url, parser){
   }catch(e){}
   return null;
 }
+const _qotdParsers = {
+  quotable: j=>({text:j.content, author:j.author}),
+  zenquotes: j=>Array.isArray(j)&&j[0]?{text:j[0].q, author:j[0].a}:null,
+  favqs: j=>j.quote?{text:j.quote.body, author:j.quote.author}:null,
+  dummyjson: j=>({text:j.quote, author:j.author}),
+  quoteslate: j=>({text:j.quote, author:j.author}),
+  stoic: j=>j.data?{text:j.data.quote, author:j.data.author}:null,
+  typefit: j=>{
+    if(!Array.isArray(j)||!j.length) return null;
+    const r=j[Math.floor(Math.random()*j.length)];
+    return r?{text:r.text, author:r.author}:null;
+  },
+  freeapi: j=>j.data?{text:j.data.content, author:j.data.author}:null
+};
+let _qotdProvidersCache = null;
+async function _qotdLoadProviders(){
+  if(_qotdProvidersCache) return _qotdProvidersCache;
+  // Try external JSON first — lets users add providers without code change (see public/quote-providers.json)
+  try{
+    const res = await fetch('./quote-providers.json', {cache:'no-store'});
+    if(res.ok){
+      const raw = await res.json();
+      if(Array.isArray(raw) && raw.length){
+        const mapped = raw.map(e=>{
+          const p = _qotdParsers[e.parser];
+          if(!e.url || !p) return null;
+          const obj = { url:e.url, parser:p };
+          if(e.fallback && e.fallback.url && _qotdParsers[e.fallback.parser]){
+            obj.fallback = { url:e.fallback.url, parser:_qotdParsers[e.fallback.parser] };
+          }
+          return obj;
+        }).filter(Boolean);
+        if(mapped.length){ _qotdProvidersCache = mapped; return mapped; }
+      }
+    }
+  }catch(e){}
+  // Hardcoded fallback — mirrors quote-providers.json so offline / 404 still works
+  const fallback = [
+    { url:'https://api.quotable.io/random', parser:_qotdParsers.quotable },
+    { url:'https://zenquotes.io/api/today', parser:_qotdParsers.zenquotes,
+      fallback:{ url:'https://zenquotes.io/api/random', parser:_qotdParsers.zenquotes } },
+    { url:'https://favqs.com/api/qotd', parser:_qotdParsers.favqs },
+    { url:'https://dummyjson.com/quotes/random', parser:_qotdParsers.dummyjson },
+    { url:'https://quoteslate.vercel.app/api/quotes/random', parser:_qotdParsers.quoteslate },
+    { url:'https://stoic.tekloon.net/stoic-quote', parser:_qotdParsers.stoic },
+    { url:'https://type.fit/api/quotes', parser:_qotdParsers.typefit },
+    { url:'https://api.freeapi.app/api/v1/public/quotes/quote/random', parser:_qotdParsers.freeapi }
+  ];
+  _qotdProvidersCache = fallback;
+  return fallback;
+}
 async function _qotdTryCascade(){
-  // 1. Quotable — no key, CORS yes
-  let q=await _qotdFetch('https://api.quotable.io/random', j=>({text:j.content, author:j.author}));
-  if(q) return q;
-  // 2. ZenQuotes — today (daily) → random fallback handled by same endpoint array
-  q=await _qotdFetch('https://zenquotes.io/api/today', j=>Array.isArray(j)&&j[0]?{text:j[0].q, author:j[0].a}:null);
-  if(q) return q;
-  q=await _qotdFetch('https://zenquotes.io/api/random', j=>Array.isArray(j)&&j[0]?{text:j[0].q, author:j[0].a}:null);
-  if(q) return q;
-  // 3. FavQs — qotd (no key for low volume)
-  q=await _qotdFetch('https://favqs.com/api/qotd', j=>j.quote?{text:j.quote.body, author:j.quote.author}:null);
-  if(q) return q;
-  // 4. DummyJSON
-  q=await _qotdFetch('https://dummyjson.com/quotes/random', j=>({text:j.quote, author:j.author}));
-  if(q) return q;
+  // Shuffled cascade — providers come from quote-providers.json (or hardcoded fallback),
+  // random order per call for diversity; still sequential failover, local quotes.json remains final fallback in loadQotd.
+  const providers = await _qotdLoadProviders();
+  // Fisher-Yates on a copy — original order untouched, each load/refresh gets different order
+  const order = providers.slice();
+  for(let i=order.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [order[i],order[j]]=[order[j],order[i]]; }
+  for(const p of order){
+    let q=await _qotdFetch(p.url, p.parser);
+    if(q) return q;
+    if(p.fallback){
+      q=await _qotdFetch(p.fallback.url, p.fallback.parser);
+      if(q) return q;
+    }
+  }
   return null;
 }
 async function loadQotd(){

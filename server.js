@@ -17,6 +17,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const zlib = require('node:zlib');
 const { DatabaseSync } = require('node:sqlite');
 
 const PORT = process.env.PORT || 3000;
@@ -140,9 +141,36 @@ function buildMapFromSpec(spec) {
 const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css',
   '.json':'application/json', '.svg':'image/svg+xml', '.png':'image/png', '.ico':'image/x-icon',
   '.webmanifest':'application/manifest+json' };
-const send = (res, code, body, type='application/json') => {
-  res.writeHead(code, { 'Content-Type': type });
-  res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
+// Response types worth gzipping — every text-ish MIME above, and nothing that
+// is already compressed (png/ico). This Set is the decision: it used to sit here
+// as a list of file EXTENSIONS that nothing read, beside a hand-rolled MIME
+// substring match that made the real call, so editing it did nothing.
+const COMPRESSIBLE = new Set([
+  'text/html', 'text/javascript', 'text/css',
+  'application/json', 'image/svg+xml', 'application/manifest+json',
+]);
+const GZIP_MIN = 1024;   // below this, the gzip header costs more than it saves
+// `entry` is an optional file-cache row; when present its gzip is computed once
+// and reused, instead of re-running gzipSync on every request for bytes that
+// have not changed. API responses pass nothing and still compress per response,
+// which is correct — they are generated fresh each time.
+const send = (res, code, body, type='application/json', req, entry) => {
+  const raw = typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body);
+  const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+  const accept = req && req.headers && req.headers['accept-encoding'] || '';
+  if(buf.length>GZIP_MIN && accept.includes('gzip') && COMPRESSIBLE.has(type)){
+    try{
+      const gz = entry
+        ? (entry.gz !== undefined ? entry.gz : (entry.gz = zlib.gzipSync(buf)))
+        : zlib.gzipSync(buf);
+      if(gz.length < buf.length){
+        res.writeHead(code, { 'Content-Type': type, 'Content-Encoding': 'gzip', 'Vary': 'Accept-Encoding', 'Content-Length': gz.length });
+        return res.end(gz);
+      }
+    }catch(e){}
+  }
+  res.writeHead(code, { 'Content-Type': type, 'Content-Length': buf.length });
+  res.end(buf);
 };
 const readBody = (req) => new Promise((resolve, reject) => {
   let d = '';
@@ -152,18 +180,25 @@ const readBody = (req) => new Promise((resolve, reject) => {
 });
 
 // ---- static file cache ----------------------------------------------------
-// app.js is ~500 KB and every page load re-reads it from disk. Keep file bytes
+// app.js is ~670 KB and every page load re-reads it from disk. Keep file bytes
 // in memory, invalidated by mtime so live edits during `node --watch` dev are
 // still picked up. Client-facing Cache-Control headers are untouched, so the
 // freshness semantics the service worker depends on don't change.
+//
+// The row also carries the gzipped bytes, filled in by send() the first time a
+// client asks for them. Compressing on every request cost ~16 ms of blocking CPU
+// per cold page load (app.js 11.9, styles.css 3.2, templates.js 0.6, index 0.2)
+// — and gzipSync is synchronous, so on one thread that stalls every other
+// request in flight. An mtime change replaces the row, so `gz` can never go
+// stale against `data`.
 const fileCache = new Map();
-function readFileCached(full, stat) {
+function fileEntry(full, stat) {
   const hit = fileCache.get(full);
-  if (hit && hit.mtimeMs === stat.mtimeMs) return hit.data;
-  const data = fs.readFileSync(full);
+  if (hit && hit.mtimeMs === stat.mtimeMs) return hit;
   if (fileCache.size >= 256) fileCache.clear();
-  fileCache.set(full, { mtimeMs: stat.mtimeMs, data });
-  return data;
+  const row = { mtimeMs: stat.mtimeMs, data: fs.readFileSync(full), gz: undefined };
+  fileCache.set(full, row);
+  return row;
 }
 
 // ---- server --------------------------------------------------------------
@@ -185,7 +220,7 @@ const server = http.createServer(async (req, res) => {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https://icons.duckduckgo.com",
-    "connect-src 'self' https://api.github.com https://api.crossref.org https://api.anthropic.com https://api.openai.com https://api.quotable.io https://zenquotes.io https://favqs.com https://dummyjson.com",
+    "connect-src 'self' https://api.github.com https://api.crossref.org https://api.anthropic.com https://api.openai.com https://api.quotable.io https://zenquotes.io https://favqs.com https://dummyjson.com https://quoteslate.vercel.app https://stoic.tekloon.net https://type.fit https://api.freeapi.app",
     "object-src 'none'",
     "base-uri 'self'",
     "frame-ancestors 'none'"
@@ -251,7 +286,8 @@ const server = http.createServer(async (req, res) => {
       try { st = fs.statSync(full); } catch (e) { /* falls through to 404 */ }
       if (st && st.isFile()) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        return send(res, 200, readFileCached(full, st), MIME[path.extname(full)] || 'application/octet-stream');
+        const entry = fileEntry(full, st);
+        return send(res, 200, entry.data, MIME[path.extname(full)] || 'application/octet-stream', req, entry);
       }
     }
 

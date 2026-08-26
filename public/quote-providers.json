@@ -1,0 +1,54 @@
+[
+  {
+    "id": "quotable",
+    "name": "Quotable",
+    "url": "https://api.quotable.io/random",
+    "parser": "quotable"
+  },
+  {
+    "id": "zenquotes",
+    "name": "ZenQuotes",
+    "url": "https://zenquotes.io/api/today",
+    "parser": "zenquotes",
+    "fallback": {
+      "url": "https://zenquotes.io/api/random",
+      "parser": "zenquotes"
+    }
+  },
+  {
+    "id": "favqs",
+    "name": "FavQs",
+    "url": "https://favqs.com/api/qotd",
+    "parser": "favqs"
+  },
+  {
+    "id": "dummyjson",
+    "name": "DummyJSON",
+    "url": "https://dummyjson.com/quotes/random",
+    "parser": "dummyjson"
+  },
+  {
+    "id": "quoteslate",
+    "name": "QuoteSlate",
+    "url": "https://quoteslate.vercel.app/api/quotes/random",
+    "parser": "quoteslate"
+  },
+  {
+    "id": "stoic",
+    "name": "Stoic",
+    "url": "https://stoic.tekloon.net/stoic-quote",
+    "parser": "stoic"
+  },
+  {
+    "id": "typefit",
+    "name": "TypeFit",
+    "url": "https://type.fit/api/quotes",
+    "parser": "typefit"
+  },
+  {
+    "id": "freeapi",
+    "name": "FreeAPI",
+    "url": "https://api.freeapi.app/api/v1/public/quotes/quote/random",
+    "parser": "freeapi"
+  }
+]

@@ -50,15 +50,31 @@ test('mobile zen topbar strip must not keep the horizontal centering transform',
 });
 
 // Even with the wider 98vw cap, the 230px find field can push the token
-// counter and pin onto a second row at ~1024px. While that field is open
-// the least-used actions (present / tabbed workspace) must step aside so the
-// single-row bar reclaims space and stays on one line.
-test('zen topbar hides present/tabs toggles while the find field is open', () => {
+// counter and pin off the single row at ~1024px (pin clipped by ~2px) and at
+// ~960px (both clipped). While that field is open the least-used actions
+// must step aside so the single-row bar reclaims space. Present (▶) and
+// Tabbed workspace (▭) are the primary reclaim per spec; Donate (♥) is
+// also low-priority while searching and covers the remaining overflow.
+test('zen topbar hides present/tabs (+ donate) toggles while the find field is open', () => {
   const rule = css.match(
-    /body\.ui-zen \.topbar:has\(\.search-wrap\.open\) #presentBtn,\s*body\.ui-zen \.topbar:has\(\.search-wrap\.open\) #tabsBtn\{[^}]*\}/);
-  assert.ok(rule, 'the search-open space-reclaim rule must exist');
+    /body\.ui-zen \.topbar:has\(\.search-wrap\.open\) #presentBtn,[\s\S]*?#donateBtn\{[^}]*\}/);
+  assert.ok(rule, 'the search-open space-reclaim rule must exist (present + tabs + donate)');
   assert.match(rule[0], /display:\s*none/,
-    'present/tabs must be display:none until search closes');
+    'present/tabs/donate must be display:none until search closes');
+  // Guard the original spec pair still present — don't regress to hiding only donate
+  assert.match(rule[0], /#presentBtn/,
+    'presentBtn must be in the hide rule');
+  assert.match(rule[0], /#tabsBtn/,
+    'tabsBtn must be in the hide rule');
+});
+
+// Narrow windows (≤1024) still clip even after the three above; reclaim one
+// more only there so wide screens keep the full bar.
+test('zen topbar reclaims varsBtn on narrow windows while searching', () => {
+  const q = css.match(/@media \(max-width:1024px\)\{[\s\S]*?#varsBtn\{[^}]*display:\s*none[^}]*\}/);
+  assert.ok(q, '≤1024px search-open must also hide #varsBtn');
+  assert.match(q[0], /body\.ui-zen \.topbar:has\(\.search-wrap\.open\) #varsBtn/,
+    'narrow reclaim must be scoped to zen search-open');
 });
 
 // Pin toolbar button is zen-only — it must not leak into classic/rail/dock
