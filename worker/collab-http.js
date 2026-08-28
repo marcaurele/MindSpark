@@ -1,4 +1,4 @@
-// MindSpark — collab map HTTP API + ACL routing (no Cloudflare imports, testable).
+// MindSpark - collab map HTTP API + ACL routing (no Cloudflare imports, testable).
 // The Durable Object delegates here, passing a storage adapter ({get,put} async) and
 // env. Returns { status, body }; the DO wraps it with CORS into a Response.
 import { verifyJWT, authorizeRequest } from './auth-core.js';

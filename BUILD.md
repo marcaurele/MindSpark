@@ -32,11 +32,11 @@ The output binary will be in the `dist/` directory.
 
 The executable bundles:
 - The Node.js 22 runtime (with built-in SQLite support)
-- `server.js` — the zero-dependency HTTP + SQLite API server
-- `launcher.js` — entry point that starts the server and opens your browser
-- `public/` — all frontend assets (index.html, app.js, styles.css, demo-map.json, etc.)
+- `server.js` - the zero-dependency HTTP + SQLite API server
+- `launcher.js` - entry point that starts the server and opens your browser
+- `public/` - all frontend assets (index.html, app.js, styles.css, demo-map.json, etc.)
 
-The SQLite **database file** (`data/mindspark.db`) is NOT bundled — it's created at runtime in a `data/` folder next to wherever the executable is placed.
+The SQLite **database file** (`data/mindspark.db`) is NOT bundled - it's created at runtime in a `data/` folder next to wherever the executable is placed.
 
 ## Running the Executable
 
@@ -104,7 +104,7 @@ data/
 
 [`@yao-pkg/pkg`](https://github.com/yao-pkg/pkg) packages the Node.js runtime, your JavaScript source files, and static assets into a single executable. The key points:
 
-1. **Entry point:** `launcher.js` is the `"bin"` field in `package.json` — pkg uses this as the main entry.
+1. **Entry point:** `launcher.js` is the `"bin"` field in `package.json` - pkg uses this as the main entry.
 2. **Assets:** The `"pkg.assets"` field tells pkg to bundle everything in `public/` into the executable's virtual filesystem (snapshot).
 3. **Runtime paths:** Inside the exe, `__dirname` resolves to the snapshot path. `launcher.js` sets `PUBLIC` to point inside the snapshot and `DB_PATH` to point to the real filesystem (next to the exe).
 4. **SQLite:** Since Node 22's `node:sqlite` is compiled into the Node binary itself (not a native addon), it works seamlessly inside the pkg executable.
@@ -125,7 +125,7 @@ mindspark.exe
 ```
 
 ### Database permission errors
-Make sure the executable has write permissions in its directory (to create the `data/` folder). On Windows, avoid running from `C:\Program Files\` — place it in a user-writable location.
+Make sure the executable has write permissions in its directory (to create the `data/` folder). On Windows, avoid running from `C:\Program Files\` - place it in a user-writable location.
 
 ### Browser doesn't open automatically
 Set `NO_BROWSER=1` and manually navigate to `http://localhost:3000` (or your configured port).
@@ -163,6 +163,6 @@ To distribute the built executable:
 
 1. Build with `npm run build:win`
 2. Zip the `dist/mindspark.exe` file
-3. Share the zip — recipients just extract and double-click
+3. Share the zip - recipients just extract and double-click
 
 No Node.js installation required on the target machine. The entire runtime is self-contained.

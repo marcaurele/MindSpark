@@ -61,7 +61,7 @@ describe('shipped layout library', () => {
 
     test(`${file}: no declared parameter is silently dropped`, () => {
       // A dropped key means the file documents something the schema does not
-      // accept — exactly the way a published example teaches the wrong thing.
+      // accept - exactly the way a published example teaches the wrong thing.
       const p = fns.validateLayoutPreset(raw);
       for (const key of Object.keys(raw.params || {})) {
         assert.notEqual(p.params[key], undefined, `"${key}" was dropped by validation`);

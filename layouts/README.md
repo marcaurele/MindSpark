@@ -5,7 +5,7 @@ open the theme panel (🎨), find **Layout**, scroll to the **Import** tile, and
 paste the file's contents.
 
 Imported layouts are saved on your device. The maps you apply them to are not
-affected — a map records the resolved strategy and parameters, so a map using
+affected - a map records the resolved strategy and parameters, so a map using
 a layout you imported still renders correctly for someone who has never seen
 it.
 
@@ -29,7 +29,7 @@ anything less slants the ribs (a fishbone). Existing timelines are unaffected,
 since 90 is the default.
 
 Values outside the allowed range are clamped and unrecognised keys are ignored,
-so a layout written against a newer version still loads — it just ignores what
+so a layout written against a newer version still loads - it just ignores what
 it does not understand.
 
 ## Writing your own

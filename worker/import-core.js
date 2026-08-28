@@ -1,8 +1,8 @@
-// MindSpark — GPT map import via read-only share link (no GitHub, no PAT).
+// MindSpark - GPT map import via read-only share link (no GitHub, no PAT).
 // The worker turns a GPT/structured-output map spec into the SAME gzip+base64url
 // "#view=" token the app's "Copy share link" feature produces, so the generated
 // map opens as a read-only view in any browser. The viewer clicks "Make an
-// editable copy" to save it into THEIR own repo with THEIR token — so this works
+// editable copy" to save it into THEIR own repo with THEIR token - so this works
 // for every user and needs no personal access token on the worker.
 
 const J = (status, obj) => new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } });
@@ -83,7 +83,7 @@ export function buildMapFromSpec(spec){
     // exported from a newer client, and the length cap keeps it a badge
     // rather than a second text field.
     if (typeof n.marker === 'string') {
-      // Trim BEFORE the length check — otherwise a padded but perfectly valid
+      // Trim BEFORE the length check - otherwise a padded but perfectly valid
       // marker like '  \u2B50  ' is rejected for being "too long".
       const mk = n.marker.trim();
       if (mk && [...mk].length <= 2) node.marker = mk;

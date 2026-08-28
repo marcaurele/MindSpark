@@ -9,7 +9,7 @@
     --stage-glow:rgba(255,255,255,.5);
     --link:#b8451f;
     /* Universal hover tint: overlays the ink colour, so it darkens light
-       surfaces and lightens dark surfaces — always a visible delta. */
+       surfaces and lightens dark surfaces - always a visible delta. */
     --hover:color-mix(in srgb, var(--ink) 12%, transparent);
     --hover-strong:color-mix(in srgb, var(--ink) 20%, transparent);
     --shadow:0 2px 4px rgba(40,30,15,.06),0 8px 24px rgba(40,30,15,.10);
@@ -32,7 +32,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
-  :root[data-theme="light-owl"]{   /* Light Owl — github.com/sdras/night-owl-vscode-theme */
+  :root[data-theme="light-owl"]{   /* Light Owl - github.com/sdras/night-owl-vscode-theme */
     --toolbar-bg:#403f53; --toolbar-text:#fbfbfb;
     --paper:#fbfbfb; --paper-2:#f0f0f0; --ink:#403f53; --ink-soft:#90a7b2;
     --line:#ececec; --line-2:#d9d9d9;
@@ -45,7 +45,7 @@
     --shadow:0 1px 3px rgba(64,63,83,.10),0 8px 24px rgba(64,63,83,.08);
     --shadow-lg:0 12px 40px rgba(64,63,83,.16);
   }
-  :root[data-theme="night-owl"]{   /* Night Owl — github.com/sdras/night-owl-vscode-theme */
+  :root[data-theme="night-owl"]{   /* Night Owl - github.com/sdras/night-owl-vscode-theme */
     --toolbar-bg:#d6deeb; --toolbar-text:#011627;
     --paper:#011627; --paper-2:#0b2942; --ink:#d6deeb; --ink-soft:#5f7e97;
     --line:#1d3b53; --line-2:#2c5574;
@@ -84,7 +84,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.25),0 8px 24px rgba(0,0,0,.40);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
-  :root[data-theme="catppuccin-dark"]{   /* Catppuccin Mocha — https://github.com/catppuccin/catppuccin */
+  :root[data-theme="catppuccin-dark"]{   /* Catppuccin Mocha - https://github.com/catppuccin/catppuccin */
     --toolbar-bg:#f5e0dc; --toolbar-text:#1e1e2e;
     --paper:#1e1e2e; --paper-2:#181825; --ink:#cdd6f4; --ink-soft:#a6adc8;
     --line:#313244; --line-2:#45475a;
@@ -97,7 +97,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
-  :root[data-theme="catppuccin-light"]{   /* Catppuccin Latte — https://github.com/catppuccin/catppuccin */
+  :root[data-theme="catppuccin-light"]{   /* Catppuccin Latte - https://github.com/catppuccin/catppuccin */
     --toolbar-bg:#4c4f69; --toolbar-text:#eff1f5;
     --paper:#eff1f5; --paper-2:#e6e9ef; --ink:#4c4f69; --ink-soft:#6c6f85;
     --line:#ccd0da; --line-2:#bcc0cc;
@@ -110,7 +110,7 @@
     --shadow:0 1px 3px rgba(76,79,105,.12),0 8px 24px rgba(76,79,105,.12);
     --shadow-lg:0 12px 40px rgba(76,79,105,.18);
   }
-  :root[data-theme="rose-pine-moon"]{   /* Rosé Pine Moon — https://rosepinetheme.com */
+  :root[data-theme="rose-pine-moon"]{   /* Rosé Pine Moon - https://rosepinetheme.com */
     --toolbar-bg:#e0def4; --toolbar-text:#232136;
     --paper:#232136; --paper-2:#2a273f; --ink:#e0def4; --ink-soft:#908caa;
     --line:#393552; --line-2:#44415a;
@@ -123,7 +123,7 @@
     --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 12px 40px rgba(0,0,0,.55);
   }
-  :root[data-theme="rose-pine-dawn"]{   /* Rosé Pine Dawn — https://rosepinetheme.com */
+  :root[data-theme="rose-pine-dawn"]{   /* Rosé Pine Dawn - https://rosepinetheme.com */
     --toolbar-bg:#575279; --toolbar-text:#faf4ed;
     --paper:#faf4ed; --paper-2:#f2e9e1; --ink:#575279; --ink-soft:#797593;
     --line:#f2e9e1; --line-2:#dfdad9;
@@ -162,7 +162,7 @@
     --shadow:0 1px 3px rgba(31,35,40,.12),0 8px 24px rgba(31,35,40,.12);
     --shadow-lg:0 12px 40px rgba(31,35,40,.18);
   }
-  :root[data-theme="slate-steel"]{   /* Slate & Steel — enterprise cloud monitoring */
+  :root[data-theme="slate-steel"]{   /* Slate & Steel - enterprise cloud monitoring */
     --toolbar-bg:#f8fafc; --toolbar-text:#0f172a;
     --paper:#0f172a; --paper-2:#1e293b; --ink:#cbd5e1; --ink-soft:#64748b;
     --line:#334155; --line-2:#3e4c63;
@@ -877,7 +877,7 @@
   #tabRow .tab-close:hover{background:var(--hover);color:var(--ink)}
   .tab-new{flex:0 0 auto;width:30px;height:26px;border:1px dashed var(--line-2);background:none;color:var(--ink-soft);border-radius:8px 8px 0 0;cursor:pointer;font-size:16px;line-height:1;font-family:inherit}
   .tab-new:hover{color:var(--accent);border-color:var(--accent)}
-  /* Floating shells and single-column layouts have no top strip row —
+  /* Floating shells and single-column layouts have no top strip row -
      the tab strip stays hidden there unless tabbed workspace is enabled. */
 body.ui-classic:not(.tabs-on) #tabStrip, body.ui-rail:not(.tabs-on) #tabStrip, body.ui-zen:not(.tabs-on) #tabStrip, body.ui-mirror:not(.tabs-on) #tabStrip, body.ui-deck:not(.tabs-on) #tabStrip, body.ui-dock:not(.tabs-on) #tabStrip, body.ui-split:not(.tabs-on) #tabStrip, body.ui-minimal:not(.tabs-on) #tabStrip, body.ui-outline:not(.tabs-on) #tabStrip{display:none}
 body.ui-rail.tabs-on .app{grid-template-rows:auto minmax(0,1fr)}
@@ -905,6 +905,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   #mdPane{width:0;overflow:hidden;position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--paper);border-right:1px solid var(--line);transition:width .22s cubic-bezier(.4,0,.2,1);grid-column:2;grid-row:3}
   body.md-ready .stage{grid-column:3;grid-row:3}
   body.md-mode #mdPane{width:var(--md-w,40vw)}
+  body:not(.md-mode) #mdPane{border-right-width:0}   /* a closed pane must be 0 wide, not 1px of border - see #outlinePane */
   body.md-resizing #mdPane{transition:none}                            /* no easing while dragging the divider */
   @media (prefers-reduced-motion: reduce){ #mdPane{transition:none} }
   #mdPane .md-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600;color:var(--ink-soft)}
@@ -933,7 +934,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
      (which must stay put so their own overflow:hidden keeps clipping the visible window). */
   #mdPane .md-hl-inner,#mdPane .md-gutter-inner{will-change:transform}
   #mdPane .md-hl .hl-line{min-height:20px}
-  /* active-line highlight: a real background on the actual row div — it's always exactly
+  /* active-line highlight: a real background on the actual row div - it's always exactly
      where the caret is, in or out of view, with no separate pixel math to keep in sync
      while clicking or scrolling (that used to drift; this can't). */
   #mdPane .md-hl .hl-line.active{background:var(--paper-2,rgba(127,127,127,.10))}
@@ -981,7 +982,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   .node.hr-node .node-hr{display:block;width:54px;height:0;border-top:2px solid var(--ink-soft,#98a2b3);opacity:.6}
   #mdEditor{overflow:auto;resize:none;outline:none;background:transparent;color:transparent;caret-color:var(--ink)}
   #mdEditor::selection{background:color-mix(in srgb, var(--accent) 28%, transparent)}
-  /* markdown syntax colors — driven by theme variables, so they follow the theme */
+  /* markdown syntax colors - driven by theme variables, so they follow the theme */
   #mdPane .hl-head{color:var(--accent);font-weight:700}
   #mdPane .hl-comment{color:var(--ink-soft);opacity:.6;font-style:italic}
   #mdPane .hl-code,#mdPane .hl-fence,#mdPane .hl-code-inline{color:var(--accent-deep,var(--accent))}
@@ -1058,7 +1059,6 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   .map-item .row-menu:hover{opacity:1;background:var(--line);color:var(--ink)}
   @media (pointer:coarse){ .map-item .row-menu{opacity:.6} }   /* always tappable on touch */
   .row-pop{position:fixed;background:var(--paper,#fff);border:1px solid var(--chrome-edge,#d0d7de);border-radius:10px;box-shadow:var(--shadow,0 8px 28px rgba(0,0,0,.16));padding:5px;min-width:152px;z-index:400;display:flex;flex-direction:column;gap:2px}
-  .row-pop.flip-up{ /* kept for compat, positioning now handled in JS via fixed coords */ }
   .row-pop button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;background:none;color:var(--ink);font-size:13.5px;padding:8px 10px;border-radius:7px;cursor:pointer;font-family:inherit}
   .row-pop button:hover{background:var(--hover)}
   .row-pop button.danger{color:var(--accent-deep,#b8451f)}
@@ -1073,7 +1073,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   .qotd-text{font-size:12px;line-height:1.45;color:var(--ink);font-style:italic;white-space:pre-wrap;word-break:break-word}
   .qotd-text::before{content:'“'} .qotd-text::after{content:'”'}
   .qotd-author{margin-top:4px;font-size:10.5px;color:var(--ink-soft);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .qotd-author::before{content:'— '}
+  .qotd-author::before{content:'- '}
   .qotd-refresh{position:absolute;top:4px;right:4px;width:20px;height:20px;display:grid;place-items:center;border:none;background:transparent;color:var(--ink-soft);border-radius:6px;cursor:pointer;font-size:12px;line-height:1;opacity:0;transition:opacity .15s, background-color .15s}
   .qotd:hover .qotd-refresh{opacity:1}
   .qotd-refresh:hover{background:var(--hover);color:var(--ink)}
@@ -1088,7 +1088,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   #viewport{position:absolute;inset:0;transform-origin:0 0}
   #edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
 
-  /* ===== Top header — full-width bar, mirrors the status bar's strip look ===== */
+  /* ===== Top header - full-width bar, mirrors the status bar's strip look ===== */
   .topbar{display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--chrome);border-bottom:1px solid var(--chrome-edge);z-index:30;flex-wrap:wrap;row-gap:4px;min-width:0}
   .tb-group{display:flex;align-items:center;gap:2px;padding:0;background:none;border:none;border-radius:0;box-shadow:none}
   .tb{border:none;background:none;color:var(--ink);width:36px;height:34px;border-radius:8px;display:grid;place-items:center;font-size:16px;white-space:nowrap}
@@ -1122,7 +1122,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   .save-pill.saving .ring{background:var(--accent);animation:pulse 1s infinite}
   @keyframes pulse{50%{opacity:.3}}
 
-  /* ===== Bottom controls — one "overview" card =====
+  /* ===== Bottom controls - one "overview" card =====
      Minimap and zoom controls live inside the status bar as a single chip.
      Hovering it expands the breadcrumb (see .breadcrumb.shown). Collapses to
      a stub via the chevron (state persisted in JS). */
@@ -1143,7 +1143,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   .overview.collapsed .zoom-row{display:none}
   .overview.collapsed .overview-toggle{transform:rotate(-90deg)}
 
-  /* ===== Status bar — bottom strip under the canvas ===== */
+  /* ===== Status bar - bottom strip under the canvas ===== */
   .statusbar{display:flex;align-items:center;gap:14px;padding:5px 14px;background:var(--chrome);border-top:1px solid var(--chrome-edge);min-height:34px;font-family:var(--sans)}
   .statusbar .hint{
     display:flex;align-items:center;gap:6px;position:static;margin:0;
@@ -1152,7 +1152,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   }
   .statusbar .hint b{color:var(--ink);font-weight:600}
   /* The hint's text lives in its own span so it can shrink and ellipsize as a
-     single unit — the bar shrinks when the overview collapses (the chip is
+     single unit - the bar shrinks when the overview collapses (the chip is
      content-sized), so without this the text would re-wrap into a ragged
      multi-line mess every time the overview is toggled. */
   .statusbar .hint .hint-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -1177,7 +1177,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   .node.dim{opacity:.28}
   .node.match{outline:2.5px solid var(--teal);outline-offset:2px}
   .node .badge{display:none}  /* legacy, no longer rendered */
-  /* Zebra striping — XMind-style alternating tint by tree depth. Only affects
+  /* Zebra striping - XMind-style alternating tint by tree depth. Only affects
      uncoloured nodes: the root and user-picked card colours carry inline
      background styles that win over these classes. Subtle color-mix so the
      stripes follow every theme, and they ride the theme-switch transition. */
@@ -1189,7 +1189,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   .node[data-depth="7"]{background:var(--zebra-1)}
   .node[data-depth="2"],.node[data-depth="4"],.node[data-depth="6"],
   .node[data-depth="8"]{background:var(--zebra-2)}
-  /* Hover-only "created/last edited" watermark — sits just above the node (not inside it,
+  /* Hover-only "created/last edited" watermark - sits just above the node (not inside it,
      which used to collide with the node's own vertically-centered text on shorter nodes)
      so it never overlaps the actual content. */
   .node .node-watermark{
@@ -1222,7 +1222,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   .node.formula-error::before{background:#e5484d}
   .node.formula-error .node-text{color:#e5484d}
   /* Frontmatter node (a skill.md's YAML name/description block, etc.): a small badge marks
-     it as metadata rather than regular outline content — the table itself is the normal
+     it as metadata rather than regular outline content - the table itself is the normal
      block-node table rendering, this is purely a visual "what is this" hint. */
   .node.frontmatter-node{position:relative}
   .node.frontmatter-node::before{
@@ -1262,7 +1262,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   .node .handle:hover{transform:scale(1.15)}
   .node.editing .handle{display:none}
 
-  /* Collapse / expand — at the outer edge, always visible (subtle) */
+  /* Collapse / expand - at the outer edge, always visible (subtle) */
   .node .h-collapse{
     background:var(--node-bg, #fff); color:var(--ink); border:1.5px solid var(--line-2);
     width:18px; height:18px; font-size:13px; opacity:.8;
@@ -1272,14 +1272,14 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   .node .h-collapse.collapsed{background:var(--accent);color:#fff;border-color:var(--accent);opacity:1}
   .node.left .h-collapse{left:-10px;right:auto}
 
-  /* Add child — outer edge (right for right-side / root, left for left-side) */
+  /* Add child - outer edge (right for right-side / root, left for left-side) */
   .node .h-child{background:var(--accent);color:#fff;right:-32px;top:50%;margin-top:-11px}
   .node.left .h-child{left:-32px;right:auto}
 
-  /* Add sibling — below the node, centered */
+  /* Add sibling - below the node, centered */
   .node .h-sibling{background:var(--teal);color:#fff;bottom:-30px;left:50%;margin-left:-11px}
 
-  /* Resize grip — bottom-right corner, visible only on selected nodes */
+  /* Resize grip - bottom-right corner, visible only on selected nodes */
   .node .resize-grip{
     position:absolute; right:-2px; bottom:-2px; width:14px; height:14px;
     cursor:nwse-resize; opacity:0; pointer-events:none; transition:opacity .12s;
@@ -1294,7 +1294,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
 
   /* Drop-target highlight while drag-and-drop reparenting. The three modes
      need to be clearly distinguishable at a glance during a fast drag, not
-     just technically different — before/after (sibling insertion) previously
+     just technically different - before/after (sibling insertion) previously
      had only a bare 3px line hugging the node's own edge, much weaker than
      the child-nest treatment below it. Strengthened to a thicker line that
      extends past the node's own width (box-shadow spread, not just blur) so
@@ -1308,7 +1308,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
     box-shadow:0 5px 0 3px var(--accent), var(--shadow);
     background:color-mix(in srgb, var(--accent) 12%, var(--node-bg)) !important;
   }
-  /* File-drop target — deliberately distinct from .drop-target above.
+  /* File-drop target - deliberately distinct from .drop-target above.
      That one means "nest as child" during node dragging; this one means
      "attach the image you are holding". Using the same visual would
      promise the wrong action. */
@@ -1324,7 +1324,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
     box-shadow:0 0 0 6px color-mix(in srgb, var(--accent) 20%, transparent);
   }
 
-  /* Notes indicator — small page-icon at the top-right of nodes with a note */
+  /* Notes indicator - small page-icon at the top-right of nodes with a note */
   .node .notes-mark{
     position:absolute; top:-9px; right:-9px;
     width:22px; height:22px; border-radius:4px;
@@ -1345,7 +1345,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   .align-icon.align-center{text-align:center}
   .align-icon.align-right{text-align:right}
 
-  /* ===== Notes editor — styled as a sticky note ===== */
+  /* ===== Notes editor - styled as a sticky note ===== */
   :root{ --sticky:#fff7b0; --sticky-edge:#f2e27a; --sticky-ink:#4a431f; }
   :root[data-theme="dark"], :root[data-theme="night-owl"], :root[data-theme="dracula"], :root[data-theme="catppuccin-dark"],
   :root[data-theme="rose-pine-moon"], :root[data-theme="nord"], :root[data-theme="github-dark"],
@@ -1476,23 +1476,23 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
 
   /* Cascades the pencil font to every part of the app that already
      references --sans/--serif (sidebar, modals, buttons, topbar, and
-     nodes/edges too, since those never had their own font override) —
+     nodes/edges too, since those never had their own font override) -
      not a per-component override, the same two variables everything
      already uses. This is now the ONLY thing "Back to School" controls
-     via color/font variables — no palette override, see below. */
+     via color/font variables - no palette override, see below. */
   :root[data-look="handwritten"]{ --sans:"Caveat",cursive; --serif:"Caveat",cursive; }
 
-  /* ===== "Back to School" look and feel — font + chrome texture only =====
+  /* ===== "Back to School" look and feel - font + chrome texture only =====
      Deliberately does NOT touch .node/.nodebar border-radius or #viewport's
      --edge-color/--edge-width: card shape and branch style are Map Style's
      job exclusively (Modern/Classic/Bubble/Sketch), independent of which
-     Look and Feel is active — picking "Back to School" must never lock out
+     Look and Feel is active - picking "Back to School" must never lock out
      or override a Map Style choice. Canvas texture uses var(--paper)/
      var(--line) as already defined by whichever Colour Theme is active, not
-     a hardcoded palette — Back to School no longer sets colors at all, so
+     a hardcoded palette - Back to School no longer sets colors at all, so
      the ruled paper automatically follows Light/Dark/Nord/etc.
      font-size on .node: NOT a shape override (no border-radius/transform
-     here), just legibility compensation — handwriting fonts need more size
+     here), just legibility compensation - handwriting fonts need more size
      than a geometric sans for equivalent readability. */
   :root[data-look="handwritten"] .node{ font-size:1.2em; }
   :root[data-look="handwritten"] .stage{
@@ -1504,18 +1504,18 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
     border-radius:16px 9px 16px 9px;
     border:2px solid var(--ink); box-shadow:none;
   }
-  /* Sidebar — thicker ink-colored edge instead of the default hairline */
+  /* Sidebar - thicker ink-colored edge instead of the default hairline */
   :root[data-look="handwritten"] .side{border-right:2px solid var(--ink)}
-  /* Modal cards (citation form, due-date form, etc.) — same sketchy-border
+  /* Modal cards (citation form, due-date form, etc.) - same sketchy-border
      language as the toolbar, for visual consistency across the app */
   :root[data-look="handwritten"] .vf-card{
     border-radius:20px 8px 20px 8px; border:2px solid var(--ink); box-shadow:var(--shadow-lg);
   }
   :root[data-look="handwritten"] .vf-card h2{font-weight:700}
-  /* Remaining containers audited and covered in this pass — context menus,
+  /* Remaining containers audited and covered in this pass - context menus,
      pickers, the donation card, export/template popups, search box, minimap.
      Grouped since they share the same underlying structure (chrome/node-bg
-     background, chrome-edge border, rounded corners) — same sketchy-border
+     background, chrome-edge border, rounded corners) - same sketchy-border
      language as the rest of the app, not restyled individually from scratch. */
   :root[data-look="handwritten"] .row-pop,
   :root[data-look="handwritten"] .picker,
@@ -1528,19 +1528,19 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   :root[data-look="handwritten"] .minimap{ border-radius:12px 4px 12px 4px; border:2px solid var(--ink); }
   :root[data-look="handwritten"] .toast{ border-radius:14px 5px 14px 5px; border:2px solid var(--ink); font-weight:500; }
 
-  /* ===== "At Coffee Shop" look and feel — same principles, lighter touch =====
-     Font-only color/font override, same as Back to School — no palette
+  /* ===== "At Coffee Shop" look and feel - same principles, lighter touch =====
+     Font-only color/font override, same as Back to School - no palette
      override here either. Differentiated from Back to School through
      restraint, not a new color: a lighter 1.5px border (vs 2px) and a
      quieter diagonal-hatch canvas texture instead of overt ruled-paper
      lines.
      Nunito (not a handwriting font, deliberately) needs no font-size
-     compensation on .node — unlike Caveat/Patrick Hand, it's designed to
+     compensation on .node - unlike Caveat/Patrick Hand, it's designed to
      read well at normal body-text size, so there's no bump here at all.
      That also means this look carries much less risk of the
      overflow/overlap class of bug a size bump can cause elsewhere (nodes
      growing taller than manually-set sizes, edges drawn against stale
-     measurements) — not eliminated everywhere, but not something this
+     measurements) - not eliminated everywhere, but not something this
      specific look needs to fight. Nunito genuinely has a bold weight
      (unlike Patrick Hand's single weight), so emphasis below uses
      font-weight:700 directly instead of a size-based workaround. */
@@ -1570,7 +1570,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   :root[data-look="coffee-shop"] .minimap{ border-radius:10px 4px 10px 4px; border:1.5px solid var(--ink); }
   :root[data-look="coffee-shop"] .toast{ border-radius:12px 4px 12px 4px; border:1.5px solid var(--ink); }
 
-  /* ===== "In the Lab" look and feel — technical, squared-off =====
+  /* ===== "In the Lab" look and feel - technical, squared-off =====
       Font-only override plus a quiet blueprint grid on the canvas, same
       principles as the other looks: no palette change, no card-shape or
       edge-style interference (those belong to Map Style). Everything is
@@ -1606,13 +1606,13 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
    :root[data-look="lab"] .minimap{ border-radius:3px; border:1.5px solid var(--ink); }
 :root[data-look="lab"] .toast{ border-radius:3px; border:1.5px solid var(--ink); }
 
-  /* ===== "The Scientist" — Schrödinger's graph paper =====
+  /* ===== "The Scientist" - Schrödinger's graph paper =====
       Quantum lab: crisp measurement grid + interference fringes +
       probability clouds + lattice dots. Glowing accent instrumentation
       rather than flat ink: tighter monospace tracking, luminous borders,
       specimen-label breadcrumb. Distinct from "In the Lab" (flat grid,
-      ink borders) — here the grid is accent-laced, clouds drift, and
-      chrome glows. No palette or Map Style interference — all
+      ink borders) - here the grid is accent-laced, clouds drift, and
+      chrome glows. No palette or Map Style interference - all
       var(--paper)/--line/--accent. */
    :root[data-look="scientist"]{ --sans:"Space Mono",monospace; --serif:"Space Mono",monospace; }
     :root[data-look="scientist"] .stage{
@@ -1620,9 +1620,9 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
         /* crisp 28px measurement grid */
         linear-gradient(color-mix(in srgb, var(--line) 52%, transparent) 1px, transparent 1px),
         linear-gradient(90deg, color-mix(in srgb, var(--line) 52%, transparent) 1px, transparent 1px),
-        /* interference fringes — faint diagonal wave */
+        /* interference fringes - faint diagonal wave */
         repeating-linear-gradient(-14deg, transparent 0 34px, color-mix(in srgb, var(--accent) 7%, transparent) 35px, transparent 36px),
-        /* pinpoint lattice — sub-pixel dots at intersections */
+        /* pinpoint lattice - sub-pixel dots at intersections */
         radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 18%, transparent) 1.2px, transparent 1.7px);
       background-size:28px 28px, 28px 28px, auto, 52px 52px;
       background-color:var(--paper);
@@ -1651,7 +1651,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
    :root[data-look="scientist"] .search-wrap{ border-radius:3px; border:1.5px solid var(--accent); box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent) }
    :root[data-look="scientist"] .minimap{ border-radius:3px; border:1.5px solid var(--accent); box-shadow:0 0 8px color-mix(in srgb, var(--accent) 20%, transparent) }
    :root[data-look="scientist"] .toast{ border-radius:3px; border:1.5px solid var(--accent); box-shadow:0 0 10px color-mix(in srgb, var(--accent) 16%, transparent) }
-   /* specimen-label breadcrumb — monospace, upper + tracked, accent pill */
+   /* specimen-label breadcrumb - monospace, upper + tracked, accent pill */
    :root[data-look="scientist"] .breadcrumb{
      background:var(--paper); border:1.5px solid var(--accent);
      box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent), 0 4px 16px color-mix(in srgb, var(--accent) 14%, transparent);
@@ -1662,28 +1662,28 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
    :root[data-look="scientist"] .breadcrumb .bc-crumb:hover{ background:color-mix(in srgb, var(--accent) 10%, transparent); color:var(--accent) }
    :root[data-look="scientist"] .breadcrumb .bc-sep{ color:var(--accent); opacity:1; font-weight:900; font-size:10px; }
 
-  /* ===== "The Architect" — blueprint system drafting table =====
+  /* ===== "The Architect" - blueprint system drafting table =====
       Software-architecture blueprint: dual grid (major 32px + minor 8px),
       faint 45° construction haze, snapshot component ghosts, and title-block
-      corners. Heavy ink structure with accent spine — not the lab's flat
+      corners. Heavy ink structure with accent spine - not the lab's flat
       grid. Space Grotesk for confident, structural sans (distinct from
       office Bricolage / studio Fraunces). Title-block breadcrumb like a
-      drawing sheet label. No palette override — follows active Colour Theme. */
+      drawing sheet label. No palette override - follows active Colour Theme. */
    :root[data-look="architect"]{ --sans:"Space Grotesk",sans-serif; --serif:"Space Grotesk",sans-serif; }
    :root[data-look="architect"] .stage{
      background-image:
        /* major 32px blueprint grid */
        linear-gradient(color-mix(in srgb, var(--line) 48%, transparent) 1px, transparent 1px),
        linear-gradient(90deg, color-mix(in srgb, var(--line) 48%, transparent) 1px, transparent 1px),
-       /* minor 8px subdivision — lighter */
+       /* minor 8px subdivision - lighter */
        linear-gradient(color-mix(in srgb, var(--line) 20%, transparent) 1px, transparent 1px),
        linear-gradient(90deg, color-mix(in srgb, var(--line) 20%, transparent) 1px, transparent 1px),
-       /* 45° construction haze — very faint */
+       /* 45° construction haze - very faint */
        repeating-linear-gradient(45deg, transparent 0 48px, color-mix(in srgb, var(--line) 9%, transparent) 49px, transparent 50px),
-       /* blueprint title-block corners — L-shaped faint ink markers */
+       /* blueprint title-block corners - L-shaped faint ink markers */
        linear-gradient(90deg, color-mix(in srgb, var(--ink) 14%, transparent) 2px, transparent 2px),
        linear-gradient(color-mix(in srgb, var(--ink) 14%, transparent) 2px, transparent 2px),
-       /* ghost system blocks — faint accent rectangles hinting at components */
+       /* ghost system blocks - faint accent rectangles hinting at components */
        linear-gradient(color-mix(in srgb, var(--accent) 4.5%, transparent) 1px, transparent 1px),
        linear-gradient(90deg, color-mix(in srgb, var(--accent) 4.5%, transparent) 1px, transparent 1px);
      background-size:32px 32px, 32px 32px, 8px 8px, 8px 8px, 64px 64px, 100% 100%, 100% 100%, 220px 140px, 220px 140px;
@@ -1718,7 +1718,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
    :root[data-look="architect"] .search-wrap{ border-radius:6px; border:1.5px solid var(--ink); border-left:3px solid var(--accent); }
    :root[data-look="architect"] .minimap{ border-radius:6px; border:2px solid var(--ink); box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent) }
    :root[data-look="architect"] .toast{ border-radius:6px; border:1.5px solid var(--ink); border-left:3px solid var(--accent); }
-   /* title-block breadcrumb — architectural drawing label */
+   /* title-block breadcrumb - architectural drawing label */
    :root[data-look="architect"] .breadcrumb{
      background:var(--paper); border:2px solid var(--ink); border-left:4px solid var(--accent);
      box-shadow:var(--shadow); border-radius:4px; padding:2px 5px; gap:1px;
@@ -1729,7 +1729,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
    :root[data-look="architect"] .breadcrumb .bc-sep{ color:var(--ink); opacity:.45; font-weight:900; font-size:10px; letter-spacing:0; }
     :root[data-look="architect"] .breadcrumb .bc-crumb:hover{ background:color-mix(in srgb, var(--accent) 12%, transparent); }
 
-  /* ===== "An Alien" — close encounter =====
+  /* ===== "An Alien" - close encounter =====
       Abducted: night void, starfield, crop-circle grid and a saucer's beam.
       Space Mono is stark and modular like an alien console. No palette override. */
    :root[data-look="alien"]{ --sans:"Space Mono",monospace; --serif:"Space Mono",monospace; }
@@ -1777,7 +1777,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
      font-family:"Space Mono",monospace; letter-spacing:0.06em; text-transform:uppercase; font-size:11.5px;
    }
 
-  /* ===== "A Psycho" — midnight slasher =====
+  /* ===== "A Psycho" - midnight slasher =====
       Grindhouse: high contrast, VHS tracking lines, blood spatter and a glitch.
       Oswald is condensed and tense like a thriller poster. No palette override. */
    :root[data-look="psycho"]{ --sans:"Oswald",system-ui,sans-serif; --serif:"Oswald",system-ui,sans-serif; }
@@ -1812,7 +1812,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
      transform:rotate(0.3deg);
    }
    :root[data-look="psycho"] .side{border-right:2px solid var(--ink); box-shadow:4px 0 0 var(--ink);}
-   :root[data-look="psycho"] .vf-card{ border-radius:4px; border:2px solid var(--ink); box-shadow:4px 4px 0 var(--ink); transform:rotate(-0.2deg); }
+   :root[data-look="psycho"] .vf-card{ border-radius:4px; border:2px solid var(--ink); box-shadow:4px 4px 0 var(--ink); transform:translate(-50%,-50%) rotate(-0.2deg); }
    :root[data-look="psycho"] .row-pop,
    :root[data-look="psycho"] .picker,
    :root[data-look="psycho"] .donate-card,
@@ -1825,7 +1825,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
      font-family:"Oswald",system-ui,sans-serif; letter-spacing:0.08em; text-transform:uppercase;
    }
 
-/* Forest — birch grove: staggered vertical trunk lines on the canvas,
+/* Forest - birch grove: staggered vertical trunk lines on the canvas,
      rounded asymmetric corners, teal-green chrome. Fredoka is rounded and
      friendly, like a nature walk sign. */
   :root[data-look="forest"]{ --sans:"Fredoka",system-ui,sans-serif; --serif:"Fredoka",system-ui,sans-serif; }
@@ -1863,7 +1863,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   :root[data-look="forest"] .minimap{ border-radius:18px 8px 18px 8px; border:2px solid var(--teal); }
   :root[data-look="forest"] .toast{ border-radius:16px 8px 16px 8px; border:2px solid var(--teal); }
 
-  /* Beach — ocean ripples: horizontal wave bands on the canvas, pebble-pill
+  /* Beach - ocean ripples: horizontal wave bands on the canvas, pebble-pill
      cards. Oswald is tall and condensed, like seaside signage. */
   :root[data-look="beach"]{ --sans:"Oswald",system-ui,sans-serif; --serif:"Oswald",system-ui,sans-serif; }
   :root[data-look="beach"] .stage{
@@ -1892,7 +1892,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   :root[data-look="beach"] .minimap{ border-radius:999px; border:1px solid var(--teal); }
   :root[data-look="beach"] .toast{ border-radius:999px; border:1px solid var(--teal); }
 
-  /* Studio — artist's sketchbook: diagonal crosshatch on the canvas, dashed
+  /* Studio - artist's sketchbook: diagonal crosshatch on the canvas, dashed
      pencil-outline chrome. Fraunces is a warm, wonky editorial serif. */
   :root[data-look="studio"]{ --sans:"Fraunces",serif; --serif:"Fraunces",serif; }
   :root[data-look="studio"] .stage{
@@ -1923,7 +1923,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   :root[data-look="studio"] .minimap{ border-radius:6px; border:1.5px dashed var(--ink); }
   :root[data-look="studio"] .toast{ border-radius:6px; border:1.5px dashed var(--ink); }
 
-  /* Mountain — topographic contour rings on the canvas, peaked angular
+  /* Mountain - topographic contour rings on the canvas, peaked angular
      cards. Roboto Condensed is compact and alpine. */
   :root[data-look="mountain"]{ --sans:"Roboto Condensed",system-ui,sans-serif; --serif:"Roboto Condensed",system-ui,sans-serif; }
   :root[data-look="mountain"] .stage{
@@ -1954,7 +1954,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   :root[data-look="mountain"] .minimap{ border-radius:10px 10px 0 0; border:2px solid var(--ink-soft); }
   :root[data-look="mountain"] .toast{ border-radius:10px 10px 0 0; border:2px solid var(--ink-soft); }
 
-  /* Observatory — night sky: sparse scattered stars of varied size with soft
+  /* Observatory - night sky: sparse scattered stars of varied size with soft
      nebula haze, crisp accent-edged cards. Libre Baskerville is a classical
      scholarly serif. */
   :root[data-look="observatory"]{ --sans:"Libre Baskerville",serif; --serif:"Libre Baskerville",serif; }
@@ -1990,7 +1990,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   :root[data-look="observatory"] .minimap{ border-radius:6px; border:1.5px solid var(--accent); }
   :root[data-look="observatory"] .toast{ border-radius:6px; border:1.5px solid var(--accent); }
 
-  /* Sketchpad — expressive, bold pen strokes on a clean canvas. Thick borders,
+  /* Sketchpad - expressive, bold pen strokes on a clean canvas. Thick borders,
      very asymmetric radii for a hand-drawn feel, and slightly larger node text
      to give the writing more presence. */
   :root[data-look="sketchpad"]{ --sans:system-ui,sans-serif; --serif:system-ui,sans-serif; }
@@ -2015,7 +2015,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   :root[data-look="sketchpad"] .minimap{ border-radius:10px 4px 10px 4px; border:2px solid var(--ink); }
   :root[data-look="sketchpad"] .toast{ border-radius:12px 5px 12px 5px; border:2px solid var(--ink); }
 
-  /* ===== Theme panel — multi-section layout ===== */
+  /* ===== Theme panel - multi-section layout ===== */
   /* ===== Theme picker panel ===== */
   .theme-panel{
     background:var(--chrome); border:1px solid var(--chrome-edge); border-radius:14px;
@@ -2038,7 +2038,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
     font-size:11px; text-transform:uppercase; letter-spacing:.11em;
     color:var(--ink-soft); font-weight:700; margin-bottom:5px;
   }
-  /* Cog beside a section label — opens that section's JSON settings. */
+  /* Cog beside a section label - opens that section's JSON settings. */
   .theme-panel-large .tp-label{ display:flex; align-items:center; gap:6px; }
   .theme-panel-large .tp-cog{
     background:none; border:none; cursor:pointer; padding:0 2px; line-height:1;
@@ -2059,7 +2059,74 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
     font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12.5px;
     line-height:1.5; white-space:pre; overflow:auto;
   }
-  /* Import tile in the Layout row — a dashed square marking it as an action
+  /* ===== Inline colour swatches (attachColorSwatches in app.js) =====
+     .cs-wrap is the textarea's own box: the mirror measures, the layer draws.
+     The mirror carries the text a second time and must stay invisible but
+     laid out, so visibility rather than display. */
+  .cs-wrap{position:relative}
+  .cs-mirror{
+    position:absolute; left:0; top:0; margin:0; overflow:hidden;
+    visibility:hidden; pointer-events:none;
+    border-style:solid; border-color:transparent;
+  }
+  .cs-layer{position:absolute; inset:0; overflow:hidden; pointer-events:none}
+  .cs-swatch{
+    position:absolute; width:11px; height:11px; padding:0; overflow:hidden;
+    pointer-events:auto; cursor:pointer; border-radius:3px;
+    border:1px solid color-mix(in srgb, var(--ink) 35%, transparent);
+    /* Chequerboard under the fill, so a translucent colour reads as translucent. */
+    background:
+      linear-gradient(45deg, rgba(128,128,128,.45) 25%, transparent 25%,
+                             transparent 75%, rgba(128,128,128,.45) 75%) 0 0/6px 6px,
+      #fff;
+  }
+  .cs-swatch:hover{border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent)}
+  .cs-fill{display:block; width:100%; height:100%}
+
+  /* The picker itself. Above .var-form (z-index 6000), since it opens over one. */
+  .cs-pop{
+    position:fixed; z-index:6100; width:196px; padding:10px;
+    background:var(--chrome); color:var(--ink);
+    border:1px solid var(--chrome-edge); border-radius:12px;
+    box-shadow:var(--shadow-lg); font-family:var(--sans);
+    user-select:none; touch-action:none;
+  }
+  .cs-sv{position:relative; height:118px; border-radius:8px; overflow:hidden; cursor:crosshair}
+  .cs-sv span{position:absolute; inset:0}
+  .cs-sv span:first-child{background:linear-gradient(to right, #fff, rgba(255,255,255,0))}
+  .cs-sv span:nth-child(2){background:linear-gradient(to top, #000, rgba(0,0,0,0))}
+  .cs-bar{position:relative; height:12px; margin-top:10px; border-radius:6px; cursor:pointer}
+  .cs-hue{background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
+  .cs-alpha{
+    background:
+      linear-gradient(45deg, rgba(128,128,128,.45) 25%, transparent 25%,
+                             transparent 75%, rgba(128,128,128,.45) 75%) 0 0/8px 8px,
+      #fff;
+  }
+  .cs-agrad{position:absolute; inset:0; border-radius:6px}
+  .cs-dot{
+    position:absolute; top:50%; width:12px; height:12px; margin:-6px 0 0 -6px;
+    border-radius:50%; border:2px solid #fff; box-sizing:border-box;
+    box-shadow:0 0 0 1px rgba(0,0,0,.4); pointer-events:none;
+  }
+  .cs-text{
+    width:100%; box-sizing:border-box; margin-top:10px; padding:5px 7px;
+    font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px;
+    color:var(--ink); background:var(--paper);
+    border:1px solid var(--line); border-radius:6px; outline:none;
+  }
+  .cs-text:focus{border-color:var(--accent)}
+
+  /* While a picker is open the dialog stops hiding the map. Choosing a colour
+     for the map through a card that covers it is the wrong way round, so the
+     backdrop goes clear, and the card itself steps aside for the length of a
+     drag (never for a click: see peek() in app.js). The picker is a child of
+     body, not of the card, so it stays put and stays legible throughout. */
+  .var-form .vf-backdrop{transition:background .18s ease, backdrop-filter .18s ease}
+  .var-form.cs-peek .vf-backdrop{background:transparent; backdrop-filter:none}
+  .var-form .vf-card{transition:opacity .16s ease}
+  .var-form.cs-peek-drag .vf-card{opacity:.12}
+  /* Import tile in the Layout row - a dashed square marking it as an action
      rather than one more layout to choose. */
   .theme-panel-large .theme-opt.layout-import .li-tile{
     width:70px; height:40px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
@@ -2101,7 +2168,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
       past the visible four rather than wrapping to a 4th row. The column min
       (166px) matches what the "I am" cards measure on a full-width panel:
       (700px panel - 24px padding - 12px gaps) / 4 columns. The fifth column
-      (custom + Add theme tiles) is what forces every column to its minimum —
+      (custom + Add theme tiles) is what forces every column to its minimum -
       with it the fr share never expands, so the minimum IS the card width. */
   .theme-panel-large .tp-grid.tp-scroll-row.tp-scroll-3row{
     display:grid; gap:4px; overflow-x:auto; overflow-y:hidden;
@@ -2115,7 +2182,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   }
   /* Edge fades: the only cue that more options exist off-screen. Applied with
      a mask so they tint whatever is behind them, and only on the side that
-     actually has more to show — a permanent fade would imply content that
+     actually has more to show - a permanent fade would imply content that
      is not there. */
   .theme-panel-large .tp-grid.tp-scroll-row.has-more-right{
     -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 34px), transparent 100%);
@@ -2132,7 +2199,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   /* A focused option must never be hidden behind a fade. */
   .theme-panel-large .tp-grid.tp-scroll-row > .theme-opt:focus-visible{ outline-offset:-2px; }
   /* Two-row horizontal scrolling grid (Colour theme): only two rows are ever
-     shown and extra columns scroll sideways — same fades and behaviour as the
+     shown and extra columns scroll sideways - same fades and behaviour as the
      one-line rows, just with a taller window. Items keep stretching to fill
      the column track (the one-line row's fixed 160px flex width doesn't
      apply to grid items). */
@@ -2339,7 +2406,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   .login-extra p{margin:10px 0 0; font-size:13px; color:var(--ink-soft); line-height:1.6}
   .login-extra a{color:var(--accent)}
 
-  /* User pill — shown in topbar after GitHub sign-in */
+  /* User pill - shown in topbar after GitHub sign-in */
   .user-pill{
     display:flex; align-items:center; gap:8px;
     padding:3px 4px 3px 4px;
@@ -2452,7 +2519,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
       transform:translateX(-100%);
       border:none; box-shadow:none;
     }
-    /* Off-canvas overlay shows the sidebar contents again — but only the
+    /* Off-canvas overlay shows the sidebar contents again - but only the
        ACTIVE pane, and with !important to beat the collapsed-rail rules.
        (The brand stays hidden: the overlay is dismissed by tapping the dimmed
        stage, which closes the sidebar.) */
@@ -2655,7 +2722,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   .node-text ul{list-style-type:disc}
   .node-text ol{list-style-type:decimal}
 
-  /* ===== Focus mode — hide all chrome, full-bleed canvas ===== */
+  /* ===== Focus mode - hide all chrome, full-bleed canvas ===== */
   body.focus-mode .topbar,
   body.focus-mode .side,
   body.focus-mode .hint,
@@ -2825,10 +2892,10 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   }
   @keyframes linkpulse{50%{outline-color:color-mix(in srgb,var(--accent) 40%,transparent)}}
 
-  /* ===== Print — take the map to a meeting ===== */
+  /* ===== Print - take the map to a meeting ===== */
   @media print{
     /* The app is a fixed-viewport SPA (html,body{height:100%;overflow:hidden}) so the
-       canvas never page-scrolls on screen — but that same constraint silently clips ANY
+       canvas never page-scrolls on screen - but that same constraint silently clips ANY
        print output to a single page's worth of content, however much there actually is.
        Print has no "viewport" in that sense, so drop the constraint entirely here. */
     html, body{ height:auto !important; overflow:visible !important; }
@@ -2861,7 +2928,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
     margin-bottom:6px; cursor:zoom-in; display:block;
   }
   .node.has-image{ max-width:400px; }
-  /* Marker badge — sits beside the task checkbox and uses the same
+  /* Marker badge - sits beside the task checkbox and uses the same
      flex-shrink:0 / vertical-align treatment so the two line up when a node
      has both. font-size is nudged up because emoji render smaller than
      surrounding text at the same size. */
@@ -2896,7 +2963,6 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
     font-size:12px; font-weight:700; cursor:pointer; vertical-align:middle;
     background:var(--node-bg);
   }
-  .node .task-check.task-todo{}
   .node .task-check.task-doing{border-color:#c98a1a; color:#c98a1a}
   .node .task-check.task-done{background:#4a9d5b; border-color:#4a9d5b; color:#fff}
   .node.task-done .node-text{text-decoration:line-through; opacity:.62}
@@ -2959,7 +3025,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
 
   /* ===== Breadcrumb (floating pill, anchored under the topbar's left edge) =====
      Hidden by default; expands (fades in) while the mouse is over the overview
-     in the status bar — the .shown class is toggled from JS. */
+     in the status bar - the .shown class is toggled from JS. */
   .breadcrumb{
     position:fixed; top:56px; left:14px; transform:none;
     display:flex; align-items:center; gap:1px; z-index:90;
@@ -3033,7 +3099,7 @@ body.ui-classic.tabs-on.md-ready .stage{grid-column:3;grid-row:2}
   body.shared-view .menu-toggle,
   body.shared-view #addChild,
   body.shared-view #toggleSide{ display:none !important; }
-  /* Sidebar is hidden in shared view — collapse the grid to one column so the
+  /* Sidebar is hidden in shared view - collapse the grid to one column so the
      stage fills the full width (otherwise it auto-places into the 0-width track
      and the canvas clips to nothing). */
   body.shared-view .app{ grid-template-columns:1fr; padding-top:var(--shared-banner-h, 42px); }
@@ -3240,7 +3306,7 @@ body.cloud-edit .app{ padding-top:var(--shared-banner-h, 44px); }
 body.no-banner.cloud-edit .app{ padding-top:0; }
 body.no-banner.shared-view .stage{ top:0; }
 
-/* Themed scrollbars — desktop only (mobile keeps native overlay scrollbars) */
+/* Themed scrollbars - desktop only (mobile keeps native overlay scrollbars) */
 @media (min-width:721px){
   *::-webkit-scrollbar{width:12px;height:12px}
   *::-webkit-scrollbar-track{background:transparent}
@@ -3261,12 +3327,12 @@ body.no-banner.shared-view .stage{ top:0; }
     color:#1a1a1a;background:#fff;
     font:14px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
   }
-  /* Browsers drop background colors/images when printing unless told otherwise — this is
+  /* Browsers drop background colors/images when printing unless told otherwise - this is
      what was silently stripping the code-block shading (and would strip any other
      background color here too, e.g. a table header tint) even though it renders fine
      on screen in the live preview. Applies to every descendant, not just #mdPrintRoot
      itself, since print-color-adjust doesn't reliably cascade in all engines. */
-  #mdPrintRoot, #mdPrintRoot *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; color-adjust:exact; }
+  #mdPrintRoot, #mdPrintRoot *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   #mdPrintRoot h1{font-size:1.9em;margin:0 0 .4em;line-height:1.25;color:#111;border-bottom:1px solid #ccc;padding-bottom:.2em}
   #mdPrintRoot h1,#mdPrintRoot h2,#mdPrintRoot h3{page-break-after:avoid}
   #mdPrintRoot h2,#mdPrintRoot h3{margin:.9em 0 .3em;line-height:1.25;color:#111}
@@ -3293,7 +3359,7 @@ body.no-banner.shared-view .stage{ top:0; }
    Classic keeps the upstream toolbar as one floating strip inside .stage;
    Side-toolbar docks the same toolbar as a vertical icon rail left of the
    canvas with the title, save pill and minimap floating over it. The same
-   DOM elements are reparented by applyUiLayout() — nothing is hidden or
+   DOM elements are reparented by applyUiLayout() - nothing is hidden or
    cloned, only restyled and repositioned. */
 body.ui-classic .app, body.ui-rail .app{grid-template-rows:minmax(0,1fr)}
 body.ui-classic .side, body.ui-rail .side, body.ui-zen .side{grid-column:1;grid-row:1;width:268px}
@@ -3302,7 +3368,7 @@ body.ui-classic .side-rail, body.ui-rail .side-rail, body.ui-zen .side-rail,
 body.ui-classic .side-resize, body.ui-rail .side-resize, body.ui-zen .side-resize{display:none}
 body.ui-classic .statusbar, body.ui-rail .statusbar, body.ui-zen .statusbar{display:none}
 /* Floating bottom-right: the minimap as its own card (right:72) and the
-   vertical zoom bar beside it (right:18) — the upstream zoombar. The zoom
+   vertical zoom bar beside it (right:18) - the upstream zoombar. The zoom
    row is reparented out of the overview card by applyUiLayout(); the
    overview here is just the minimap chip. */
 body.ui-classic .overview, body.ui-rail .overview, body.ui-zen .overview{
@@ -3351,7 +3417,7 @@ body.ui-classic .tb-sep{display:none}
 body.ui-classic .search-wrap{background:var(--chrome);border:1px solid var(--chrome-edge);border-radius:12px;box-shadow:var(--shadow)}
 body.ui-classic .search-wrap.open{background:var(--paper-2)}
 /* Sidebar shell (as upstream): plain brand, new-map row with ▾ caret, no
-   tabs — the caret toggles the Templates pane in and out. */
+   tabs - the caret toggles the Templates pane in and out. */
 body.ui-classic .side-tabs{display:none}
 body.ui-classic .new-map-row{display:flex;gap:0;margin:14px 14px 10px}
 body.ui-classic .new-map-row #newMap{
@@ -3398,7 +3464,7 @@ body.ui-rail .topbar .spacer,
 body.ui-rail .topbar .title-edit{display:none}   /* the title is moved out to float on the canvas */
 body.ui-rail .topbar > .user-pill,
 body.ui-rail .topbar > .token-total{display:none}  /* too wide for the rail (left over from classic) */
-/* Search floats right of the rail, over the canvas — toggled by the
+/* Search floats right of the rail, over the canvas - toggled by the
    ⌕ button exactly like the modern toolbar's own inline field. */
 body.ui-rail .topbar .search-wrap{
   position:absolute;top:64px;left:calc(100% + 8px);right:auto;z-index:20;
@@ -3433,7 +3499,7 @@ body.ui-rail.shared-view .breadcrumb.shown{transform:translateX(-50%) translateY
 /* ── Side-toolbar popovers: fly out to the right of the rail ───────────────
    In the rail layout the toolbar is a 46px vertical strip. A classic dropdown
    (below the button, right-aligned) gets clamped to the left viewport edge and
-   looks detached — the pattern every modern app with a vertical rail uses is a
+   looks detached - the pattern every modern app with a vertical rail uses is a
    horizontal flyout 8px to the right of the rail, top-aligned with the trigger
    (VS Code activity bar, Figma tools, Slack navigation, Discord server list).
    The JS `positionPopup(…, {side:'right'})` places the popover there; these
@@ -3447,7 +3513,7 @@ body.ui-rail .export-pop{
   transform-origin:left center;
   animation:railPopIn .14s cubic-bezier(.2,0,.2,1);
   /* A slightly stronger shadow so the flyout lifts clearly off the canvas and
-     the rail when it sits 8px away — matching VS Code / Slack elevation. */
+     the rail when it sits 8px away - matching VS Code / Slack elevation. */
   box-shadow:0 12px 40px rgba(0,0,0,.22), 0 2px 8px rgba(0,0,0,.14);
 }
 @media (prefers-reduced-motion: reduce){
@@ -3585,7 +3651,7 @@ body.ui-split.shared-view .app{grid-template-columns:1fr}
 body.ui-split.shared-view #mdPane{display:none}
 body.ui-split.shared-view .stage{grid-column:1;grid-row:3}
 
- /* ---- Minimal: the plain modern shell with the sidebar gone entirely — no
+ /* ---- Minimal: the plain modern shell with the sidebar gone entirely - no
    column, no slide-over, nothing to toggle. ---- */
 body.ui-minimal .app{grid-template-columns:1fr}
 body.ui-minimal .topbar{grid-column:1;grid-row:1}
@@ -3679,7 +3745,7 @@ body.ui-minimal .minimal-menu-btn{display:flex}
 
 /* ---- Mirror classic: the same floating shell as classic, flipped to the
    left. applyUiLayout() keeps body.ui-classic applied too, so every classic
-   rule already covers this layout — only the positions are mirrored. ---- */
+   rule already covers this layout - only the positions are mirrored. ---- */
 body.ui-mirror .topbar{justify-content:flex-end}     /* actions left, title right */
 body.ui-mirror .tb-group{flex-direction:row-reverse}
 body.ui-mirror .overview{right:auto;left:72px}       /* minimap card bottom-left */
@@ -3716,7 +3782,7 @@ body.ui-deck .node:not(.deck-current){opacity:.28}
 body.ui-deck .node.deck-current{box-shadow:0 0 0 3px var(--accent)}
 
 /* ---- Outline dock: the modern shell plus a live tree panel between the
-   sidebar and the canvas (side | outline | canvas). Folded by default — the
+   sidebar and the canvas (side | outline | canvas). Folded by default - the
    ▤ toolbar button opens it. Rows select + centre the node; the twist folds
    a branch locally without touching the map. ---- */
 body.ui-outline .app{grid-template-columns:auto 0 minmax(0,1fr)}
@@ -3731,6 +3797,11 @@ body:not(.ui-outline) #outlineBtn{display:none}
   transition:width .22s cubic-bezier(.4,0,.2,1);
 }
 body.ui-outline.outline-open #outlinePane{width:min(280px,24vw)}
+/* box-sizing:border-box cannot shrink a border, so the collapsed pane still
+   measured 1px wide and painted a stray hairline down the canvas edge (in
+   minimal that was the last column of the screen). Drop the border while it
+   is closed so the pane is genuinely zero-width. */
+body.ui-outline:not(.outline-open) #outlinePane{border-right-width:0}
 #outlinePane .ol-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;color:var(--ink-soft);letter-spacing:.04em}
 #outlinePane .ol-close{margin-left:auto;border:none;background:none;cursor:pointer;color:var(--ink-soft);font-size:13px;line-height:1;padding:4px 6px;border-radius:6px}
 #outlinePane .ol-close:hover{background:var(--hover);color:var(--ink)}
@@ -3764,7 +3835,7 @@ body.ui-outline.shared-view .stage{grid-column:2;grid-row:3}
   body.ui-classic .side.collapsed{width:min(280px, 86vw)}
   body.ui-classic .topbar{top:10px;left:10px;right:10px}
   /* Full-width strip on phones. The insets stretch the bar, so the desktop
-     translateX(-50%) centering must go too — it shifted the strip half its
+     translateX(-50%) centering must go too - it shifted the strip half its
      own width off-screen (left edge unreachable). */
   body.ui-zen .topbar{top:10px;left:10px;right:10px;width:auto;max-width:none;transform:translateY(-12px)}
   body.ui-zen.zen-chrome .topbar,
@@ -3787,8 +3858,8 @@ body.ui-outline.shared-view .stage{grid-column:2;grid-row:3}
 
 /* ===== Smooth theme switching =====
    When a Colour Theme (or a theme-config JSON) changes the custom
-   properties, these surfaces interpolate their colors over 0.3s — the same
-   easing as the theme cards — instead of snapping. Canvas textures
+   properties, these surfaces interpolate their colors over 0.3s - the same
+   easing as the theme cards - instead of snapping. Canvas textures
    (background-image) are not interpolatable, so they still swap instantly
    while the paper color underneath fades; node and edge strokes fade with
    the theme too. Interactive hover controls use the shorter 0.2s so hover
@@ -3816,4 +3887,3 @@ input, textarea, select{
     transition: none !important;
   }
 }
-

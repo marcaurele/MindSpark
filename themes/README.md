@@ -1,6 +1,6 @@
 # MindSpark Themes
 
-`themes/*.json` are **reference palettes** for the Colour Theme picker (`public/app.js:8787` `THEMES`, `public/styles.css:21` `:root[data-theme="..."]`). They are not fetched at boot — the picker is hardcoded for instant offline switching. Use these JSON files to **import** a theme via **Add theme** or to propose a new built-in.
+`themes/*.json` are **reference palettes** for the Colour Theme picker (`public/app.js:8787` `THEMES`, `public/styles.css:21` `:root[data-theme="..."]`). They are not fetched at boot - the picker is hardcoded for instant offline switching. Use these JSON files to **import** a theme via **Add theme** or to propose a new built-in.
 
 ## File count
 65 JSON files, each one complete palette. Example `light.json` / `dark.json`.
@@ -46,7 +46,7 @@
 | `name` | string | `1-40` chars, trimmed | Display name in picker (`buildSwatchHTML` `public/app.js:10599`) |
 | `vars` | object | 20 keys, each `1-80` chars trimmed | CSS custom properties (see below) |
 
-All 20 vars are **required** — `public/app.js:9468` `validateCustomTheme()` rejects if any missing/empty.
+All 20 vars are **required** - `public/app.js:9468` `validateCustomTheme()` rejects if any missing/empty.
 
 ### Vars table (20)
 
@@ -65,16 +65,16 @@ All 20 vars are **required** — `public/app.js:9468` `validateCustomTheme()` re
 | `--link` | Links |
 | `--shadow` / `--shadow-lg` | Shadows (`--shadow` nodes, `--shadow-lg` modals) |
 
-Values are any CSS color/length — hex `#rrggbb`, `rgb()`, `rgba()`, `hsla()` for colors; shadows as `box-shadow` strings. Keep `stage-glow` translucent (`rgba(..., .04-.5)`) for subtlety.
+Values are any CSS color/length - hex `#rrggbb`, `rgb()`, `rgba()`, `hsla()` for colors; shadows as `box-shadow` strings. Keep `stage-glow` translucent (`rgba(..., .04-.5)`) for subtlety.
 
 ## How to use
 
 ### 1. Import via Add theme (no code change)
 1. Copy any `themes/*.json` (e.g. `themes/dark.json`)
 2. Open MindSpark → **Theme** (🎨) → **Colour theme** → **Add theme** (bottom-right, `public/app.js:10599` `tp-scroll-2rows`)
-3. Paste JSON into textarea, **Import**. Only one custom slot — importing again replaces it (`localStorage:mindspark:custom-theme` `app.js:9481`).
+3. Paste JSON into textarea, **Import**. Only one custom slot - importing again replaces it (`localStorage:mindspark:custom-theme` `app.js:9481`).
 
-The picker also shows `lib-grid` (`styles.css:1886`) — one-click import of any built-in beyond the visible 2×4 grid.
+The picker also shows `lib-grid` (`styles.css:1886`) - one-click import of any built-in beyond the visible 2×4 grid.
 
 ### 2. Propose a new built-in
 1. Create `themes/<id>.json` with 20 vars.
@@ -88,8 +88,8 @@ The picker also shows `lib-grid` (`styles.css:1886`) — one-click import of any
 
 ## Tips
 - Start from `light.json` (warm) or `dark.json` (dark) and tweak `accent` + `paper` first.
-- Test both light and dark `stage-glow` opacity — too strong washes canvas.
+- Test both light and dark `stage-glow` opacity - too strong washes canvas.
 - Use `color-mix(in srgb, var(--accent) 7%, transparent)` for subtle surfaces like `qotd` (`styles.css:1069`).
 
 ## License
-MIT — same as MindSpark root.
+MIT - same as MindSpark root.

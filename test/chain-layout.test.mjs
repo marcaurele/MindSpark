@@ -1,4 +1,4 @@
-// Chain layout engine — golden-master equivalence.
+// Chain layout engine - golden-master equivalence.
 //
 // The timeline used to be its own hand-written placement function. It is now
 // one set of parameters for a general chain engine, and the claim that matters
@@ -70,7 +70,7 @@ describe('layoutChain reproduces the previous timeline exactly', () => {
   });
 });
 
-describe('layoutChain — parameters compose beyond the timeline', () => {
+describe('layoutChain - parameters compose beyond the timeline', () => {
   // What generalising bought: variants that would previously have needed new
   // placement code are now parameter changes.
   const V = { axis:'y', dir:1, gapMain:70, gapCross:22, ...CONFIGS.default };

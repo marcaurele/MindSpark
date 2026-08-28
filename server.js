@@ -1,5 +1,5 @@
 /**
- * MindSpark — open-source mind mapping server.
+ * MindSpark - open-source mind mapping server.
  *
  * ZERO dependencies. Uses Node's built-in HTTP server and built-in SQLite.
  * No `npm install` required. Just:
@@ -13,6 +13,7 @@
  *   DB_PATH  – SQLite database file (default ./data/mindspark.db)
  *   PUBLIC   – static files dir     (default ./public)
  */
+
 'use strict';
 const http = require('node:http');
 const fs = require('node:fs');
@@ -23,7 +24,7 @@ const { DatabaseSync } = require('node:sqlite');
 const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'mindspark.db');
 // PUBLIC collides with a standard Windows env var of the same name
-// (C:\Users\Public) that every Windows machine inherits — reading it blindly
+// (C:\Users\Public) that every Windows machine inherits - reading it blindly
 // would send static requests to the wrong folder. MS_PUBLIC is the
 // unambiguous override; the legacy PUBLIC name is still honoured when it is
 // not just the OS default. (The pkg launcher sets PUBLIC to the snapshot
@@ -141,7 +142,7 @@ function buildMapFromSpec(spec) {
 const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css',
   '.json':'application/json', '.svg':'image/svg+xml', '.png':'image/png', '.ico':'image/x-icon',
   '.webmanifest':'application/manifest+json' };
-// Response types worth gzipping — every text-ish MIME above, and nothing that
+// Response types worth gzipping - every text-ish MIME above, and nothing that
 // is already compressed (png/ico). This Set is the decision: it used to sit here
 // as a list of file EXTENSIONS that nothing read, beside a hand-rolled MIME
 // substring match that made the real call, so editing it did nothing.
@@ -153,7 +154,7 @@ const GZIP_MIN = 1024;   // below this, the gzip header costs more than it saves
 // `entry` is an optional file-cache row; when present its gzip is computed once
 // and reused, instead of re-running gzipSync on every request for bytes that
 // have not changed. API responses pass nothing and still compress per response,
-// which is correct — they are generated fresh each time.
+// which is correct - they are generated fresh each time.
 const send = (res, code, body, type='application/json', req, entry) => {
   const raw = typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body);
   const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
@@ -188,7 +189,7 @@ const readBody = (req) => new Promise((resolve, reject) => {
 // The row also carries the gzipped bytes, filled in by send() the first time a
 // client asks for them. Compressing on every request cost ~16 ms of blocking CPU
 // per cold page load (app.js 11.9, styles.css 3.2, templates.js 0.6, index 0.2)
-// — and gzipSync is synchronous, so on one thread that stalls every other
+// - and gzipSync is synchronous, so on one thread that stalls every other
 // request in flight. An mtime change replaces the row, so `gz` can never go
 // stale against `data`.
 const fileCache = new Map();
@@ -319,5 +320,5 @@ server.listen(PORT, () => {
     console.log(`\n  ⚠  public/index.html was not found at the path above.`);
     console.log(`     Make sure the "public" folder is next to server.js, then restart.`);
   }
-  console.log(`  (zero dependencies — Node built-in HTTP + SQLite)\n`);
+  console.log(`  (zero dependencies - Node built-in HTTP + SQLite)\n`);
 });

@@ -1,5 +1,5 @@
 // authorizeRequest() decides who may read, write, or administer a map.
-// It's the highest-consequence pure function in the codebase — a wrong `ok:true`
+// It's the highest-consequence pure function in the codebase - a wrong `ok:true`
 // exposes or lets someone edit another user's map. It has also regressed before
 // (linkAccess==='edit' briefly required an identity, breaking anonymous
 // link-editing), which is exactly the kind of change these tests pin down.
@@ -17,7 +17,7 @@ const aclWith = (over = {}) => ({
   ...over,
 });
 
-describe('authorizeRequest — read', () => {
+describe('authorizeRequest - read', () => {
   test('a map with no ACL at all is readable by anyone (pre-ACL legacy maps)', () => {
     const r = authorizeRequest({ acl: null, need: 'read' });
     assert.equal(r.ok, true);
@@ -67,7 +67,7 @@ describe('authorizeRequest — read', () => {
   });
 });
 
-describe('authorizeRequest — write', () => {
+describe('authorizeRequest - write', () => {
   test('owner can write', () => {
     const r = authorizeRequest({ acl: aclWith(), identity: OWNER, need: 'write' });
     assert.equal(r.ok, true);
@@ -85,7 +85,7 @@ describe('authorizeRequest — write', () => {
     assert.equal(r.ok, false, 'read access must not imply write access');
   });
 
-  test("linkAccess 'edit' allows an ANONYMOUS editor — no identity, no token", () => {
+  test("linkAccess 'edit' allows an ANONYMOUS editor - no identity, no token", () => {
     // Regression guard: this branch was once tightened to require an identity,
     // which silently broke every "anyone with the link can edit" map.
     const r = authorizeRequest({ acl: aclWith({ linkAccess: 'edit' }), need: 'write' });
@@ -122,7 +122,7 @@ describe('authorizeRequest — write', () => {
   });
 });
 
-describe('authorizeRequest — admin', () => {
+describe('authorizeRequest - admin', () => {
   test('owner can administer', () => {
     assert.equal(authorizeRequest({ acl: aclWith(), identity: OWNER, need: 'admin' }).ok, true);
   });

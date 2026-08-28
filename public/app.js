@@ -1,5 +1,5 @@
 /* ============================================================
-   MindSpark — pluggable storage.
+   MindSpark - pluggable storage.
    - ServerStore: when running with `node server.js` locally (SQLite)
    - CloudStore : when deployed as static files (GitHub Pages, CF Pages,
                   Netlify, etc.). User logs in with a GitHub PAT and we
@@ -7,11 +7,10 @@
                   `mindspark-maps` repo. No backend required.
    `initStore()` probes /healthz, then picks one.
    ============================================================ */
-
 /* ------------------------------------------------------------
    On `catch(e){}` in this file.
 
-   Empty catches here are deliberate, not oversights — but only for
+   Empty catches here are deliberate, not oversights - but only for
    operations where failing is genuinely a non-event:
 
      - best-effort localStorage/sessionStorage writes (view state, UI
@@ -31,7 +30,7 @@
    presented as "the sign-in popup just never appears".
 
    If you are adding a new catch, decide which of those two groups it
-   is in. When in doubt, warn — noise in the console is cheaper than an
+   is in. When in doubt, warn - noise in the console is cheaper than an
    invisible failure.
    ------------------------------------------------------------ */
 const ServerStore = {
@@ -62,7 +61,7 @@ const CloudStore = {
   // Writes that MUST succeed for core functionality (auth token, OAuth state
   // nonce) go through this instead of a raw localStorage.setItem. If storage
   // is full, the local map-backup cache (mindspark:backup:*) is the most
-  // likely cause — it's written on every save/load with no cap or expiry, and
+  // likely cause - it's written on every save/load with no cap or expiry, and
   // never cleared even for deleted maps. It's also just a recovery cache: the
   // authoritative copy of every map already lives on GitHub, so clearing it
   // to make room for something that actually blocks sign-in is always safe.
@@ -107,7 +106,7 @@ const CloudStore = {
     this.user=await this._verify(token);
     this.token=token;
     if(!this._setItemSafe('mindspark:gh:token', token)){
-      throw new Error('Signed in, but could not save your session locally — your browser\'s storage is full. Try clearing site data for this page and signing in again.');
+      throw new Error('Signed in, but could not save your session locally - your browser\'s storage is full. Try clearing site data for this page and signing in again.');
     }
     await this._ensureRepo();
     await this._loadIndex();
@@ -164,7 +163,7 @@ const CloudStore = {
     const arr=await r.json();
     return arr.filter(f=>f.type==='file'&&/\.json$/.test(f.name)).map(f=>f.name.replace(/\.json$/,''));
   },
-  // Map files that exist but are absent from the index AND not tombstoned — i.e.
+  // Map files that exist but are absent from the index AND not tombstoned - i.e.
   // maps lost to a damaged/clobbered index. Returns ready-to-restore entries.
   async orphanMaps(){
     let fileIds; try{ fileIds=await this._listMapFiles(); }catch(e){ return []; }
@@ -238,7 +237,7 @@ const CloudStore = {
   async _saveIndex(){
     // Merge-on-write: re-read the server index and overlay our in-memory entries,
     // then drop tombstoned ids. A save can therefore never clobber entries that
-    // still exist on the server — only an explicit delete (via the tombstone
+    // still exist on the server - only an explicit delete (via the tombstone
     // list) removes one. This neutralises the empty/failed-read clobber bug.
     let server=[];
     try{ server=await this._fetchIndexRaw(); }catch(e){ server=this.index.slice(); }
@@ -260,7 +259,7 @@ const CloudStore = {
       let json;
       // The Contents API only inlines base64 content for files up to 1 MB. Larger
       // files come back with empty content (and encoding "none"), so we must read
-      // them another way — via the Git Blobs API (handles up to 100 MB).
+      // them another way - via the Git Blobs API (handles up to 100 MB).
       const inlined = data.content && data.content.trim() && data.encoding!=='none';
       json = inlined ? this._decode(data.content) : await this._readLargeBlob(data);
       const parsed=JSON.parse(json);
@@ -286,7 +285,7 @@ const CloudStore = {
     }
     if(data.download_url){
       const dr=await fetch(data.download_url,{headers:this._headers()});
-      if(dr.ok) return await dr.text();   // raw JSON — already decoded
+      if(dr.ok) return await dr.text();   // raw JSON - already decoded
     }
     throw new Error('Could not read large map content (Blobs API + raw both failed)');
   },
@@ -309,7 +308,7 @@ const CloudStore = {
     await this._saveIndex();
   },
   async remove(id){
-    // Delete the file (refreshing the sha if we don't have it cached — so deleting
+    // Delete the file (refreshing the sha if we don't have it cached - so deleting
     // a never-opened map still removes its file, not just the index entry).
     try{ await this._deleteFile(`maps/${id}.json`, this.shas[id]); }
     catch(e){ console.warn('map file delete:', e.message); }
@@ -389,7 +388,7 @@ const NODE_COLORS=['#ffffff','#ffe2d6','#ffedc2','#dcefce','#cfe9e6','#d8e0fb','
 const PALETTE=['#e0613a','#2f6f6a','#c98a1a','#5a7d3a','#3a6ea5','#9b4f96','#8a8175'];
 
 // Positions an already-appended `position:fixed` popup against an anchor element
-// or rect, fully clamped to the CURRENT viewport on every side — recomputed fresh
+// or rect, fully clamped to the CURRENT viewport on every side - recomputed fresh
 // from live geometry each call, never a size/side baked in when the popup happened
 // to first get built. Prefers opening below (or right-aligned, if `align:'right'`),
 // but flips to whichever side actually has room, and caps its own max-height rather
@@ -405,11 +404,20 @@ function positionPopup(pop, anchor, opts){
   pop.style.position='fixed';
   const prevVis=pop.style.visibility;
   // Disable any CSS max-height (e.g. export-pop's calc(100vh - 72px)) while
-  // measuring the natural height — otherwise a tall menu would be capped and
+  // measuring the natural height - otherwise a tall menu would be capped and
   // we'd think it fits when it actually overflows.
   pop.style.visibility='hidden'; pop.style.maxHeight='none'; pop.style.overflowY='';
+  // Measure with any entry animation suppressed. ui-rail plays `railPopIn` on
+  // the export popup and the theme panel, and its first keyframe is
+  // translateX(-6px) scale(.98). getBoundingClientRect() reports the
+  // *transformed* box, so measuring while that runs understated the height by
+  // 2 percent - enough that the share menu was clamped 10px short and its last
+  // row fell off the bottom of a 1080p screen - and it also shifted the probe
+  // below, whose whole premise is that a known style.left renders where it says.
+  const prevAnim = pop.style.animation;
+  pop.style.animation = 'none';
   // Self-calibrate the CSS-px <-> getBoundingClientRect-px factor using the popup
-  // itself — set a KNOWN CSS left and measure where it actually renders — instead
+  // itself - set a KNOWN CSS left and measure where it actually renders - instead
   // of trusting a separate, always-off-screen probe element (_uiZ()) to behave
   // identically. getBoundingClientRect() can disagree with the CSS px that
   // style.left/top use (zoom, browser/version quirks, OS display scaling).
@@ -417,13 +425,13 @@ function positionPopup(pop, anchor, opts){
   pop.style.left = REF+'px'; pop.style.top = '0px';
   const probe = pop.getBoundingClientRect();
   const z = probe.left>1 ? probe.left/REF : 1;
-  // From here on, EVERYTHING stays in raw getBoundingClientRect() space — the
+  // From here on, EVERYTHING stays in raw getBoundingClientRect() space - the
   // anchor, the popup, and the viewport bounds are all measured via the exact
   // same API, so they're internally consistent with each other regardless of
   // what that space actually is relative to CSS px. Converting each measurement
   // to "logical" px individually (dividing every single one by z) risked mixing
   // a converted value with an unconverted one in the same comparison somewhere,
-  // which is exactly as wrong as never converting, just by a different amount —
+  // which is exactly as wrong as never converting, just by a different amount -
   // only visible once two values disagree enough to flip a clamp decision. The
   // one and only conversion happens at the very end, turning the final raw
   // left/top back into the CSS px that style.left/top actually expects.
@@ -432,6 +440,7 @@ function positionPopup(pop, anchor, opts){
   const vp = document.documentElement.getBoundingClientRect();
   const viewW = vp.width>1 ? vp.width : window.innerWidth*z;
   const viewH = vp.height>1 ? vp.height : window.innerHeight*z;
+  pop.style.animation = prevAnim;   // measuring is done - let the entry animation play from here
   // ── Side placement (vertical toolbar flyout) ──────────────────────────────
   // Used by the side-toolbar layout (ui-rail) where the toolbar is a narrow
   // vertical rail: the popup should appear *beside* the rail, not below the
@@ -450,7 +459,7 @@ function positionPopup(pop, anchor, opts){
       if(leftRight + pw <= viewW - margin) left = leftRight;
       else if(leftLeft >= margin) left = leftLeft;
       else {
-        // Neither side fits cleanly — pick the side with more space and clamp
+        // Neither side fits cleanly - pick the side with more space and clamp
         const spaceRight = viewW - rr.right - gap - margin;
         const spaceLeft  = rr.left - gap - margin;
         if(spaceRight >= spaceLeft) left = Math.min(leftRight, viewW - pw - margin);
@@ -471,7 +480,7 @@ function positionPopup(pop, anchor, opts){
     // Vertical: align popup's top with anchor's top; nudge up if it would
     // overflow the viewport bottom, or clamp to top margin. Only constrain
     // height / enable scrolling when the content would actually overflow the
-    // available space — otherwise leave it auto-sized with no scrollbar.
+    // available space - otherwise leave it auto-sized with no scrollbar.
     let top = rr.top;
     let available;
     if(ph > viewH - 2*margin){
@@ -486,7 +495,7 @@ function positionPopup(pop, anchor, opts){
       pop.style.maxHeight = Math.max(120, available/z) + 'px';
       pop.style.overflowY = 'auto';
     } else {
-      // No overflow — let the content size naturally with no scroll container.
+      // No overflow - let the content size naturally with no scroll container.
       // Use 'none' to override any CSS max-height (e.g. export-pop's
       // calc(100vh - 72px)) that would otherwise create an unnecessary
       // scrollbar when the content actually fits in the available space.
@@ -528,7 +537,7 @@ let map=null;                 // current map {id,title,color,rootId,nodes:{}}
 let view={x:80,y:0,k:1};      // pan/zoom
 let userZoom=null;            // user-chosen camera zoom, preserved across map switches
 // The whole UI may be scaled by CSS `zoom` (display size). getBoundingClientRect
-// then returns VISUAL px, but the #viewport transform works in LAYOUT px — so
+// then returns VISUAL px, but the #viewport transform works in LAYOUT px - so
 // convert by dividing by the active UI zoom for any camera math.
 // The whole UI may be scaled by CSS `zoom` (display size). How that interacts
 // with getBoundingClientRect differs by browser/version (some return layout px,
@@ -562,7 +571,7 @@ window.addEventListener('pagehide', ()=>{ clearTimeout(_svTimer); try{ _saveMapV
 function _saveMapViewNow(){
   if(!map || !map.id || READONLY) return;
   // Store the map-space point at the viewport CENTRE (plus zoom), not the raw pan
-  // offset, so the same framing reproduces on any screen size — a map reopened on
+  // offset, so the same framing reproduces on any screen size - a map reopened on
   // a different browser/device/window lands consistently instead of shifted.
   const {w:SW,h:SH}=_stageSize();
   const cx=(SW/2 - view.x)/view.k, cy=(SH/2 - view.y)/view.k;
@@ -574,7 +583,7 @@ function loadMapView(id){
     if(v && isFinite(v.k) && ((isFinite(v.cx)&&isFinite(v.cy)) || (isFinite(v.x)&&isFinite(v.y)))) return v; }catch(e){}
   return null;
 }
-// Stage size when the camera was last framed — lets a live window resize keep the
+// Stage size when the camera was last framed - lets a live window resize keep the
 // same map-point centred instead of letting the map drift sideways.
 let _prevStage=null, _prevStageRect=null;
 function _markStage(){
@@ -583,15 +592,15 @@ function _markStage(){
     const r=stage.getBoundingClientRect();
     if(r.width>1 && r.height>1) _prevStageRect={left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:r.width, height:r.height};
   }catch(e){}
-  // The cache just changed — anything that read it earlier in this same gesture (e.g.
+  // The cache just changed - anything that read it earlier in this same gesture (e.g.
   // applyView()'s last frame, which runs BEFORE this) may have drawn against the old
-  // value. Re-apply the two things that depend on it, once, now that it's fresh —
+  // value. Re-apply the two things that depend on it, once, now that it's fresh -
   // cheap since this only fires at gesture-settle, not per frame.
   if(typeof updateMinimapViewport==='function') updateMinimapViewport();
   if(typeof repositionNodeBar==='function' && typeof sel!=='undefined' && sel) repositionNodeBar();
 }
 // Keeps whatever map point is currently centred still centred after the stage's
-// effective CSS-pixel size changes for any reason — a window resize, a UI-scale
+// effective CSS-pixel size changes for any reason - a window resize, a UI-scale
 // change, a sidebar toggle, ... Relies on _prevStage already holding the size from
 // just before the change (kept fresh by _markStage(), called after every camera
 // move) to know what point to preserve; updates it to the new size afterward so
@@ -606,7 +615,7 @@ function _recenterForStageChange(){
     view.y = SH/2 - cy*view.k;
     applyView(); saveMapView();
   }
-  _markStage();   // refreshes _prevStage AND _prevStageRect together — setting _prevStage alone here would leave _prevStageRect stale after every resize/UI-scale-change that goes through this path
+  _markStage();   // refreshes _prevStage AND _prevStageRect together - setting _prevStage alone here would leave _prevStageRect stale after every resize/UI-scale-change that goes through this path
 }
 // Apply a saved camera viewport-INDEPENDENTLY: recompute the pan from the CURRENT
 // stage size so the stored centre point + zoom reproduce at any viewsize. Legacy
@@ -618,7 +627,7 @@ function _recenterForStageChange(){
 // low-end / battery). We know the stage's final width, so we set the viewport's
 // final transform and let the compositor animate it in lockstep with the sidebar
 // (identical easing + duration). Because view.x is linear in stage width, the
-// centred point stays put for the whole animation — GPU-only, no jank.
+// centred point stays put for the whole animation - GPU-only, no jank.
 function _reframeSmooth(cx, cy, W1, H1){
   const tx = W1/2 - cx*view.k, ty = H1/2 - cy*view.k;
   view.x = tx; view.y = ty;
@@ -661,7 +670,7 @@ let saveTimer=null, _pendingSaveMap=null;
 
 const viewport=$('#viewport'), edges=$('#edges'), stage=$('#stage'), zoomVal=$('#zoomVal');
 // Static chrome elements queried on hot paths (every render / every pan-zoom
-// frame) — cache once at load instead of re-querying by id each time.
+// frame) - cache once at load instead of re-querying by id each time.
 const _zoomSliderEl=$('#zoomSlider'), _mmEl=$('#minimap'), _breadcrumbEl=$('#breadcrumb');
 
 /* ============================================================
@@ -733,12 +742,12 @@ function render(){
       el.style.background = n.color;
       el.style.color = pickContrast(n.color);
     } else {
-      // No explicit colour — let CSS theme variables handle it
+      // No explicit colour - let CSS theme variables handle it
       el.style.background = '';
       el.style.color = '';
     }
     // Manual width/height (when the user has resized the node). Height is a
-    // floor (min-height), not a hard cap — .node has no overflow:hidden, so a
+    // floor (min-height), not a hard cap - .node has no overflow:hidden, so a
     // fixed height smaller than what the current font-size actually needs
     // (e.g. Back to School's 1.2em) would let text visually spill past the
     // card's own border rather than the box growing to fit it.
@@ -762,19 +771,19 @@ function render(){
       });
       el.appendChild(img);
     }
-    // Marker badge — click to change, same interaction shape as the task
+    // Marker badge - click to change, same interaction shape as the task
     // checkbox below it.
     if(n.marker){
       const mk=document.createElement('span');
       mk.className='node-marker';
       mk.textContent=n.marker;
       const mkLabel=(MARKERS.find(m=>m.c===n.marker)||{}).label;
-      mk.title=(mkLabel?mkLabel+' — ':'')+'click to change';
+      mk.title=(mkLabel?mkLabel+' - ':'')+'click to change';
       mk.addEventListener('mousedown',ev=>ev.stopPropagation());
       mk.addEventListener('click',ev=>{ ev.stopPropagation(); showMarkerPicker(mk, id); });
       el.appendChild(mk);
     }
-    // Task checkbox — click to advance todo → doing → done
+    // Task checkbox - click to advance todo → doing → done
     if(n.task){
       el.classList.add('task-node','task-'+n.task);
       const cb=document.createElement('span');
@@ -800,7 +809,7 @@ function render(){
         if(val && typeof val==='object' && val.error){
           el.classList.add('formula-error');
           t.textContent = '#ERROR';
-          t.title = plainCheck+' \u2014 '+val.error;
+          t.title = plainCheck+' - '+val.error;
         } else {
           t.textContent = formatFormulaResult(val);
           t.title = plainCheck;
@@ -825,7 +834,7 @@ function render(){
     if(n.listType) t.classList.add('node-text-list','list-'+n.listType);
     el.appendChild(t);
     // Hover-only watermark: when this node was created/last edited. Off by default so it
-    // never clutters the map — only appears as a subtle background detail on hover.
+    // never clutters the map - only appears as a subtle background detail on hover.
     if(!n.hr && (n.created || n.updated)){
       const wm=document.createElement('span');
       wm.className='node-watermark'; wm.setAttribute('aria-hidden','true');
@@ -842,7 +851,7 @@ function render(){
       return h;
     };
 
-    // Collapse / expand toggle — only on nodes with children
+    // Collapse / expand toggle - only on nodes with children
     if(hasKids){
       el.appendChild(mkHandle(
         'h-collapse'+(n.collapsed?' collapsed':''),
@@ -851,18 +860,18 @@ function render(){
         ()=>{ n.collapsed=!n.collapsed; pushHistory(); autoLayout(); }
       ));
     }
-    // Add child — every node
+    // Add child - every node
     el.appendChild(mkHandle('h-child','+','Add child topic',()=>addNode(id,false)));
-    // Add sibling — every non-root node
+    // Add sibling - every non-root node
     if(id!==map.rootId){
       el.appendChild(mkHandle('h-sibling','+','Add sibling topic',()=>addNode(id,true)));
     }
-    // Resize grip — drag from the bottom-right corner to resize the node
+    // Resize grip - drag from the bottom-right corner to resize the node
     const grip=document.createElement('span');
     grip.className='resize-grip'; grip.title='Drag to resize';
     grip.addEventListener('mousedown',ev=>{ ev.stopPropagation(); ev.preventDefault(); startResize(id,ev); });
     el.appendChild(grip);
-    // Notes indicator — visible only if a non-empty note exists
+    // Notes indicator - visible only if a non-empty note exists
     const noteText = (n.notes||'').replace(/<[^>]*>/g,'').trim();
     if(noteText){
       const nm=document.createElement('span');
@@ -877,12 +886,12 @@ function render(){
     if(n.ref){
       const cb=document.createElement('span');
       cb.className='ref-mark'; cb.textContent='📖';
-      cb.title='Reference — click to edit citation';
+      cb.title='Reference - click to edit citation';
       cb.addEventListener('mousedown',ev=>ev.stopPropagation());
       cb.addEventListener('click',ev=>{ ev.stopPropagation(); showCitationForm(id); });
       el.appendChild(cb);
     }
-    // Task progress roll-up — shown on nodes that have task-bearing descendants
+    // Task progress roll-up - shown on nodes that have task-bearing descendants
     const prog = {done:roll.tdone[id], total:roll.ttot[id]};
     if(prog.total > 0 && !n.task){
       const pb=document.createElement('span');
@@ -893,7 +902,7 @@ function render(){
       pb.addEventListener('click',ev=>ev.stopPropagation());
       el.appendChild(pb);
     }
-    // Token-count badge — shown for nodes whose text + notes are non-trivial.
+    // Token-count badge - shown for nodes whose text + notes are non-trivial.
     // Rough ~4 chars/token estimate (matches Anthropic & OpenAI tokenizer averages
     // for English; treat as ±20%). Helps when building prompts to keep an eye on
     // token budgets.
@@ -910,7 +919,7 @@ function render(){
     viewport.appendChild(el);
     toMeasure.push({el, n});
   }
-  // Measure ALL nodes in one pass AFTER appending — reading getBoundingClientRect
+  // Measure ALL nodes in one pass AFTER appending - reading getBoundingClientRect
   // interleaved with appends forces a layout reflow per node (O(n) thrash). One
   // batched read loop triggers a single reflow. getBoundingClientRect returns
   // VISUAL px, scaled by BOTH the canvas zoom (view.k) and the UI display zoom,
@@ -938,7 +947,7 @@ let _tokTimer=null;
 // The token total scans every node's text, which is wasteful to do synchronously
 // inside render() (it dominated render time even when only a few nodes were
 // visible). Schedule it off the hot path and coalesce bursts of renders into one
-// recompute — the badge is a non-critical stat, so a ~300ms delay is invisible.
+// recompute - the badge is a non-critical stat, so a ~300ms delay is invisible.
 function scheduleTokenTotal(){
   if(_tokTimer) return;
   _tokTimer=setTimeout(()=>{ _tokTimer=null; try{ updateTokenTotal(); }catch(e){} }, 300);
@@ -973,7 +982,7 @@ function appendTextWithLinks(container, text){
     const a=document.createElement('a');
     a.href=m[0]; a.target='_blank'; a.rel='noopener noreferrer';
     a.className='node-link';
-    // Favicon (best-effort; removed if it fails to load — e.g. offline).
+    // Favicon (best-effort; removed if it fails to load - e.g. offline).
     let _host=''; try{ _host=new URL(m[0]).hostname.replace(/^www\./,''); }catch(_){}
     if(_host){
       const fav=document.createElement('img');
@@ -1046,7 +1055,7 @@ function fragmentToLines(frag){
   const walk = (node) => {
     node.childNodes.forEach(child => {
       if(child.nodeType === 3){
-        // Text node — split on any literal \n
+        // Text node - split on any literal \n
         const parts = (child.nodeValue || '').split('\n');
         parts.forEach((part, i) => {
           if(i>0) flush();
@@ -1060,7 +1069,7 @@ function fragmentToLines(frag){
           walk(child);
           if(current) flush();
         } else {
-          // Inline element — keep its formatting intact within the line
+          // Inline element - keep its formatting intact within the line
           current += serialize(child);
         }
       }
@@ -1081,7 +1090,7 @@ const hasInlineMarkup = t => INLINE_HTML_RE.test(t||'') || ENTITY_RE.test(t||'')
 const SAFE_TAGS = new Set(['b','i','u','s','strong','em','br','a','span','font','div','ul','ol','li','p','sub','sup','code','kbd','mark','ins','del','small','abbr']);
 // Memoized: render() re-sanitizes the same node HTML on every pass. Sanitizing
 // is a pure function of (html, extraTags), so a bounded cache keyed on both is
-// exact. Cleared wholesale at the cap — a miss just re-sanitizes.
+// exact. Cleared wholesale at the cap - a miss just re-sanitizes.
 const _sanCache=new Map();
 function sanitizeInlineHTML(html, extraTags){
   // Parse INERTLY via <template>: its contents live in a document with no
@@ -1099,7 +1108,7 @@ function sanitizeInlineHTML(html, extraTags){
         const tag = child.tagName.toLowerCase();
         if(DROP_TAGS.has(tag)){ node.removeChild(child); return; }  // remove element AND its contents
         if(!allow.has(tag)){
-          // Clean the subtree FIRST (so nothing dangerous survives), then unwrap —
+          // Clean the subtree FIRST (so nothing dangerous survives), then unwrap -
           // keep only its (now-sanitized) text/inline children inline.
           walk(child);
           while(child.firstChild) node.insertBefore(child.firstChild, child);
@@ -1120,7 +1129,7 @@ function sanitizeInlineHTML(html, extraTags){
               .join('; ');
             if(safe) child.setAttribute('style', safe); else child.removeAttribute('style');
           }
-          else if(!['href','target','rel','color','face','size'].includes(n)) child.removeAttribute(attr.name);   // note: class removed — pasted HTML must not claim app CSS classes
+          else if(!['href','target','rel','color','face','size'].includes(n)) child.removeAttribute(attr.name);   // note: class removed - pasted HTML must not claim app CSS classes
         });
         if(tag==='a'){ child.setAttribute('target','_blank'); child.setAttribute('rel','noopener noreferrer'); }
         walk(child);
@@ -1140,7 +1149,7 @@ function sanitizeInlineHTML(html, extraTags){
 }
 // Notes allow a few block tags on top of the inline set (headings, quotes).
 const NOTES_TAGS = ['h1','h2','h3','blockquote','pre','code','table','thead','tbody','tr','th','td'];
-// Elements removed WITH their contents (never unwrapped) — unwrapping these can
+// Elements removed WITH their contents (never unwrapped) - unwrapping these can
 // promote a hidden <script> to the top level where a snapshotted loop misses it.
 const DROP_TAGS = new Set(['script','style','iframe','object','embed','noscript','svg','math','template','link','meta','base','frame','frameset','title','xmp']);
 function sanitizeNotes(html){ return sanitizeInlineHTML(html, NOTES_TAGS); }
@@ -1293,7 +1302,7 @@ function appendMathAware(container, text){
 // Render text that may contain BOTH inline formatting/markup AND $...$ math.
 // Math is extracted first into placeholder tokens (so its contents are never
 // parsed as HTML), the remaining text is formatted/linked, then the rendered
-// MathML is dropped back in. Lets math coexist with bold/italic/bullets/links —
+// MathML is dropped back in. Lets math coexist with bold/italic/bullets/links -
 // <b>$x^2$</b>, bulleted equations, etc.  (PUA placeholders survive HTML parsing.)
 function renderFormattedWithMath(container, text){
   const slots=[];
@@ -1305,7 +1314,7 @@ function renderFormattedWithMath(container, text){
     return '\uE000'+(slots.length-1)+'\uE001';
   });
   // Entities (&rarr; &#8594; ...) only decode via innerHTML, so route them through
-  // the sanitizer too — createTextNode would show them literally.
+  // the sanitizer too - createTextNode would show them literally.
   if(hasInlineMarkup(masked) || HTML_ENTITY_RE.test(masked)) container.innerHTML = sanitizeInlineHTML(masked);
   else container.appendChild(document.createTextNode(masked));
   autoLinkPlainTextNodes(container);
@@ -1327,7 +1336,7 @@ function renderFormattedWithMath(container, text){
     node.parentNode.replaceChild(frag, node);
   });
 }
-// Formats a node's created/updated timestamp for the hover watermark — e.g. "Jul 15, 2026 · 3:42 PM".
+// Formats a node's created/updated timestamp for the hover watermark - e.g. "Jul 15, 2026 · 3:42 PM".
 // Uses the browser's own locale, same as everything else in the app that shows a date.
 function formatNodeTimestamp(ts){
   if(!ts) return '';
@@ -1395,7 +1404,7 @@ function shade(hex,amt){
   r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
   return '#'+((r<<16)|(g<<8)|b).toString(16).padStart(6,'0');
 }
-// sRGB lerp between two #rrggbb hexes by t (0..1) — mirrors the zebra tint's
+// sRGB lerp between two #rrggbb hexes by t (0..1) - mirrors the zebra tint's
 // color-mix(in srgb, ...) so the PNG export matches the on-screen striping.
 function mixHex(a,b,t){
   const pa=parseInt(a.slice(1),16), pb=parseInt(b.slice(1),16);
@@ -1405,7 +1414,7 @@ function mixHex(a,b,t){
   return '#'+((r<<16)|(g<<8)|bl).toString(16).padStart(6,'0');
 }
 // Shared: stair sub-branch path (drawEdges + exportPNG both need the exact
-// same geometry — horizontal stem from parent's side to child's centre line,
+// same geometry - horizontal stem from parent's side to child's centre line,
 // then a vertical attachment stub ending at the child's near edge).
 function stairEdgePath(p, n){
   const pcx=p.x+(p.w||0)/2, pcy=p.y+(p.h||0)/2;
@@ -1441,7 +1450,7 @@ function drawEdges(hidden){
     } else if(layout==='radial'){
       // Spokes. The default bezier attaches to a card's left or right edge,
       // which on a radial map sends a connector for a node directly ABOVE the
-      // centre looping out sideways and back — the single thing that stopped
+      // centre looping out sideways and back - the single thing that stopped
       // it reading as radial. Centre-to-centre is the honest line here: the
       // edge SVG sits beneath the cards, so the overlap is hidden and what
       // remains is a clean spoke.
@@ -1457,7 +1466,7 @@ function drawEdges(hidden){
         const mid=(sy+ty)/2;
         d = `M${sx},${sy} L${sx},${mid} L${tx},${mid} L${tx},${ty}`;
       } else {
-        // Within a card's outline: the classic indented-list elbow — straight
+        // Within a card's outline: the classic indented-list elbow - straight
         // down the parent's left edge, then across to the child. Indentation
         // already carries the hierarchy, so this only needs to confirm it.
         const sx=p.x+12, sy=p.y+(p.h||0);
@@ -1494,7 +1503,7 @@ function drawEdges(hidden){
       d = edgePath(x1,y1,x2,y2,leftSide,horizontal,style);
     }
     // Stroke settings per style: colour (null → CSS var), width (null → CSS
-    // var), dash (null → solid). Dashed dashes, Minimal thins — the rest keep
+    // var), dash (null → solid). Dashed dashes, Minimal thins - the rest keep
     // the themed CSS defaults, so the merged single path below stays identical
     // to the old one-element output for those styles. The style config feeds
     // the dashes here; width and colour ride the --edge-width/--edge-color
@@ -1536,7 +1545,7 @@ function drawEdges(hidden){
     (linkPath ? `<path d="${linkPath}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="2 6" stroke-linecap="round" opacity="0.85"/>` : '');
 }
 // Build <path> elements from merged edge segments (Map key → path data).
-// Pure so tests can pin the stroke/width/dash fallbacks — the 'null' string
+// Pure so tests can pin the stroke/width/dash fallbacks - the 'null' string
 // case is exactly the kind of thing that reads fine in code and then renders
 // as invisible edges (SVG ignores stroke="null", defaulting to none).
 function edgePathsHTML(merged){
@@ -1610,7 +1619,7 @@ function withChildIndex(fn){
 const childrenOf=id => _ci
   ? (_ci[id] ? _ci[id].slice() : EMPTY_KIDS)
   : Object.values(map.nodes).filter(n=>n.parent===id).map(n=>n.id);
-// Zebra depth map — BFS from the root so level parity is stable even though
+// Zebra depth map - BFS from the root so level parity is stable even though
 // render() iterates map.nodes in arbitrary (insertion) order. Depth 0 = root;
 // depths >= 1 feed the alternating tint in styles.css ([data-depth] rules).
 function zebraDepth(){
@@ -1630,7 +1639,7 @@ function countDesc(id){let c=0;const walk=i=>childrenOf(i).forEach(k=>{c++;walk(
 // One O(n) post-order pass computing, for every node: descendant count (desc),
 // and task done/total among descendants (tdone/ttot). render() uses these instead
 // of calling countDesc()/taskProgress() per node, which were each O(subtree) and
-// made a full render O(n²) — the real cost when expanding a large map.
+// made a full render O(n²) - the real cost when expanding a large map.
 function computeRollups(){
   const desc=Object.create(null), tdone=Object.create(null), ttot=Object.create(null);
   const order=[]; const stack=[map.rootId];
@@ -1663,7 +1672,7 @@ function hiddenSet(){
 }
 
 /* ============================================================
-   LAYOUT — tidy tree, supports balanced / right / down
+   LAYOUT - tidy tree, supports balanced / right / down
    ============================================================ */
 const HGAP=70, VGAP=22, DOWN_HGAP=38, DOWN_VGAP=70;
 
@@ -1671,7 +1680,7 @@ const HGAP=70, VGAP=22, DOWN_HGAP=38, DOWN_VGAP=70;
 // Nudge overlapping nodes apart with minimum displacement, moving whole
 // subtrees so branch structure stays intact. The `anchorId` subtree is held
 // fixed (the node just added / moved); everything overlapping it is pushed away.
-// Preserves manual arrangement — only acts where boxes actually collide.
+// Preserves manual arrangement - only acts where boxes actually collide.
 function _nbox(id){ const n=map.nodes[id]; return {x:n.x, y:n.y, w:n.w||120, h:n.h||40}; }
 function _overlap(a,b,gap){
   return a.x < b.x+b.w+gap && a.x+a.w+gap > b.x && a.y < b.y+b.h+gap && a.y+a.h+gap > b.y;
@@ -1755,7 +1764,7 @@ function resolveOverlaps(anchorId){
 
 // After a node has been resized, push any siblings whose subtree-bounds now
 // overlap the resized node (or each other) just enough to restore the default
-// gap. We move whole subtrees (children follow), and only nudge — we don't do
+// gap. We move whole subtrees (children follow), and only nudge - we don't do
 // a full relayout, so the user's manual arrangement is preserved.
 function resolveResizeCollisions(resizedId){
   if(!map || !map.nodes[resizedId]) return;
@@ -1770,7 +1779,7 @@ function resolveResizeCollisions(resizedId){
     const n = map.nodes[id];
     return { x: n.x, y: n.y, w: n.w||120, h: n.h||40 };
   };
-  // Helper: bounding box of a whole subtree (for cleaner collision avoidance —
+  // Helper: bounding box of a whole subtree (for cleaner collision avoidance -
   // a node + its descendants behave as one block).
   const subtreeBox = id => {
     const ids = [id]; const collect = i => { childrenOf(i).forEach(c => { ids.push(c); collect(c); }); };
@@ -1791,7 +1800,7 @@ function resolveResizeCollisions(resizedId){
     childrenOf(id).forEach(c => shift(c, dx, dy));
   };
 
-  // Only consider siblings on the same side of the parent — those are the
+  // Only consider siblings on the same side of the parent - those are the
   // ones that are stacked next to the resized node in the layout direction.
   const siblings = childrenOf(r.parent).filter(c => c !== resizedId && map.nodes[c].side === r.side);
   if(!siblings.length) return;
@@ -1831,7 +1840,7 @@ function resolveResizeCollisions(resizedId){
     const newSB = subtreeBox(s);
     prevEnd = vertical ? (newSB.x + newSB.w) : (newSB.y + newSB.h);
   });
-  // "Before" pass: mirror image — push earlier siblings backwards if they
+  // "Before" pass: mirror image - push earlier siblings backwards if they
   // would overlap with the resized node now (because it grew upward/leftward).
   let prevStart = vertical ? rb.x : rb.y;
   before.forEach(s => {
@@ -1856,7 +1865,7 @@ function resolveResizeCollisions(resizedId){
 function balanceRootSides(){
   if(!map) return;
   // The "balanced" layout is the natural first-load arrangement: split the root
-  // branches, in their existing top-to-bottom order, into two contiguous halves —
+  // branches, in their existing top-to-bottom order, into two contiguous halves -
   // first half on the right, second half on the left. Matches how a fresh/imported
   // map is balanced and keeps branch order rather than reshuffling by weight.
   const kids=childrenOf(map.rootId);
@@ -1894,7 +1903,7 @@ function flipAnimateNodes(before){
 
    Deliberately DATA, never code. A layout config arrives on a stranger's
    machine whenever they open a #view= link, so anything executable here
-   would be a code-execution channel into shared maps — the opposite of the
+   would be a code-execution channel into shared maps - the opposite of the
    care taken in sanitizeInlineHTML(). Numbers get clamped, unknown keys are
    dropped, and a malformed config falls back to defaults rather than
    throwing: a bad config should never make a map unopenable.
@@ -1918,7 +1927,7 @@ const LAYOUT_CONFIG_DEFAULTS = {
     start: 'above',     // which side the first main topic's sub-topics take
   },
   stair: {
-    gap: 45,            // vertical gap between consecutive steps — slight decrease for tighter sibling spine (Supervised ↔ Unsupervised)
+    gap: 45,            // vertical gap between consecutive steps - slight decrease for tighter sibling spine (Supervised ↔ Unsupervised)
     stem: 24,           // clearance between the spine and a sub-topic block
     indent: 42,         // sub-topic inset from its step's top edge (h/2 + 22px gap between the horizontal branch and the child's top edge)
     alternate: true,    // alternate sub-topics left/right per step (like timeline)
@@ -1974,14 +1983,14 @@ function validateLayoutConfig(raw){
   }
   return out;
 }
-// The knobs that actually apply to one engine — what the settings dialog shows.
+// The knobs that actually apply to one engine - what the settings dialog shows.
 function layoutConfigFor(engine, raw){
   const all = validateLayoutConfig(raw);
   return all[engine] ? { [engine]: all[engine] } : {};
 }
 
 /* ------------------------------------------------------------
-   Chain placement — root children strung along an axis, subtrees hanging off.
+   Chain placement - root children strung along an axis, subtrees hanging off.
 
    The timeline is one instance of this: root at the left, main topics chained
    rightward on a centre line, sub-trees alternating above and below. The same
@@ -2096,7 +2105,7 @@ function layoutChain(nodes, rootId, kidsOf, opts){
                      : (getCross(item) + crossSize(item) + stem);
       kids.forEach(c => {
         // How far this rib sits from the spine, and therefore how far it slides
-        // back along it — which is what turns a square branch into a diagonal.
+        // back along it - which is what turns a square branch into a diagonal.
         const off = Math.abs(cross - getCross(item));
         const slide = slant ? off * slant * dir : 0;
         const base = dir > 0 ? getMain(item) + indent
@@ -2111,7 +2120,7 @@ function layoutChain(nodes, rootId, kidsOf, opts){
 }
 
 /* ------------------------------------------------------------
-   Radial placement — root at the centre, descendants on rings.
+   Radial placement - root at the centre, descendants on rings.
 
    Each subtree owns an angular wedge sized by how many leaves it contains, so
    a bushy branch gets more of the circle than a sparse one and siblings never
@@ -2180,7 +2189,7 @@ function layoutRadial(nodes, rootId, kidsOf, opts){
         if(nr > r[depth]){ r[depth] = nr; changed = true; }
       }
       // Radial clearance: a card may not sit so close to the centre that it
-      // covers its parent — with the root as parent, that is the centre.
+      // covers its parent - with the root as parent, that is the centre.
       let step = r[depth - 1];
       levels[depth].forEach(id => {
         const p = nodes[parentOf[id]];
@@ -2216,12 +2225,12 @@ function layoutRadial(nodes, rootId, kidsOf, opts){
 }
 
 /* ------------------------------------------------------------
-   Matrix placement — root children as columns, their children as aligned rows.
+   Matrix placement - root children as columns, their children as aligned rows.
 
    Looks like the grid at a glance, but the defining property is different:
    row N means the same thing in every column, so rows share a height and line
    up horizontally. That alignment is what makes a matrix readable as a table,
-   and it is why this cannot be the grid with different numbers — the grid
+   and it is why this cannot be the grid with different numbers - the grid
    sizes each column independently.
 
    Anything below the second level is stacked inside its cell.
@@ -2233,7 +2242,7 @@ function layoutMatrix(nodes, rootId, kidsOf, opts){
   const headGap = opts.headGap != null ? opts.headGap : 60;   // root to the header row
 
   const cols = kidsOf(rootId);
-  // Everything under a cell, flattened — the matrix aligns rows, so a deep
+  // Everything under a cell, flattened - the matrix aligns rows, so a deep
   // branch stacks within its cell rather than spawning new columns.
   const stackOf = (id, out) => {
     out.push(id);
@@ -2246,7 +2255,7 @@ function layoutMatrix(nodes, rootId, kidsOf, opts){
   const grid = cols.map(cellsFor);
   const rowCount = grid.reduce((m, cells) => Math.max(m, cells.length), 0);
 
-  // Uniform column widths and — the point of a matrix — uniform row heights.
+  // Uniform column widths and - the point of a matrix - uniform row heights.
   const colW = cols.map((colId, c) => {
     let w = nodes[colId].w || 120;
     grid[c].forEach(stack => stack.forEach(id => { w = Math.max(w, nodes[id].w || 120); }));
@@ -2295,7 +2304,7 @@ function layoutMatrix(nodes, rootId, kidsOf, opts){
 }
 
 /* ------------------------------------------------------------
-   Grid placement — root children as cards in a grid, each with its
+   Grid placement - root children as cards in a grid, each with its
    sub-tree as an indented outline beneath it.
 
    Useful when the root's children are peers to be compared rather than a
@@ -2373,7 +2382,7 @@ function layoutGrid(nodes, rootId, kidsOf, opts){
 
 // Named chain layouts, in the same spirit as TREE_LAYOUTS: the timeline is one
 // set of parameters, not a special case. Verified against positions captured
-// from the previous hand-written layoutTimeline — identical output for every
+// from the previous hand-written layoutTimeline - identical output for every
 // shape and config in test/fixtures/chain-layout-golden.json.
 const CHAIN_LAYOUTS = {
   timeline: { axis:'x', dir: 1 },
@@ -2388,7 +2397,7 @@ function chainLayoutOpts(name, cfg, hGap, vGap){
 }
 
 /* ------------------------------------------------------------
-   Tree placement — one engine behind balanced / right / left / down.
+   Tree placement - one engine behind balanced / right / left / down.
 
    Those four are not four algorithms. They are the same recursive procedure
    with three parameters: which axis subtrees grow along, which direction, and
@@ -2484,7 +2493,7 @@ function layoutTree(nodes, rootId, kidsOf, opts){
 // every shape/layout combination in test/fixtures/tree-layout-golden.json.
 //
 // Note the gap swap on the vertical axis: with subtrees growing downward, hGap
-// separates SIBLINGS (cross axis) and vGap separates GENERATIONS (main axis) —
+// separates SIBLINGS (cross axis) and vGap separates GENERATIONS (main axis) -
 // the reverse of the horizontal layouts. Getting this backwards is the one
 // mistake this table exists to prevent.
 const TREE_LAYOUTS = {
@@ -2505,16 +2514,16 @@ function treeLayoutOpts(name, hGap, vGap){
 function autoLayout(noRender){
   if(!map) return;
   const _prevCI=_ci; _ci=buildChildIndex();   // O(1) childrenOf for the whole layout
-  // Snapshot current positions before anything below moves them — used to FLIP-animate
+  // Snapshot current positions before anything below moves them - used to FLIP-animate
   // into the new layout once it's rendered (see flipAnimateNodes), so "tidy layout" and
   // "collapse/expand all" ease into place instead of jumping. render() clears and rebuilds
-  // node DOM elements from scratch, so a plain CSS left/top transition can't apply here —
+  // node DOM elements from scratch, so a plain CSS left/top transition can't apply here -
   // this replays the movement manually via a transform on the fresh elements instead.
   const _beforePos={}; for(const id in map.nodes){ const n=map.nodes[id]; _beforePos[id]={x:n.x,y:n.y}; }
   try{
   // Render-to-measure only if some visible node has no measured size yet (e.g.
   // it was just revealed by expanding). This avoids a full extra render on every
-  // collapse/expand — the single biggest cost when expanding a large branch.
+  // collapse/expand - the single biggest cost when expanding a large branch.
   const _hid=hiddenSet(); let _needMeasure=false;
   for(const id in map.nodes){ if(!_hid.has(id) && !(map.nodes[id].w>0)){ _needMeasure=true; break; } }
   if(!noRender && _needMeasure) render();
@@ -2577,7 +2586,7 @@ function relayoutDuringEdit(id){
   const sz=view.k*_uiZ();
   const r=el.getBoundingClientRect();
   n.w=r.width/sz; n.h=r.height/sz;
-  autoLayout(true);   // positions only — no DOM rebuild
+  autoLayout(true);   // positions only - no DOM rebuild
   paintPositions();   // shift existing elements + redraw edges
 }
 
@@ -2588,8 +2597,8 @@ function relayoutDuringEdit(id){
 let mdMode=false, _mdSyncing=false, _mdTimer=0, _mdLines=[], _mdSelSync=false, _mdActiveLine=0, mdPreview=false, mdWrap=false, _mdLH=20, _mdPT=12;
 // ---- Fold-aware text model ----
 // `_mdFullText` is the ALWAYS-COMPLETE markdown (source of truth for parsing back into
-// the map). `ed.value` only ever holds the *visible* subset of its lines — whatever's
-// left after removing any folded ranges — and `_mdView` is the mapping between the two.
+// the map). `ed.value` only ever holds the *visible* subset of its lines - whatever's
+// left after removing any folded ranges - and `_mdView` is the mapping between the two.
 // Folds are stored as a Set of _mdFullText line indices (the anchor/parent line of each
 // folded range); indices are kept in sync across edits in mdCommitVisibleEdit().
 let _mdFullText='', _mdFolds=new Set(), _mdView=null, _mdPrevVisible='';
@@ -2605,7 +2614,7 @@ function ensureMdPane(){
   const app=document.querySelector('.app'), stage=document.querySelector('.stage'); if(!app||!stage) return;
   const pane=document.createElement('div'); pane.id='mdPane';
   pane.innerHTML='<div class="md-head"><span class="md-ttl">Markdown</span><span class="md-pos"></span><button class="md-pdf-btn" title="Download the rendered preview as a PDF">Download PDF</button><button class="md-wrap-btn" title="Toggle word wrap">Wrap</button><button class="md-prev-btn" title="Toggle rendered preview">Preview</button><button class="md-close" title="Exit Markdown mode (Esc)">\u2715</button></div>'
-    +'<div class="md-toolbar"><button data-fmt="bold" title="Bold"><b>B</b></button><button data-fmt="italic" title="Italic"><i>I</i></button><button data-fmt="strike" title="Strikethrough"><s>S</s></button><button data-fmt="code" title="Inline code">&lt;/&gt;</button><span class="md-sep"></span><button data-fmt="h1" title="Heading 1">H1</button><button data-fmt="h2" title="Heading 2">H2</button><button data-fmt="h3" title="Heading 3">H3</button><span class="md-sep"></span><button data-fmt="quote" title="Blockquote">\u275D</button><button data-fmt="ul" title="Bullet list">\u2022</button><button data-fmt="ol" title="Numbered list">1.</button><button data-fmt="hr" title="Divider">\u2014</button><span class="md-sep"></span><button data-fmt="link" title="Link">\uD83D\uDD17</button><button data-fmt="image" title="Image">\uD83D\uDDBC</button><button data-fmt="codeblock" title="Code block">\u2317</button><button data-fmt="table" title="Table">\u25A6</button></div><div class="md-body"><div class="md-gutter" aria-hidden="true"><div class="md-gutter-inner"></div></div><div class="md-code"><pre class="md-hl" aria-hidden="true"><div class="md-hl-inner"></div></pre>'
+    +'<div class="md-toolbar"><button data-fmt="bold" title="Bold"><b>B</b></button><button data-fmt="italic" title="Italic"><i>I</i></button><button data-fmt="strike" title="Strikethrough"><s>S</s></button><button data-fmt="code" title="Inline code">&lt;/&gt;</button><span class="md-sep"></span><button data-fmt="h1" title="Heading 1">H1</button><button data-fmt="h2" title="Heading 2">H2</button><button data-fmt="h3" title="Heading 3">H3</button><span class="md-sep"></span><button data-fmt="quote" title="Blockquote">\u275D</button><button data-fmt="ul" title="Bullet list">\u2022</button><button data-fmt="ol" title="Numbered list">1.</button><button data-fmt="hr" title="Divider">-</button><span class="md-sep"></span><button data-fmt="link" title="Link">\uD83D\uDD17</button><button data-fmt="image" title="Image">\uD83D\uDDBC</button><button data-fmt="codeblock" title="Code block">\u2317</button><button data-fmt="table" title="Table">\u25A6</button></div><div class="md-body"><div class="md-gutter" aria-hidden="true"><div class="md-gutter-inner"></div></div><div class="md-code"><pre class="md-hl" aria-hidden="true"><div class="md-hl-inner"></div></pre>'
     +'<textarea id="mdEditor" spellcheck="false" wrap="off" placeholder="# Central idea&#10;- a branch&#10;  - a leaf"></textarea><div class="md-prev" aria-hidden="true"></div></div></div>'
     +'<div class="md-resize" title="Drag to resize"></div>';
   app.insertBefore(pane, stage);
@@ -2634,13 +2643,13 @@ function ensureMdPane(){
   const syncNodeFromCaret=()=>{ if(_mdSelSync) return; const vline=ed.value.slice(0,ed.selectionStart).split('\n').length-1; const line=_mdView?_mdView.visLineToFull[vline]:vline; let id=null; for(let l=line;l>=0;l--){ if(_mdLines[l]){ id=_mdLines[l]; break; } } if(id && map.nodes[id]){ _mdSelSync=true; select(id); _mdSelSync=false; } };
   // Full decoration refresh (not just mdUpdateActive) on click: guarantees the gutter and
   // overlay rows are freshly rebuilt from the textarea's *current* value before we mark the
-  // active one, and re-syncs scroll — so a click can never land against a stale row or a
+  // active one, and re-syncs scroll - so a click can never land against a stale row or a
   // scroll position the browser has since adjusted (e.g. when the click also brings a
   // previously-partial row fully into view).
   ed.addEventListener('click', ()=>{ mdRefreshDecorations(); syncNodeFromCaret(); requestAnimationFrame(()=>mdRefreshDecorations()); });
   document.addEventListener('selectionchange', ()=>{ if(mdMode && document.activeElement===document.getElementById('mdEditor')) mdUpdateActive(); });
   ed.addEventListener('keyup', e=>{ mdUpdateActive(); if(e.key && e.key.indexOf('Arrow')===0) syncNodeFromCaret(); });
-  // Fold toggles live in the gutter (one per foldable line) — the only place that can
+  // Fold toggles live in the gutter (one per foldable line) - the only place that can
   // receive clicks, since the overlay sits *underneath* the invisible-but-interactive
   // textarea and would never see a pointer event even with pointer-events:auto on a child.
   pane.querySelector('.md-gutter').addEventListener('mousedown', e=>{
@@ -2651,12 +2660,12 @@ function ensureMdPane(){
   rz.addEventListener('mousedown',e=>{ document.body.classList.add('md-resizing');
     e.preventDefault(); const x0=e.clientX, w0=pane.getBoundingClientRect().width, z=_uiZ();
     // w0 and (ev.clientX-x0) are both raw/visual px (getBoundingClientRect() and mouse
-    // coordinates agree with each other, but scale with the UI-level display size) — the
+    // coordinates agree with each other, but scale with the UI-level display size) - the
     // CSS var they feed is read as logical px, so the whole sum needs the same /z
     // correction _stageSize()/_stagePoint() already apply, or the pane resizes at the
     // wrong rate relative to the mouse at any non-100% Display Size.
     // Dock and Minimal have the pane on the right side (stage left, pane right) with the
-    // handle on the left edge, so dragging left should grow the pane — invert delta.
+    // handle on the left edge, so dragging left should grow the pane - invert delta.
     // Generic check: if pane is to the right of stage, invert.
     const isRight = pane.getBoundingClientRect().left > (document.querySelector('.stage')?.getBoundingClientRect().left ?? 0);
     const mv=ev=>{ const delta = isRight ? (x0 - ev.clientX) : (ev.clientX - x0); const w=Math.max(240, Math.min(window.innerWidth*0.72, (w0+delta)/z)); app.style.setProperty('--md-w', w+'px'); };
@@ -2672,7 +2681,7 @@ function syncTextFromMap(){
   try{ _mdFullText=buildMarkdown(undefined,{rich:true,meta:true,lineMap:newLines}); }catch(e){ _mdFullText=''; }
   _mdSyncing=false;
   _mdLines=newLines;
-  // Carry folds over by node identity — a section folded before a canvas-side style
+  // Carry folds over by node identity - a section folded before a canvas-side style
   // change (or any other resync) stays folded at that node's new line, instead of
   // silently popping back open on every edit.
   if(oldFolds.size){
@@ -2682,7 +2691,7 @@ function syncTextFromMap(){
     for(const oldLine of oldFolds){
       const id=oldLines[oldLine];
       if(id==null){
-        // Not a node line — the mindspark meta comment (anchor line 0) is the one
+        // Not a node line - the mindspark meta comment (anchor line 0) is the one
         // expected case: it's always the very first line whenever present, so its own
         // fold carries straight across without a node-identity lookup.
         if(oldLine===0 && /^\uFEFF?\s*<!--\s*mindspark\b/i.test((_mdFullText.split('\n')[0])||'')) nextFolds.add(0);
@@ -2712,8 +2721,8 @@ function mdHighlightNode(id){   // node -> select + scroll its line in the edito
   ed.scrollLeft=0;                                       // don't jump horizontally on open
   ed.scrollTop=Math.max(0, vline*_mdLH - ed.clientHeight/2);
   mdUpdateActive(); mdSyncScroll();
-  // A browser can apply its own "scroll the caret into view" adjustment asynchronously —
-  // a tick after the selection change above — which would silently reintroduce horizontal
+  // A browser can apply its own "scroll the caret into view" adjustment asynchronously -
+  // a tick after the selection change above - which would silently reintroduce horizontal
   // scroll. Re-assert once more on the next frame to catch that.
   requestAnimationFrame(()=>{ ed.scrollLeft=0; mdSyncScroll(); });
 }
@@ -2750,7 +2759,7 @@ function renderMdList(items, itemFn){
 }
 // Display-only variant of mdInlineToHtml that also renders $...$ / $$...$$ LaTeX to MathML
 // (via the existing dependency-free latexToMathML(), same one the canvas nodes use). Used by
-// mdToHtml() for the Markdown preview and PDF export — NOT by the parser: node text must keep
+// mdToHtml() for the Markdown preview and PDF export - NOT by the parser: node text must keep
 // math as literal $...$ source (see htmlToInlineMd's comment) so it stays editable/round-trips.
 function mdInlineToHtmlWithMath(txt){
   if(!txt || txt.indexOf('$')<0) return mdInlineToHtml(txt);
@@ -2767,7 +2776,7 @@ function mdInlineToHtmlWithMath(txt){
 function mdToHtml(md){
   let frontHtml='';
   // Strip a leading mindspark comment and/or YAML frontmatter block, in whichever order
-  // they appear (loop, not two independent one-shot checks — same reasoning as
+  // they appear (loop, not two independent one-shot checks - same reasoning as
   // parseMarkdownOutline: an anchored check silently stops matching if the other block
   // ends up first, leaking raw "<!-- mindspark" / "---" text into the rendered preview).
   for(let guard=0; guard<4; guard++){
@@ -2910,12 +2919,12 @@ function mdTogglePreview(){
   pane.classList.toggle('md-preview', mdPreview);
   const btn=pane.querySelector('.md-prev-btn'); if(btn){ btn.classList.toggle('on', mdPreview); btn.textContent=mdPreview?'Edit':'Preview'; }
   if(mdPreview) mdRenderPreviewIfActive();
-  else mdRefreshDecorations();   // gutter/highlight were display:none while previewing — re-sync now that they're visible again, rather than trusting whatever was last written while hidden
+  else mdRefreshDecorations();   // gutter/highlight were display:none while previewing - re-sync now that they're visible again, rather than trusting whatever was last written while hidden
 }
 // Word wrap: the textarea and the (invisible-text-bearing) highlight overlay share one
 // CSS rule for white-space (see styles.css), so switching both to pre-wrap at once keeps
-// them pixel-aligned — same font/width/padding, same text, so the browser wraps both
-// identically. The fold-toggle gutter stays visible too — mdRefreshDecorations() (called
+// them pixel-aligned - same font/width/padding, same text, so the browser wraps both
+// identically. The fold-toggle gutter stays visible too - mdRefreshDecorations() (called
 // below) re-syncs each of its row heights to match the now-possibly-wrapped line it labels.
 function mdToggleWrap(){
   mdWrap=!mdWrap;
@@ -2933,7 +2942,7 @@ function mdDownloadPdf(){
   if(!map) return;
   let root=document.getElementById('mdPrintRoot');
   if(!root){ root=document.createElement('div'); root.id='mdPrintRoot'; document.body.appendChild(root); }
-  // No separate title heading here — the root/center node's own text is already the
+  // No separate title heading here - the root/center node's own text is already the
   // document's first H1 (via buildMarkdown -> mdToHtml), so adding map.title on top of
   // that would just duplicate or mismatch it. The center node itself is never touched.
   root.innerHTML=mdToHtml(_mdFullText);   // full text: PDF export isn't affected by folds
@@ -2983,7 +2992,7 @@ function mdLineDepths(text){
     const h=line.match(/^(#{1,6})\s+/);
     if(h){ lastHeadingDepth=h[1].length; subDepth=null; depth[i]=lastHeadingDepth; continue; }
     if(/^\s*>/.test(line)) continue;   // blockquote/notes line: attaches to its owner
-    if(/^\s*<img\b/i.test(line)) continue;   // embedded-image line: attaches to its owner, same as a blockquote — never its own fold level (see mdFoldRange)
+    if(/^\s*<img\b/i.test(line)) continue;   // embedded-image line: attaches to its owner, same as a blockquote - never its own fold level (see mdFoldRange)
     const bullet=line.match(/^(\s*)(?:[-*+]|\d+\.)\s+/);
     if(bullet){ const indent=bullet[1].replace(/\t/g,'  ').length; depth[i]=base()+1+Math.floor(indent/2); continue; }
     if(nextIsBullet(i)){ depth[i]=lastHeadingDepth+1; subDepth=lastHeadingDepth+1; continue; }   // lead-in paragraph above a list
@@ -3002,7 +3011,7 @@ function mdBuildView(){
   const depths=mdLineDepths(_mdFullText);
   const allRanges=new Map();
   for(let i=0;i<depths.length;i++){ if(depths[i]!=null){ const r=mdFoldRange(depths,i); if(r) allRanges.set(i,r); } }
-  // The mindspark meta comment, when present, is always the very first line(s) — it sits
+  // The mindspark meta comment, when present, is always the very first line(s) - it sits
   // outside the document's outline entirely, so its body (the JSON line + closing "-->")
   // can't be found via the depth-based sibling/ancestor search above. Detect its span
   // directly instead, so its opening line gets a fold toggle like any other line would.
@@ -3077,7 +3086,7 @@ function mdHighlight(text, view){
       if(info){
         chip=' <span class="md-fold-chip">\u22EF '+info.count+' line'+(info.count===1?'':'s')+' folded</span>';
         // The lines this fold hides might contain whatever would have closed an
-        // in-progress comment/fence (opened on this line, or already open before it) —
+        // in-progress comment/fence (opened on this line, or already open before it) -
         // scan them via the full text (without rendering them) so that state resolves
         // correctly instead of leaking into the still-visible lines after the fold.
         if(inComment || inFence){
@@ -3090,7 +3099,7 @@ function mdHighlight(text, view){
       }
     }
     // Real block-level rows (not just newline-joined spans) so the active-line highlight
-    // is a plain CSS class on the actual row — always pixel-perfect, in or out of view,
+    // is a plain CSS class on the actual row - always pixel-perfect, in or out of view,
     // with no separate position math to keep in sync while clicking/scrolling.
     parts.push('<div class="hl-line" data-l="'+i+'">'+(html||'')+chip+'</div>');
   }
@@ -3100,13 +3109,13 @@ function mdSyncScroll(){
   const ed=document.getElementById('mdEditor'); if(!ed) return;
   const hl=document.querySelector('#mdPane .md-hl-inner'), gut=document.querySelector('#mdPane .md-gutter-inner');
   // A transform on the INNER wrapper, not `scrollTop` on the outer (clipping) element itself.
-  // Setting `scrollTop` gets silently clamped to that element's OWN scrollHeight — and the
+  // Setting `scrollTop` gets silently clamped to that element's OWN scrollHeight - and the
   // overlay's <div>-per-line rows can end up a pixel or two taller/shorter in total than the
   // textarea's native line rendering (different rendering paths for a <textarea> vs plain
   // block content), so the clamp would kick in once scrolled far enough, making the
-  // highlighted row drift from the real caret row — exactly the "only happens once there's a
+  // highlighted row drift from the real caret row - exactly the "only happens once there's a
   // scrollbar" symptom. A transform has no such ceiling: it always shifts by exactly what the
-  // textarea reports, full stop. (Transforming .md-hl/.md-gutter directly would be wrong too —
+  // textarea reports, full stop. (Transforming .md-hl/.md-gutter directly would be wrong too -
   // that would drag their own overflow:hidden clipping box along with it; the transform has to
   // land on a plain, non-clipping inner element instead.)
   const dx=-ed.scrollLeft, dy=-ed.scrollTop;
@@ -3130,13 +3139,13 @@ function mdRefreshDecorations(){
   const ed=document.getElementById('mdEditor'); if(!ed) return;
   const hl=document.querySelector('#mdPane .md-hl-inner'), gut=document.querySelector('#mdPane .md-gutter-inner'); if(!hl||!gut) return;
   const view=mdBuildView(); _mdView=view;
-  // ed.value is expected to already match this view — mdCommitVisibleEdit's job on every
-  // edit — but mdHighlight(ed.value, view) below counts rows from ed.value.split('\n')
+  // ed.value is expected to already match this view - mdCommitVisibleEdit's job on every
+  // edit - but mdHighlight(ed.value, view) below counts rows from ed.value.split('\n')
   // while mdRenderGutter(view) counts rows from view.visLineToFull; if the two ever drift
   // apart (an edge case in the fold-index-shift math elsewhere), the highlight pane and
   // gutter silently render a different number of rows, with no visible error beyond the
   // misalignment itself. Detect and correct that here rather than trusting the invariant
-  // blindly — only touches ed.value (and the cursor) on the rare mismatch, not on every
+  // blindly - only touches ed.value (and the cursor) on the rare mismatch, not on every
   // refresh, so normal typing is unaffected.
   const expectedVis = mdVisibleText(view);
   if(ed.value !== expectedVis){ ed.value = expectedVis; _mdPrevVisible = expectedVis; }
@@ -3148,13 +3157,13 @@ function mdRefreshDecorations(){
   // A layout shift that settles just after this synchronous pass (a scrollbar
   // appearing now that the content is taller, the pane's own width still
   // transitioning, ...) would leave the row heights just measured baked in as
-  // stale — nothing else would re-check them until an unrelated click happened to
+  // stale - nothing else would re-check them until an unrelated click happened to
   // trigger another full refresh. Re-measure once more next frame to catch that.
   requestAnimationFrame(()=>{ if(document.getElementById('mdEditor')) mdSyncGutterRowHeights(hl, gut); });
 }
 // Each .gl gutter row is normally a fixed 20px (one Markdown line = one visual row). Once
 // word wrap is on, a line can span several visual rows, so its .gl row needs to grow to
-// match — otherwise every row below it drifts further out of alignment with the text it
+// match - otherwise every row below it drifts further out of alignment with the text it
 // labels. Reads every .hl-line's rendered height first and only then writes the matching
 // .gl heights (rather than interleaving read/write per row), so this doesn't force a
 // separate synchronous layout reflow for every single line.
@@ -3164,14 +3173,14 @@ function mdSyncGutterRowHeights(hl, gut){
   gut = gut || document.querySelector('#mdPane .md-gutter-inner');
   if(!hl || !gut) return;
   // Both are display:none while in Preview mode (and offsetParent is null for any hidden
-  // element), so getBoundingClientRect() would measure everything as 0 here — writing that
+  // element), so getBoundingClientRect() would measure everything as 0 here - writing that
   // 0px straight into each row's inline height. Nothing re-measures on the way back to edit
   // mode, so those 0px rows would stay collapsed on top of each other indefinitely. A window
   // resize firing while Preview is open (the pane's own resize listener doesn't check which
   // sub-mode is active) is exactly the kind of thing that triggers this call at the wrong time.
   if(hl.offsetParent===null || gut.offsetParent===null) return;
   const hlRows=hl.querySelectorAll('.hl-line'), glRows=gut.querySelectorAll('.gl');
-  // getBoundingClientRect() returns visual pixels — already scaled by the current
+  // getBoundingClientRect() returns visual pixels - already scaled by the current
   // Display Size zoom. Assigning that raw value into style.height would scale it a
   // SECOND time when the browser renders it (the .gl row lives inside the same
   // zoomed pane), silently shrinking every row height at any zoom below 100% and
@@ -3192,7 +3201,7 @@ function mdCalibrate(){   // derive the textarea's real line-height + padding (u
   // NOTE: deliberately NOT writing this back as hl.style.lineHeight / gut.style.lineHeight.
   // The overlay, gutter, and textarea all share one CSS-declared line-height (20px) already,
   // which keeps every row in the three layers pixel-identical by construction. Overriding it
-  // here with a heuristic measurement (only once content overflows — i.e. exactly when the
+  // here with a heuristic measurement (only once content overflows - i.e. exactly when the
   // editor is scrolled) is what caused the active-line highlight to drift below the real
   // caret row on scrolled text. _mdLH/_mdPT are still used for the scroll-into-view centring
   // math in mdHighlightNode(), which only needs an approximate value.
@@ -3226,7 +3235,7 @@ function mdCommitVisibleEdit(){
     const freshView=mdBuildView(); _mdView=freshView;
     const freshVis=mdVisibleText(freshView);
     ed.value=freshVis; _mdPrevVisible=freshVis;
-    if(changed) toast('Expanded a folded section — try that edit again');
+    if(changed) toast('Expanded a folded section - try that edit again');
     return;
   }
   const newFullLines=newLines.slice(p,newEnd);
@@ -3238,9 +3247,9 @@ function mdCommitVisibleEdit(){
   for(const a of _mdFolds){
     if(a>=fullOldStart && a<fullOldEnd){
       // The anchor's own line was inside the replaced span. If it was a plain in-place
-      // edit (that one line swapped for exactly one new line — by far the common case,
+      // edit (that one line swapped for exactly one new line - by far the common case,
       // e.g. fixing a typo in a folded heading), keep the fold anchored there. Otherwise
-      // the line's identity is gone, so the fold is dropped — which just means its
+      // the line's identity is gone, so the fold is dropped - which just means its
       // content becomes visible again, never that it's lost.
       if(a===fullOldStart && newFullLines.length>0) nextFolds.add(fullOldStart);
       continue;
@@ -3285,7 +3294,7 @@ function toggleMdMode(on){
       // Belt-and-suspenders: a browser can apply its own "scroll the caret into view"
       // adjustment asynchronously (a tick after focus/selection change), which would
       // silently reintroduce horizontal scroll after the synchronous reset above. Re-assert
-      // once more on the next frame to catch that — same defensive pattern as the earlier
+      // once more on the next frame to catch that - same defensive pattern as the earlier
       // click-auto-scroll fix for the active-line highlight.
       requestAnimationFrame(()=>{ ed.scrollLeft=0; mdSyncScroll(); });
     }
@@ -3296,7 +3305,7 @@ function toggleMdMode(on){
     try{ if(mdMode) mdCalibrate(); }catch(e){}
     // The pane's own width transition (220ms, pure CSS) is still running when
     // syncTextFromMap() -> mdRefreshDecorations() measured gutter row heights just
-    // above — at/near width:0, word-wrap makes every line "wrap" into many tiny
+    // above - at/near width:0, word-wrap makes every line "wrap" into many tiny
     // rows, baking wildly wrong heights in as permanent inline styles. Nothing else
     // re-measures once the transition actually finishes, so re-sync once more now
     // that the pane has reached its real width.
@@ -3305,7 +3314,7 @@ function toggleMdMode(on){
 }
 function pushHistory(){
   const snapshot = JSON.stringify({nodes:map.nodes,rootId:map.rootId,title:map.title,color:map.color,links:map.links||[],layout:map.layout,vars:map.vars||{}});
-  if(history.length && hpos>=0 && history[hpos]===snapshot) return;   // nothing actually changed — don't save/flash "Saving…" for no reason
+  if(history.length && hpos>=0 && history[hpos]===snapshot) return;   // nothing actually changed - don't save/flash "Saving…" for no reason
   history=history.slice(0,hpos+1);
   history.push(snapshot);
   if(history.length>50) history.shift();
@@ -3336,7 +3345,7 @@ function addNode(parentId,asSibling){
   pushHistory();
   // Stable auto-layout tidies the tree (the new node is inserted in order and
   // everything stays non-overlapping). Because layout is stable, existing
-  // branches keep their side/order — it tidies, it doesn't reshuffle.
+  // branches keep their side/order - it tidies, it doesn't reshuffle.
   autoLayout();
   select(id,true);
 }
@@ -3349,7 +3358,7 @@ function placeNewNodeNear(id){
   const layout=map.layout||'balanced';
   // Only stack against siblings on the SAME side. Root children can be split
   // left/right, and a left-side node must be placed on the left (so its edge
-  // leaves the root's left edge) rather than next to a right-side sibling —
+  // leaves the root's left edge) rather than next to a right-side sibling -
   // otherwise the connector stretches all the way across the canvas.
   const sibs=childrenOf(n.parent).filter(c=>c!==id && map.nodes[c].side===n.side);
   const nw=n.w||120, nh=n.h||40;
@@ -3382,7 +3391,7 @@ function placeNewNodeNear(id){
       n.y=maxBottom+VGAP;
       n.x=(colX!=null)?colX:(dir>0?parent.x+(parent.w||120)+HGAP:parent.x-nw-HGAP);
     } else {
-      // First node on this side — sit it beside the parent on the matching side
+      // First node on this side - sit it beside the parent on the matching side
       n.x=dir>0?parent.x+(parent.w||120)+HGAP:parent.x-nw-HGAP;
       n.y=parent.y+((parent.h||40)-nh)/2;
     }
@@ -3399,7 +3408,7 @@ function deleteNode(id){
   pushHistory();     // …then snapshot the clean, balanced state
 }
 function select(id,edit){
-  // Toggle .sel class on existing elements rather than re-rendering — so the
+  // Toggle .sel class on existing elements rather than re-rendering - so the
   // DOM element identity is preserved across clicks (required for dblclick).
   document.querySelectorAll('.node.sel').forEach(n=>n.classList.remove('sel'));
   sel=id;
@@ -3414,7 +3423,7 @@ function select(id,edit){
 }
 
 /* ============================================================
-   MULTI-SELECT — shift-click to build a selection set, then
+   MULTI-SELECT - shift-click to build a selection set, then
    bulk delete / recolor / re-parent.
    ============================================================ */
 let multiSel = new Set();
@@ -3595,7 +3604,7 @@ function bulkReparent(targetId){
 }
 
 /* ============================================================
-   CROSS-LINKS — non-tree edges between any two nodes.
+   CROSS-LINKS - non-tree edges between any two nodes.
    Press L on a selected node, then click another to link them.
    ============================================================ */
 let linkMode = false, linkSource = null;
@@ -3603,7 +3612,7 @@ function startLinkMode(sourceId){
   if(!sourceId){ return; }
   linkMode = true; linkSource = sourceId;
   document.querySelector(`.node[data-id="${sourceId}"]`)?.classList.add('link-source');
-  toast('Link mode — click another node (Esc to cancel)');
+  toast('Link mode - click another node (Esc to cancel)');
 }
 function cancelLinkMode(){
   linkMode = false; linkSource = null;
@@ -3634,7 +3643,7 @@ function pruneLinks(removedIds){
 }
 
 /* ============================================================
-   TASK STATE — todo → doing → done, with parent roll-up
+   TASK STATE - todo → doing → done, with parent roll-up
    ============================================================ */
 // Marker palette popup. Anchored to whatever was clicked (nodebar button or
 // the badge itself) so it appears next to the thing the user acted on.
@@ -3648,7 +3657,7 @@ function showMarkerPicker(anchor, id){
       `<button data-v="${m.c}" title="${escapeHtml(m.label)}" class="${m.c===cur?'on':''}">${m.c}</button>`
     ).join('') +
     `<button data-v="" title="Remove marker" class="mk-none">\u2716</button>` +
-    `<button type="button" class="mk-custom" title="Paste any emoji — copy it from Emojipedia or anywhere else">\uFF0B Custom emoji</button>`;
+    `<button type="button" class="mk-custom" title="Paste any emoji - copy it from Emojipedia or anywhere else">\uFF0B Custom emoji</button>`;
   document.body.appendChild(p);
   positionPopup(p, anchor, {align:'left'});
   p.addEventListener('mousedown',ev=>ev.stopPropagation());
@@ -3658,7 +3667,7 @@ function showMarkerPicker(anchor, id){
     p.remove();
   });
   // Custom emoji: swap the grid for a paste row. Any single emoji grapheme is
-  // accepted (ZWJ families, flags, skin tones — the Segmenter counts them as
+  // accepted (ZWJ families, flags, skin tones - the Segmenter counts them as
   // one), so users can copy anything from Emojipedia without us curating it.
   p.querySelector('.mk-custom').onclick=ev=>{
     ev.stopPropagation();
@@ -3730,7 +3739,7 @@ function formatCitation(c){
   if(c.authors) parts.push(c.authors);
   if(c.year) parts.push('('+c.year+')');
   let s=parts.join(' ');
-  // Appends a segment with the right separator — avoids a double period when the
+  // Appends a segment with the right separator - avoids a double period when the
   // preceding segment already ends in sentence punctuation (very common for
   // authors with abbreviated initials, e.g. "Smith, J.").
   const append = seg => { if(!s){ s=seg; return; } s += (/[.!?]$/.test(s) ? ' ' : '. ') + seg; };
@@ -3743,10 +3752,10 @@ function formatCitation(c){
 // point of externalising these constants was that a config can be written,
 // saved and shared as text. Whatever is typed goes through
 // validateLayoutConfig(), so an out-of-range or misspelled value is corrected
-// rather than accepted — and the corrected result is what gets saved, which is
+// rather than accepted - and the corrected result is what gets saved, which is
 // the only way to discover the bounds without separate documentation.
 // Import / manage layout presets. Shows the current map's layout as JSON so a
-// user can copy it, tweak it, and paste it back as a new preset — which is the
+// user can copy it, tweak it, and paste it back as a new preset - which is the
 // realistic way anyone produces one of these.
 function showLayoutImportForm(){
   document.querySelectorAll('.var-form').forEach(p=>p.remove());
@@ -3764,7 +3773,7 @@ function showLayoutImportForm(){
       <button class="vf-close" aria-label="Close">\u00d7</button>
       <h2>Import a layout</h2>
       <div class="vf-hint">A layout picks one of the built-in engines
-        (${LAYOUT_ENGINES.join(', ')}) and tunes it — it cannot define a new
+        (${LAYOUT_ENGINES.join(', ')}) and tunes it - it cannot define a new
         algorithm. Imported layouts are saved on this device; the maps you apply
         them to stay readable for everyone.</div>
       <div class="vf-fields">
@@ -3796,11 +3805,11 @@ function showLayoutImportForm(){
         + 'a "name", and an "engine" that is one of: ' + LAYOUT_ENGINES.join(', ') + '.');
     }
     if(BUILTIN_LAYOUTS.some(b=>b.id===preset.id)){
-      return fail(`"${preset.id}" is a built-in layout name — please choose another id.`);
+      return fail(`"${preset.id}" is a built-in layout name - please choose another id.`);
     }
     const list = loadCustomLayouts().filter(c=>c.id!==preset.id);   // re-importing replaces
     list.push(preset);
-    if(!saveCustomLayouts(list)) return fail('Could not save — this browser\u2019s storage may be full.');
+    if(!saveCustomLayouts(list)) return fail('Could not save - this browser\u2019s storage may be full.');
     close(); toast(`Layout \u201c${preset.name}\u201d imported`);
     try{ $('#themeBtn').click(); }catch(_){}   // reopen so the new entry is visible
   };
@@ -3819,7 +3828,7 @@ function showLayoutImportForm(){
 function showLayoutConfigForm(){
   if(!map || READONLY) return;
   document.querySelectorAll('.var-form').forEach(p=>p.remove());
-  // Only the active engine's knobs — showing timeline's settings while
+  // Only the active engine's knobs - showing timeline's settings while
   // 'balanced' is selected was both confusing and inapplicable.
   const engine = map.layout || 'balanced';
   const current = JSON.stringify(layoutConfigFor(engine, map.layoutConfig), null, 2);
@@ -3828,7 +3837,7 @@ function showLayoutConfigForm(){
     <div class="vf-backdrop"></div>
     <div class="vf-card">
       <button class="vf-close" aria-label="Close">\u00d7</button>
-      <h2>Layout settings \u2014 ${escapeHtml((findLayout(map.layoutPreset||engine)||{name:engine}).name)}</h2>
+      <h2>Layout settings - ${escapeHtml((findLayout(map.layoutPreset||engine)||{name:engine}).name)}</h2>
       <div class="vf-hint">Saved with this map and included in share links. Out-of-range
         values are clamped and unknown keys ignored, so what you get back may differ
         from what you type.</div>
@@ -3875,7 +3884,7 @@ function showLayoutConfigForm(){
 function showStyleConfigForm(){
   if(!map || READONLY) return;
   document.querySelectorAll('.var-form').forEach(p=>p.remove());
-  // Only the active style's knobs — same rule as the layout dialog.
+  // Only the active style's knobs - same rule as the layout dialog.
   const style = map.style || 'modern';
   const current = JSON.stringify(styleConfigFor(style, map.styleConfig), null, 2);
   const m=document.createElement('div'); m.className='var-form';
@@ -3883,7 +3892,7 @@ function showStyleConfigForm(){
     <div class="vf-backdrop"></div>
     <div class="vf-card">
       <button class="vf-close" aria-label="Close">\u00d7</button>
-      <h2>Map style settings \u2014 ${escapeHtml((MAP_STYLES.find(s=>s.id===style)||{name:style}).name)}</h2>
+      <h2>Map style settings - ${escapeHtml((MAP_STYLES.find(s=>s.id===style)||{name:style}).name)}</h2>
       <div class="vf-hint">Saved with this map and included in share links.
         edgeColor is any CSS color ("" = the theme default); cardPad is a
         uniform card padding (0 = the style's own padding); glow only affects
@@ -3908,7 +3917,7 @@ function showStyleConfigForm(){
   const apply=section=>{
     // Merge, do not replace: only the ACTIVE style's section is shown, so a
     // whole fresh object would silently reset every other style the user had
-    // tuned — exactly the trap the layout dialog guards against.
+    // tuned - exactly the trap the layout dialog guards against.
     map.styleConfig = { ...(map.styleConfig || {}), ...section };
     // render() re-applies the CSS vars; autoLayout() re-tidies because a
     // cardPad/radius change can resize cards and shift neighbours.
@@ -3931,7 +3940,7 @@ function showStyleConfigForm(){
 function showLookConfigForm(){
   if(!map || READONLY) return;
   document.querySelectorAll('.var-form').forEach(p=>p.remove());
-  // Only the active look's knobs — same rule as the style and layout dialogs.
+  // Only the active look's knobs - same rule as the style and layout dialogs.
   const look = document.documentElement.getAttribute('data-look') || 'office';
   const current = JSON.stringify(lookConfigFor(look, map.lookConfig), null, 2);
   const m=document.createElement('div'); m.className='var-form';
@@ -3939,11 +3948,11 @@ function showLookConfigForm(){
     <div class="vf-backdrop"></div>
     <div class="vf-card">
       <button class="vf-close" aria-label="Close">\u00d7</button>
-      <h2>Look settings \u2014 ${escapeHtml(((LOOKS.find(l=>l.id===look)||{name:look}).name).replace(/<br\s*\/?>/gi, ' '))}</h2>
+      <h2>Look settings - ${escapeHtml(((LOOKS.find(l=>l.id===look)||{name:look}).name).replace(/<br\s*\/?>/gi, ' '))}</h2>
       <div class="vf-hint">Saved with this map and included in share links. font is
         any CSS font family ("" keeps the look's own default font); nodeSize
         scales the node text (1 = the look's own size); radius rounds the
-        chrome — popups, pickers, minimap, modals (equal to the look's default
+        chrome - popups, pickers, minimap, modals (equal to the look's default
         keeps the look's own asymmetric corners). Out-of-range values are
         clamped and unknown keys ignored, so what you get back may differ from
         what you type.</div>
@@ -3965,7 +3974,7 @@ function showLookConfigForm(){
   const apply=section=>{
     // Merge, do not replace: only the ACTIVE look's section is shown, so a
     // whole fresh object would silently reset every other look the user had
-    // tuned — exactly the trap the style dialog guards against.
+    // tuned - exactly the trap the style dialog guards against.
     map.lookConfig = { ...(map.lookConfig || {}), ...section };
     pushHistory(); render(); autoLayout();
     try{ scheduleSave(); }catch(e){ console.warn('saving look settings failed:', e.message); }
@@ -3986,21 +3995,23 @@ function showLookConfigForm(){
 function showThemeConfigForm(){
   if(!map || READONLY) return;
   document.querySelectorAll('.var-form').forEach(p=>p.remove());
-  // Only the active theme's knobs — same rule as the other dialogs.
+  // Only the active theme's knobs - same rule as the other dialogs.
   const theme = document.documentElement.getAttribute('data-theme') || 'light';
-  const current = JSON.stringify(themeConfigFor(theme, map.themeConfig), null, 2);
+  const current = spaceForSwatches(JSON.stringify(themeConfigFor(theme, map.themeConfig), null, 2));
   const m=document.createElement('div'); m.className='var-form';
   m.innerHTML=`
     <div class="vf-backdrop"></div>
     <div class="vf-card">
       <button class="vf-close" aria-label="Close">\u00d7</button>
-      <h2>Colour theme settings \u2014 ${escapeHtml(((THEMES.find(t=>t.id===theme)||{name:theme}).name).replace(/<br\s*\/?>/gi, ' '))}</h2>
+      <h2>Colour theme settings - ${escapeHtml(((THEMES.find(t=>t.id===theme)||{name:theme}).name).replace(/<br\s*\/?>/gi, ' '))}</h2>
       <div class="vf-hint">Saved with this map and included in share links. Each
         key is any CSS colour: paper (canvas background), ink (text), accent
         (highlights), nodeBg (cards), line (borders), glow (the stage wash).
         Typing "" keeps the theme's own colour; everything else in the theme's
         palette is untouched. Values are capped at 40 characters and unknown
-        keys ignored, so what you get back may differ from what you type.</div>
+        keys ignored, so what you get back may differ from what you type.
+        Click the square beside a colour to pick one; the map behind this card
+        follows the drag, and nothing is kept until you hit Apply.</div>
       <div class="vf-fields">
         <textarea class="vf-input vf-json" rows="14" spellcheck="false">${escapeHtml(current)}</textarea>
       </div>
@@ -4014,15 +4025,25 @@ function showThemeConfigForm(){
   document.body.appendChild(m);
   m.addEventListener('mousedown',e=>e.stopPropagation());
   const ta=m.querySelector('.vf-json'), err=m.querySelector('.vf-err');
+  let previewed = false;
+  attachColorSwatches(ta, text=>{ previewed = true; previewThemeConfig(theme, text); });
   ta.focus();
-  const close=()=>m.remove();
+  // applyThemeConfigVars() undoes whatever the picker previewed onto :root. It
+  // reads map.themeConfig, so it is right on both paths: cancel restores the
+  // saved colours, apply has already written the new ones. The render is for the
+  // node colours that are computed in JS rather than read from a variable.
+  const close=()=>{
+    closeColorPicker(); m.remove(); applyThemeConfigVars();
+    if(previewed && map) render();
+  };
   const apply=section=>{
     // Merge, do not replace: only the ACTIVE theme's section is shown, so a
     // whole fresh object would silently reset every other theme the user had
-    // tuned — exactly the trap the style dialog guards against.
+    // tuned - exactly the trap the style dialog guards against.
     map.themeConfig = { ...(map.themeConfig || {}), ...section };
     pushHistory(); render(); autoLayout();
     try{ scheduleSave(); }catch(e){ console.warn('saving theme settings failed:', e.message); }
+    previewed = false;   // the render above already settled it, close() need not repeat it
     close(); toast('Colour theme settings saved');
   };
   m.querySelector('.vf-go').onclick=()=>{
@@ -4092,7 +4113,7 @@ function showCitationForm(id){
       if(source) setField('source',source);
       setField('doi', msg.DOI ? 'https://doi.org/'+msg.DOI : doi);
       toast('Citation autofilled');
-    }catch(e){ toast('DOI lookup failed — check the DOI or fill manually'); }
+    }catch(e){ toast('DOI lookup failed - check the DOI or fill manually'); }
     finally{ doiGo.disabled=false; doiGo.textContent=old; }
   };
   doiGo.onclick=fetchDoi;
@@ -4114,7 +4135,7 @@ function showCitationForm(id){
 function exportReferences(){
   if(!map) return;
   const refs=Object.values(map.nodes).filter(n=>n.ref).map(n=>formatCitation(n.citation)||nodeTextPlain(n.text));
-  if(!refs.length){ toast('No reference nodes yet — mark a node with 📖'); return; }
+  if(!refs.length){ toast('No reference nodes yet - mark a node with 📖'); return; }
   refs.sort((a,b)=>a.localeCompare(b));
   const text='References\n\n'+refs.map((r,i)=>`[${i+1}] ${r}`).join('\n')+'\n';
   if(navigator.clipboard?.writeText){
@@ -4124,7 +4145,7 @@ function exportReferences(){
 }
 
 /* ============================================================
-   IMAGE ATTACHMENTS — stored as down-scaled data-URLs on the node
+   IMAGE ATTACHMENTS - stored as down-scaled data-URLs on the node
    ============================================================ */
 function attachImageToNode(id){
   const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
@@ -4147,11 +4168,11 @@ function readImageFile(file,id){
       try{ data=cv.toDataURL('image/jpeg',0.82); }catch(e){ data=reader.result; }
       map.nodes[id].image=data;
       // autoLayout(), not just render(): the node grows to fit the image, and
-      // its neighbours' positions were computed for the old, smaller size —
+      // its neighbours' positions were computed for the old, smaller size -
       // without a re-tidy the enlarged node overlaps them.
       pushHistory(); render(); autoLayout();
       const kb=Math.round(data.length/1024);
-      toast(`Image attached (~${kb} KB)`+(kb>500 && MODE==='cloud'?' — large images slow cloud sync':''));
+      toast(`Image attached (~${kb} KB)`+(kb>500 && MODE==='cloud'?' - large images slow cloud sync':''));
     };
     img.onerror=()=>toast('Could not read image');
     img.src=reader.result;
@@ -4168,7 +4189,7 @@ function readImageFile(file,id){
 
    Note these use the HTML5 drag events (dragover/drop), which are a
    completely separate channel from the mousedown/mousemove dragging
-   used to reparent nodes — so file drops and node dragging cannot
+   used to reparent nodes - so file drops and node dragging cannot
    interfere with each other.
    ------------------------------------------------------------ */
 
@@ -4208,7 +4229,7 @@ function setFileDropTarget(el){
 
 if(stage){
   stage.addEventListener('dragover', e => {
-    // Only claim the event for actual file drags — otherwise a text
+    // Only claim the event for actual file drags - otherwise a text
     // selection drag would be hijacked too.
     if(READONLY || !e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
     e.preventDefault();
@@ -4246,11 +4267,11 @@ if(stage){
 window.addEventListener('paste', e => {
   if(READONLY) return;
   const file = firstImageFile(e.clipboardData);
-  if(!file) return;                       // ordinary text paste — leave it alone
+  if(!file) return;                       // ordinary text paste - leave it alone
 
   // If a node is mid-edit, commit that edit BEFORE attaching the image.
   // startEdit() represents an existing image as ![alt](src) markdown inside
-  // the editable text, and finish() parses it back out on commit — including
+  // the editable text, and finish() parses it back out on commit - including
   // a branch that DELETES n.image when the text contains no such markdown.
   // Setting n.image directly during an edit produces exactly that state, so
   // the image was being wiped the moment focus left the node. Committing
@@ -4525,7 +4546,7 @@ function updateFormulaAutocomplete(textEl, nodeId){
   positionPopup(_formulaAC.el, textEl);
 }
 // Called first from the editing keydown handler; returns true if it handled the key
-// (so the caller should stop — e.g. Enter selects a suggestion instead of finishing the edit).
+// (so the caller should stop - e.g. Enter selects a suggestion instead of finishing the edit).
 function formulaAutocompleteKeydown(e){
   if(!_formulaAC) return false;
   if(e.key==='ArrowDown'){ e.preventDefault(); _formulaAC.activeIndex=Math.min(_formulaAC.matches.length-1, _formulaAC.activeIndex+1); _renderFormulaAcActive(); return true; }
@@ -4552,7 +4573,7 @@ function startEdit(id){
   }
   el.classList.add('editing');
   textEl.contentEditable='true';
-  // Keep the format toolbar visible — it's what makes inline B/I/U work
+  // Keep the format toolbar visible - it's what makes inline B/I/U work
   textEl.focus();
   // select all text so typing replaces it
   const range=document.createRange(); range.selectNodeContents(textEl);
@@ -4582,7 +4603,7 @@ function startEdit(id){
       if(newText && newText !== 'Untitled') newText = newText.replace(/&amp;(#\d+;|#x[0-9a-fA-F]+;|[a-zA-Z][a-zA-Z0-9]*;)/g, '&$1');
       map.nodes[id].text = newText;
       map.nodes[id].updated = Date.now();
-      // Title sync — for the root and only when user hasn't renamed the map manually
+      // Title sync - for the root and only when user hasn't renamed the map manually
       if(id===map.rootId && map.titleAuto===true){
         // Strip tags for the title
         const titleText = newText.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim() || 'Untitled';
@@ -4596,7 +4617,7 @@ function startEdit(id){
       pushHistory();
     }
     // Tidy the branch so the (grown/shrunk) node and its siblings stay neatly
-    // laid out after editing — mirrors GitMind, which keeps the map tidy both
+    // laid out after editing - mirrors GitMind, which keeps the map tidy both
     // during and after typing. autoLayout() re-renders internally.
     if(_editRAF){ cancelAnimationFrame(_editRAF); _editRAF=0; }
     autoLayout();
@@ -4706,9 +4727,9 @@ function positionAndClampNodeBar(bar, n){
   // to keep it a constant on-screen size no matter how far the map is zoomed.
   bar.style.transform=`translateX(-50%) scale(${1/view.k})`;
   if(!stage) return;
-  const z=_uiZ();   // getBoundingClientRect() below scales with the UI-level display size too, not just canvas zoom — same correction _stageSize()/_stagePoint() already apply
+  const z=_uiZ();   // getBoundingClientRect() below scales with the UI-level display size too, not just canvas zoom - same correction _stageSize()/_stagePoint() already apply
   // _prevStageRect is kept fresh by _markStage() at gesture-settle points, not every
-  // frame — the stage's own bounds can't change mid-gesture, so reusing it here saves
+  // frame - the stage's own bounds can't change mid-gesture, so reusing it here saves
   // one of the two forced-reflow getBoundingClientRect() calls this function used to
   // make on every single pan/zoom/drag frame.
   const bounds=(_prevStageRect && _prevStageRect.width>1) ? _prevStageRect : stage.getBoundingClientRect();
@@ -4729,7 +4750,7 @@ function positionAndClampNodeBar(bar, n){
 }
 
 // Cheap alternative to positionNodeBar() for continuous gestures (dragging a node,
-// relayout-while-typing) where the toolbar's CONTENT never changes mid-gesture —
+// relayout-while-typing) where the toolbar's CONTENT never changes mid-gesture -
 // only the node's position does. positionNodeBar() tears the bar down and rebuilds
 // ~20 buttons' worth of innerHTML plus re-attaches a listener on every one of them;
 // doing that on every drag-move frame was the single biggest cost in the whole
@@ -4737,14 +4758,14 @@ function positionAndClampNodeBar(bar, n){
 function repositionNodeBar(){
   const bar=document.getElementById('nodebar');
   if(bar){ if(sel && map && map.nodes[sel]) positionAndClampNodeBar(bar, map.nodes[sel]); }
-  else positionNodeBar();   // no bar yet (shouldn't normally happen mid-gesture) — build it properly
+  else positionNodeBar();   // no bar yet (shouldn't normally happen mid-gesture) - build it properly
 }
 
 function positionNodeBar(){
   $('#nodebar')?.remove();
   if(READONLY) return;            // read-only shared view shows no editing toolbar
   if(activePicker){ activePicker.remove(); activePicker=null; }
-  // When 2+ nodes are multi-selected, the bottom bulk bar takes over — don't
+  // When 2+ nodes are multi-selected, the bottom bulk bar takes over - don't
   // also show the single-node toolbar.
   if(typeof multiSel !== 'undefined' && multiSel.size >= 2) return;
   if(!sel||!map.nodes[sel]) return;
@@ -4818,7 +4839,7 @@ function positionNodeBar(){
     if(ed){
       // Selection-aware list: split the selection on <br>/newlines and turn
       // each line into its own <li>. We can't use the browser's built-in
-      // execCommand here — Chrome/WebKit collapse multi-line selections into
+      // execCommand here - Chrome/WebKit collapse multi-line selections into
       // a single <li>, which isn't what the user wants.
       applyListToSelection(kind);
       if(map.nodes[sel].listType) map.nodes[sel].listType = null;
@@ -4870,7 +4891,7 @@ function positionNodeBar(){
 }
 
 /* ============================================================
-   INTERACTION — pan / zoom / drag
+   INTERACTION - pan / zoom / drag
    ============================================================ */
 let dragNode=null,dragStart=null,panning=false,panStart=null,moved=false;
 let resizing=null;     // {id, sx, sy, sw, sh}
@@ -4904,7 +4925,7 @@ function applySubtreeDelta(start, dx, dy){
 // Used by render() to attach mousedown to the resize grip
 function startResize(id, ev){
   const n=map.nodes[id];
-  _rzCache=null;   // re-measure fresh — a stale factor here would throw off every dx/dy for the whole gesture
+  _rzCache=null;   // re-measure fresh - a stale factor here would throw off every dx/dy for the whole gesture
   resizing={id, sx:ev.clientX, sy:ev.clientY, sw:n.width||n.w||120, sh:n.height||n.h||40};
 }
 // Walks up parents; true if `id` is a descendant of `ancestorId` (or equal)
@@ -4983,7 +5004,7 @@ function reparent(childId, newParentId){
   if(childId===newParentId) return false;
   if(isDescendant(newParentId, childId)) return false;
   const child=map.nodes[childId];
-  if(!child || child.parent===newParentId) return false;  // dropped on its current parent — nothing to do
+  if(!child || child.parent===newParentId) return false;  // dropped on its current parent - nothing to do
   child.parent=newParentId;
   // Recompute side: root alternates left/right, otherwise inherit parent's side
   let newSide;
@@ -4998,7 +5019,7 @@ function reparent(childId, newParentId){
     childrenOf(id).forEach(c=>propagate(c,side));
   };
   propagate(childId, newSide);
-  // The tree changed shape — re-tidy. Stable layout keeps every other branch
+  // The tree changed shape - re-tidy. Stable layout keeps every other branch
   // exactly where it was and just slots the moved subtree cleanly into its new
   // parent, guaranteeing nothing overlaps.
   pushHistory(); autoLayout();
@@ -5049,7 +5070,7 @@ stage.addEventListener('mousedown',e=>{
   const nodeEl=e.target.closest('.node');
   // If the click lands inside a node that's currently being edited, let
   // contentEditable handle it natively (text selection, cursor placement).
-  // Stage MUST NOT start panning here — that would clear the selection and
+  // Stage MUST NOT start panning here - that would clear the selection and
   // tear down the format toolbar.
   if(nodeEl && nodeEl.classList.contains('editing')) return;
   if(nodeEl){
@@ -5076,7 +5097,7 @@ stage.addEventListener('mousedown',e=>{
     dragNode=id; moved=false;
     // Defer staging the subtree-drag until the pointer actually moves. Staging it
     // here walks the node's whole subtree, which makes selecting a large branch
-    // (e.g. the root of a big map) slow — a plain click should be instant.
+    // (e.g. the root of a big map) slow - a plain click should be instant.
     dragStart={ mx:e.clientX, my:e.clientY, root:id, subtree:null };
   } else {
     if(reparentMode){ reparentMode=false; hideBulkBar(); updateMultiSelUI(); }
@@ -5149,11 +5170,11 @@ window.addEventListener('mouseup',()=>{
     // alone: during the drag, n.w/n.h were set directly to match the
     // dragged width/height (not measured from the DOM), and the node's
     // height was held to that exact value while actively dragging. But
-    // min-height (not a hard cap — see the node rendering code) means the
+    // min-height (not a hard cap - see the node rendering code) means the
     // element can actually render TALLER than that dragged value once a
     // normal render() runs, if the content needs more room than what was
     // dragged to. autoLayout() only force-remeasures nodes with NO
-    // measurement at all, not ones with a stale one from the drag itself —
+    // measurement at all, not ones with a stale one from the drag itself -
     // so without this render() first, it would compute positions (and
     // reserve neighbour spacing) from the stale, too-small dragged size,
     // and the node could then visually overlap a neighbour once it renders
@@ -5182,7 +5203,7 @@ window.addEventListener('mouseup',()=>{
 });
 
 /* ============================================================
-   TOUCH SUPPORT — mirrors the mouse handlers, plus pinch-zoom.
+   TOUCH SUPPORT - mirrors the mouse handlers, plus pinch-zoom.
    Single finger: pan the canvas, or drag a node, or tap to select.
    Two fingers: pinch to zoom.
    ============================================================ */
@@ -5205,7 +5226,7 @@ stage.addEventListener('touchstart', e=>{
   // Don't intercept taps on the chrome / overlay UI
   if(t.target && t.target.closest && t.target.closest('.topbar, .overview, .hint, .toast, .nodebar, .empty, .search-wrap, .save-pill, .tb-group, .side, .picker, .notes-popup, .donate-modal, .theme-panel, .login-overlay, .user-pill, .minimap, .breadcrumb')) return;
   const nodeEl=t.target.closest?.('.node');
-  // Don't pan / drag when tapping inside a node that's being edited —
+  // Don't pan / drag when tapping inside a node that's being edited -
   // contentEditable needs to handle the touch for caret placement and selection.
   if(nodeEl && nodeEl.classList.contains('editing')) return;
   if(nodeEl){
@@ -5244,7 +5265,7 @@ window.addEventListener('touchmove', e=>{
     const dx=(t.clientX-dragStart.mx)/sc, dy=(t.clientY-dragStart.my)/sc;
     if(Math.abs(dx)+Math.abs(dy)>2) moved=true;
     _movePt={clientX:t.clientX, clientY:t.clientY};
-    if(!_moveRAF) _moveRAF=requestAnimationFrame(_applyMove);   // coalesce to one update/frame + reuse the cached hidden-set, same as the mouse path — touch can sample well above 60Hz
+    if(!_moveRAF) _moveRAF=requestAnimationFrame(_applyMove);   // coalesce to one update/frame + reuse the cached hidden-set, same as the mouse path - touch can sample well above 60Hz
     e.preventDefault();
   } else if(panning){
     const z=_uiZ();
@@ -5277,7 +5298,7 @@ window.addEventListener('touchend', e=>{
 // Android (esp. 16) fires touchcancel whenever the system/browser reclaims a gesture
 // (scroll takeover, navigation, app switch, etc.). Without this, touchend never runs,
 // so dragNode/panning/pinch stay set and every later touch is mis-read as a continuing
-// drag — the canvas looks frozen. Reset all gesture state defensively.
+// drag - the canvas looks frozen. Reset all gesture state defensively.
 window.addEventListener('touchcancel', ()=>{
   document.body.classList.remove('node-dragging');
   if(_moveRAF){ cancelAnimationFrame(_moveRAF); _moveRAF=0; }
@@ -5321,7 +5342,7 @@ function setZoom(percent){
   userZoom=k;
   animateViewTo({x:tx,y:ty,k}, 160, saveMapView);
 }
-function computeFitView(){   // pure calculation — does not touch `view` or the DOM
+function computeFitView(){   // pure calculation - does not touch `view` or the DOM
   if(!map) return null;
   const xs=[],ys=[],xe=[],ye=[];
   const hidden=hiddenSet();
@@ -5331,7 +5352,7 @@ function computeFitView(){   // pure calculation — does not touch `view` or th
   const {w:SW,h:SH}=_stageSize();
   // If the stage hasn't been laid out yet (e.g. fit() called during initial boot
   // before first paint), bail rather than computing a view that throws the map
-  // off-screen — the caller should re-fit once layout settles.
+  // off-screen - the caller should re-fit once layout settles.
   if(!(SW>1) || !(SH>1)) return null;
   const cw=Math.max(1,maxx-minx), ch=Math.max(1,maxy-miny);
   // Scale the map's bounding box to fit the viewport with a margin. Cap at 100%
@@ -5348,7 +5369,7 @@ function fit(){
   view.x=t.x; view.y=t.y; view.k=t.k;
   applyView(); _markStage();
 }
-// Smoothly tweens the canvas pan/zoom to a target view over `duration` ms — used where an
+// Smoothly tweens the canvas pan/zoom to a target view over `duration` ms - used where an
 // instant fit()/recenter() snap would read as a jarring jump right after something else (like
 // the Markdown pane's own CSS width transition) already animated smoothly. Same easing curve
 // family as the pane's `cubic-bezier(.4,0,.2,1)` transition, so the two motions read as one
@@ -5376,9 +5397,9 @@ function animateViewTo(target, duration, onDone){
   _viewAnimRAF=requestAnimationFrame(step);
 }
 // Centre the map's bounding box in the current stage viewport WITHOUT changing
-// zoom — used when the viewport size changes (e.g. entering/leaving focus mode)
+// zoom - used when the viewport size changes (e.g. entering/leaving focus mode)
 // so the map doesn't appear to jump sideways.
-function computeRecenterView(){   // pure calculation — does not touch `view` or the DOM
+function computeRecenterView(){   // pure calculation - does not touch `view` or the DOM
   if(!map) return null;
   const hidden=hiddenSet();
   let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
@@ -5493,7 +5514,7 @@ stage.addEventListener('dblclick',e=>{const n=e.target.closest('.node');if(n)sta
 // The stage clips overflow, but the browser can still programmatically scroll it
 // to bring a focused/oversized node's caret into view (e.g. after pasting a large
 // block while editing). Panning is done entirely via the #viewport transform, so
-// the stage must never scroll — any scroll would drag the absolutely-positioned
+// the stage must never scroll - any scroll would drag the absolutely-positioned
 // topbar and hint out of place (the fixed zoombar is unaffected). Lock it.
 stage.addEventListener('scroll',()=>{ if(stage.scrollLeft||stage.scrollTop){ stage.scrollLeft=0; stage.scrollTop=0; } },{passive:true});
 
@@ -5574,7 +5595,7 @@ window.addEventListener('keydown', e=>{
     document.querySelector('.node.editing .node-text')?.blur();
     openSearch(true);
   }
-}, true);  // capture phase — beat the browser's native find on Ctrl/⌘+F
+}, true);  // capture phase - beat the browser's native find on Ctrl/⌘+F
 
 let searchMatches=[], searchPos=-1;
 function doSearch(q){
@@ -5610,7 +5631,7 @@ function replaceInNode(id, find, repl){
   const re=new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), flags);
   let count=0;
   if(INLINE_HTML_RE.test(n.text||'')){
-    // Walk text nodes only, preserving tags — parse inertly via <template>.
+    // Walk text nodes only, preserving tags - parse inertly via <template>.
     const tpl=document.createElement('template'); tpl.innerHTML=n.text||'';
     const walker=document.createTreeWalker(tpl.content, NodeFilter.SHOW_TEXT);
     const texts=[]; let t; while((t=walker.nextNode())) texts.push(t);
@@ -5652,7 +5673,7 @@ function centreOn(id){
 }
 
 /* ============================================================
-   MINIMAP — scaled overview, click to jump
+   MINIMAP - scaled overview, click to jump
    ============================================================ */
 const MM_W=168, MM_H=120;
 function updateMinimap(){
@@ -5683,7 +5704,7 @@ function updateMinimap(){
     return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" fill="${col}" ${id===sel?'class="mm-sel"':''}/>`;
   }).join('');
   // The rects string encodes EVERYTHING the minimap shows (positions, sizes,
-  // colours, root/selection, visible set — even node insertion order), so an
+  // colours, root/selection, visible set - even node insertion order), so an
   // exact string match means the overview is already up to date. Skipping the
   // innerHTML write avoids re-parsing and re-rendering the whole SVG on renders
   // that didn't move nodes (selection changes, style tweaks, …).
@@ -5697,7 +5718,7 @@ function updateMinimapViewport(){
   const v=mm.querySelector('#mmView'); if(!v) return;
   const {minx,miny,scale,ox,oy}=mm._t;
   // _prevStage is kept fresh by _markStage() at gesture-settle points (resize, sidebar
-  // toggle, animation end, ...) rather than every frame — reusing it here avoids forcing
+  // toggle, animation end, ...) rather than every frame - reusing it here avoids forcing
   // a synchronous layout reflow (stage.getBoundingClientRect()) on every single pan/zoom/
   // drag frame, since the stage's own size can't actually change mid-gesture.
   const {w:SW,h:SH} = (_prevStage && _prevStage.w>1 && _prevStage.h>1) ? _prevStage : _stageSize();
@@ -5721,7 +5742,7 @@ function minimapJump(clientX, clientY){
 }
 
 /* ============================================================
-   BREADCRUMB — clickable path from root to the selected node.
+   BREADCRUMB - clickable path from root to the selected node.
    Hidden by default; expands while hovering the overview chip
    in the status bar (visibility handled by syncBreadcrumb).
    ============================================================ */
@@ -5768,9 +5789,9 @@ function syncBreadcrumb(){
 })();
 
 /* ============================================================
-   MAPS — list / create / load / delete
+   MAPS - list / create / load / delete
    ============================================================ */
-// Per-map "⋮" menu (Duplicate / Delete) for the sidebar — one open at a time,
+// Per-map "⋮" menu (Duplicate / Delete) for the sidebar - one open at a time,
 // closes on outside click / scroll / blur. Frees row width for the map title.
 let _rowPop=null, _rowPopOut=null;
 function closeRowMenu(){
@@ -5813,7 +5834,7 @@ function openRowMenu(btn, m){
   pop.innerHTML='<button data-a="pin"><span class="rp-ic">\uD83D\uDCCC</span>'+(m.pinned?'Unpin':'Pin')+'</button>'+
                 '<button data-a="dup"><span class="rp-ic">\u2398</span>Duplicate</button>'+
                 '<button data-a="del" class="danger"><span class="rp-ic">\uD83D\uDDD1</span>Delete</button>';
-  // Portal to body with fixed positioning — escapes overflow clipping of .side-scroll
+  // Portal to body with fixed positioning - escapes overflow clipping of .side-scroll
   // (like Notion/VS Code context menus) and stays above .side-foot.
   pop.style.visibility='hidden'; pop.style.left='-9999px'; pop.style.top='-9999px';
   document.body.appendChild(pop);
@@ -5839,7 +5860,7 @@ async function refreshList(){
   try{ idx=await Store.list(); }catch(e){ idx=[]; }
   // Merge the current in-memory map so title edits / new maps appear immediately
   // (don't wait for the debounced save to hit the database). Shared maps (_cloudView)
-  // are NOT owned — they belong in "Shared with me", never in "Your maps".
+  // are NOT owned - they belong in "Shared with me", never in "Your maps".
   if(map && !map._cloudView){
     const local={id:map.id, title:map.title, color:map.color, updated:map.updated||Date.now(), pinned:map.pinned||undefined};
     const at=idx.findIndex(m=>m.id===map.id);
@@ -5928,7 +5949,7 @@ function showNotesEditor(nodeId){
       <button data-c="unlink"      title="Remove link">⊘🔗</button>
       <button data-c="removeFormat" title="Clear formatting">⨯</button>
     </div>
-    <div class="np-editor" contenteditable="true" data-placeholder="Type your notes — Markdown-style formatting available via the toolbar."></div>
+    <div class="np-editor" contenteditable="true" data-placeholder="Type your notes - Markdown-style formatting available via the toolbar."></div>
     <div class="np-actions">
       ${has?'<button class="np-clear">Remove</button>':''}
       <button class="np-cancel">Cancel</button>
@@ -5984,7 +6005,7 @@ function showNotesEditor(nodeId){
 }
 
 /* ============================================================
-   PROMPT TEMPLATES — see templates.js, loaded before this file.
+   PROMPT TEMPLATES - see templates.js, loaded before this file.
    TEMPLATES and TEMPLATE_CATEGORIES are defined there; the
    functions that use them stay here.
    ============================================================ */
@@ -6182,7 +6203,7 @@ function createMap(){
   const rootText='Central Idea';
   const m={id,title:rootText,titleAuto:true,color:PALETTE[Math.floor(Math.random()*PALETTE.length)],rootId:rid,
     nodes:{[rid]:{id:rid,text:rootText,parent:null,x:0,y:0,side:'root',color:'#fff'}}};
-  // Show it immediately — never wait on the network to render the UI.
+  // Show it immediately - never wait on the network to render the UI.
   flushPendingSave();
   map=m; sel=rid; history=[]; hpos=-1; pushHistory();
   $('#mapTitle').value=map.title;
@@ -6205,7 +6226,7 @@ async function loadMap(id){
   let m=null;
   try{ m=await Store.get(id); }catch(e){ toast('Could not load map'); return false; }
   if(!m){ toast('Map not found'); return false; }
-  // Legacy migration: old maps may still store `comment` — promote it to `notes`
+  // Legacy migration: old maps may still store `comment` - promote it to `notes`
   for(const n of Object.values(m.nodes||{})){
     if(n.comment && !n.notes){
       n.notes = '<p>'+escapeHtml(n.comment).replace(/\n/g,'<br>')+'</p>';
@@ -6216,7 +6237,7 @@ async function loadMap(id){
   if(tabsEnabled){ openMapInTab(m); return true; }   // tabbed workspace: open (or switch to) a tab
   map=m; sel=map.rootId;
   const _imported = !!map._import; if(_imported) delete map._import;
-  // Initialise history WITHOUT triggering a save — loading is not a change,
+  // Initialise history WITHOUT triggering a save - loading is not a change,
   // so the sidebar order (sorted by `updated`) must not be reshuffled.
   history=[JSON.stringify({nodes:map.nodes,rootId:map.rootId,title:map.title,color:map.color})];
   hpos=0; updateUndo();
@@ -6238,7 +6259,7 @@ async function loadMap(id){
 $('#mapTitle').addEventListener('input',e=>{
   if(!map) return;
   map.title=e.target.value;
-  map.titleAuto=false;          // user took control — stop mirroring the root text
+  map.titleAuto=false;          // user took control - stop mirroring the root text
   if(_tabActive>=0 && _tabs[_tabActive]) _tabs[_tabActive].title=e.target.value;   // keep the tab label live
   const tt=document.querySelector('#tabRow .tab.active .tab-title'); if(tt) tt.textContent=e.target.value||'Untitled';
   scheduleSave(); refreshList();
@@ -6252,7 +6273,7 @@ function scheduleSave(){
   _pendingSaveMap = target;    // fires must NOT redirect the write onto another map
   $('#savePill').classList.add('saving'); $('#saveText').textContent='Saving…';
   clearTimeout(saveTimer);
-  // Cloud mode talks to GitHub — debounce longer to stay well under 5000 req/h
+  // Cloud mode talks to GitHub - debounce longer to stay well under 5000 req/h
   const delay = (MODE==='cloud') ? 1500 : 600;
   saveTimer=setTimeout(async()=>{
     saveTimer=null;
@@ -6265,8 +6286,8 @@ function scheduleSave(){
       // The map was copied to local storage before the network write, so the
       // edit isn't lost. Tell the user plainly and retry once after a short wait.
       toast((MODE==='cloud')
-        ? 'Couldn’t sync to GitHub just now — your changes are saved on this device and will retry.'
-        : 'Couldn’t reach the server — your changes are saved on this device and will retry.');
+        ? 'Couldn’t sync to GitHub just now - your changes are saved on this device and will retry.'
+        : 'Couldn’t reach the server - your changes are saved on this device and will retry.');
       setTimeout(async()=>{
         try{ await Store.save(target); if(_pendingSaveMap===target) _pendingSaveMap=null; $('#savePill').classList.remove('saving'); $('#saveText').textContent='Saved'; }
         catch(e2){ $('#saveText').textContent='Save failed'; }
@@ -6274,7 +6295,7 @@ function scheduleSave(){
     }
   },delay);
 }
-// Commit any pending debounced edit to ITS OWN map right now — call before
+// Commit any pending debounced edit to ITS OWN map right now - call before
 // switching maps so the write lands on the map that was edited, never on the
 // one just opened (which would reorder/overwrite it).
 function flushPendingSave(){
@@ -6293,7 +6314,7 @@ function exportMenu(){
   const pop=document.createElement('div');
   pop.className='export-pop';
   const _collabItems = collabAvailable() ? `
-    <button data-a="collab"><span class="ex-ic">👥</span><span><b>Collaborate live</b><i>Real-time editing — share an invite link</i></span></button>
+    <button data-a="collab"><span class="ex-ic">👥</span><span><b>Collaborate live</b><i>Real-time editing - share an invite link</i></span></button>
     <button data-a="cloudshare"><span class="ex-ic">☁</span><span><b>Cloud share (editable)</b><i>Publish + copy an edit link collaborators can save to</i></span></button>
     <button data-a="manageaccess"><span class="ex-ic">🔐</span><span><b>Manage access</b><i>Named collaborators &amp; link permissions</i></span></button>` : '';
   pop.innerHTML=`
@@ -6352,7 +6373,7 @@ function exportMenu(){
 }
 
 /* ============================================================
-   Version history — browse and restore past saves of the current map.
+   Version history - browse and restore past saves of the current map.
    Cloud mode: real GitHub commit history of the map's file.
    Server mode: SQLite snapshots taken on each content change.
    ============================================================ */
@@ -6432,7 +6453,7 @@ function showDiffPanel(d){
   const panel=document.createElement('div'); panel.className='diff-panel';
   panel.innerHTML=`<div class="diff-head"><b>Changes since this version</b><button class="diff-x" title="Close">\u00d7</button></div>`+
     (total ? sec('Added',d.added,'add')+sec('Removed',d.removed,'del')+sec('Edited',d.changed,'chg')
-           : `<div class="diff-empty">No differences \u2014 identical to the current map.</div>`);
+           : `<div class="diff-empty">No differences - identical to the current map.</div>`);
   document.body.appendChild(panel);
   panel.querySelector('.diff-x').onclick=()=>panel.remove();
 }
@@ -6471,7 +6492,7 @@ async function restoreVersion(mapId, ref){
   map=restored;
   history=[]; hpos=-1; pushHistory();   // restored state becomes a fresh undo baseline
   render(); fit();
-  try{ await Store.save(map); }catch(e){ console.warn('save after history restore failed:', e.message); toast('Restored, but saving failed \u2014 changes are local only'); }
+  try{ await Store.save(map); }catch(e){ console.warn('save after history restore failed:', e.message); toast('Restored, but saving failed - changes are local only'); }
   document.querySelectorAll('.hist-banner,.hist-panel').forEach(p=>p.remove());
   refreshList();
   toast('Version restored');
@@ -6484,7 +6505,7 @@ function normalizeLoadedMap(m){
 }
 
 /* ============================================================
-   Build prompt from branch — assemble the selected subtree into a clean,
+   Build prompt from branch - assemble the selected subtree into a clean,
    structured prompt; copy it, or (optional, bring-your-own-key) run it
    against an LLM API and drop the answer back as child nodes.
    ============================================================ */
@@ -6575,7 +6596,7 @@ function showBuildPrompt(nodeId){
     try{
       const cfg=LLM_PROVIDERS[pv];
       const r=await fetch(cfg.url,{method:'POST',headers:cfg.headers(key),body:cfg.body(mdl,$$('.bp-text').value)});
-      if(!r.ok){ const t=await r.text(); throw new Error('HTTP '+r.status+' — '+t.slice(0,200)); }
+      if(!r.ok){ const t=await r.text(); throw new Error('HTTP '+r.status+' - '+t.slice(0,200)); }
       const data=await r.json();
       const answer=cfg.extract(data)||'(empty response)';
       res.innerHTML='';
@@ -6613,7 +6634,7 @@ function addResponseAsNodes(parentId, answer){
 }
 
 /* ============================================================
-   Presentation mode — step through the map one node at a time.
+   Presentation mode - step through the map one node at a time.
    ============================================================ */
 let _pres = null;   // {order, idx, collapsed} while presenting
 function startPresentation(){
@@ -6938,7 +6959,7 @@ function importFile(){
     try{
       let m, preserveState=false;
       if(name.endsWith('.gmind')){
-        // Binary ZIP — read as bytes, not text. GitMind carries its own
+        // Binary ZIP - read as bytes, not text. GitMind carries its own
         // expanded/collapsed state, so don't force-collapse afterwards.
         m=await parseGmind(await f.arrayBuffer(), f.name);
         preserveState=true;
@@ -6967,11 +6988,11 @@ function importFile(){
       m.id=uid();
       await Store.save(m);
       await loadMap(m.id);
-      // Imported nodes have no positions (all at 0,0) — lay them out into a
+      // Imported nodes have no positions (all at 0,0) - lay them out into a
       // proper tree, then frame the result.
       autoLayout(); fit();
       refreshList();
-      toast('Imported '+f.name + (preserveState?'':' (collapsed — click ＋ to expand)'));
+      toast('Imported '+f.name + (preserveState?'':' (collapsed - click ＋ to expand)'));
     }catch(e){ console.error(e); alert('Could not import this file:\n'+e.message); }
   };
   inp.click();
@@ -6984,10 +7005,10 @@ function mdInlineToHtml(t){
   // keep any raw formatting HTML (sanitized) rather than escaping it to literal text
   let s = hasHtml ? sanitizeInlineHTML(t) : escapeHtml(t);
   // Code spans are masked out before the other inline rules run, and restored verbatim
-  // afterward, so their content is never itself reinterpreted as further formatting —
+  // afterward, so their content is never itself reinterpreted as further formatting -
   // matches standard Markdown precedence (`**not bold**` stays literal text inside a code
   // span, not a bold run). A later regex pass over the same string can't tell "this asterisk
-  // is inside a <code> tag" apart from any other, so wrapping alone isn't enough — the
+  // is inside a <code> tag" apart from any other, so wrapping alone isn't enough - the
   // content has to be out of the string entirely while those passes run.
   const codeSlots=[];
   s = s.replace(/`([^`]+)`/g, (m, code) => { codeSlots.push(code); return '\uE010'+(codeSlots.length-1)+'\uE011'; });
@@ -7003,7 +7024,7 @@ function mdInlineToHtml(t){
 // verbatim (math is stored as text, not rendered into n.text), so equations round-trip.
 function htmlToInlineMd(html){
   if(html==null) return '';
-  if(!hasInlineMarkup(html)) return String(html);          // plain text (may hold $...$) — as-is
+  if(!hasInlineMarkup(html)) return String(html);          // plain text (may hold $...$) - as-is
   const tpl=document.createElement('template'); tpl.innerHTML=html;   // inert parse
   const emit = node => {
     let out='';
@@ -7052,7 +7073,7 @@ function parseOPML(text, filename){
 }
 // Parse a Markdown / plain-text outline (headings and/or nested bullets) into a map.
 // Parses simple "key: value" YAML frontmatter lines into an ordered list of {key,value}
-// pairs. Not a general YAML parser — frontmatter for things like a Claude Skill (or most
+// pairs. Not a general YAML parser - frontmatter for things like a Claude Skill (or most
 // static-site front matter) is flat key: value pairs, optionally quoted; a continuation
 // line (no "key:" prefix, e.g. a wrapped block-scalar description) is appended to the
 // previous field's value rather than attempting a full YAML block-scalar parse.
@@ -7118,7 +7139,7 @@ function parseMarkdownOutline(text, filename){
   const nodes = {};
   const rootId = uid();
   nodes[rootId] = { id:rootId, text:title, parent:null, side:'root', x:0, y:0 };
-  // Frontmatter (a leading YAML block — e.g. a Claude Skill's `name`/`description`, or a
+  // Frontmatter (a leading YAML block - e.g. a Claude Skill's `name`/`description`, or a
   // static-site page's front matter) becomes a real, visible, editable child node instead of
   // being silently dropped: rendered as a small "Field | Value" table so it's readable at a
   // glance and directly editable, and re-emitted as proper --- YAML --- at the very top of the
@@ -7141,16 +7162,16 @@ function parseMarkdownOutline(text, filename){
     let side = 'right';
     if(parentId===rootId) side = (sideCounter++ % 2) ? 'left' : 'right';
     else side = nodes[parentId].side || 'right';
-    // A formula ("=SUM(children)", "=2*3*4", ...) is verbatim, code-like content — never run
+    // A formula ("=SUM(children)", "=2*3*4", ...) is verbatim, code-like content - never run
     // it through inline-markdown scanning, which would happily mangle e.g. the asterisks in
     // "=2*3*4" into a spurious *italic* span.
     const isFormula = txt.trim().startsWith('=');
     let text = isFormula ? txt.trim() : mdInlineToHtml(txt), listType = null;
     const styleProps = {};
-    // Peel whole-node style wrapper tags (from buildMarkdown's wrapStyle — <div style=
+    // Peel whole-node style wrapper tags (from buildMarkdown's wrapStyle - <div style=
     // text-align>, <span style=font-size>, <span style=color>, <mark style=background-
     // color>, <u>) from the outside in, extracting each into a discrete node property.
-    // Unlike bold/italic/strike (which are fine left as plain embedded <b>/<i>/<s> — purely
+    // Unlike bold/italic/strike (which are fine left as plain embedded <b>/<i>/<s> - purely
     // a rendering concern), fontSize/textColor/highlight/align also feed layout and PDF/
     // canvas export elsewhere, so they need to land back on the node object itself.
     const peelStyle = s => {
@@ -7168,7 +7189,7 @@ function parseMarkdownOutline(text, filename){
     // A whole-node bulleted/numbered list (multiple lines inside ONE node) has no plain-
     // Markdown equivalent, so buildMarkdown emits it as literal <ul>/<ol><li> HTML instead
     // (already part of the sanitizer's inline-HTML whitelist). Recognize that shape here and
-    // unwrap it back into the canvas-native form: listType + <br>-joined line text — a single
+    // unwrap it back into the canvas-native form: listType + <br>-joined line text - a single
     // node/line either way, no separate bookkeeping required.
     if(!isFormula){
       const lm = text.match(LIST_WRAP_RE);
@@ -7179,7 +7200,7 @@ function parseMarkdownOutline(text, filename){
           text = kids.map(li=>{
             const inner = li.innerHTML;
             // A lone <br> is applyListToSelection's placeholder for an otherwise-empty
-            // line (kept so the <li> still has visible height) — treat it as empty here,
+            // line (kept so the <li> still has visible height) - treat it as empty here,
             // not as literal content, or joining with <br> below would double it up.
             return /^\s*<br\s*\/?>\s*$/i.test(inner) ? '' : peelStyle(inner);
           }).join('<br>');
@@ -7286,8 +7307,8 @@ function parseMarkdownOutline(text, filename){
   }
   // The filename is the map TITLE, not a node. When the whole document hangs off a
   // single top-level node (the common case: one `# Heading`), promote it to the root
-  // and drop the filename wrapper — matching how markmap renders a Markdown file.
-  // (The frontmatter node, if any, doesn't count as "real" content for this check — a
+  // and drop the filename wrapper - matching how markmap renders a Markdown file.
+  // (The frontmatter node, if any, doesn't count as "real" content for this check - a
   // skill.md with one heading plus its frontmatter should still promote the heading.)
   let finalRoot = rootId;
   const tops = Object.values(nodes).filter(n => n.parent === rootId && n.id !== frontmatterId);
@@ -7299,7 +7320,7 @@ function parseMarkdownOutline(text, filename){
     if(frontmatterId) nodes[frontmatterId].parent = finalRoot;
   }
   // Balanced left/right split (each branch kept consistent) so the imported map isn't
-  // lopsided — the parser can't call the DOM-bound balanceRootSides().
+  // lopsided - the parser can't call the DOM-bound balanceRootSides().
   const kids = Object.values(nodes).filter(n => n.parent === finalRoot);
   const half = Math.ceil(kids.length / 2);
   const setBranch = (id, side) => { nodes[id].side = side; Object.values(nodes).filter(c => c.parent === id).forEach(c => setBranch(c.id, side)); };
@@ -7338,14 +7359,14 @@ function parseMarkdownOutline(text, filename){
 //  - functions: SUM AVERAGE/AVG MIN MAX COUNT ROUND ABS SQRT POW MOD FLOOR
 //               CEIL/CEILING TRUNC IF LOG LOG10 EXP PI E
 //  - SUM(children) etc: aggregate over the current node's direct children
-//  - {Label}: reference another node by label — matches either a bare-number
+//  - {Label}: reference another node by label - matches either a bare-number
 //    node's full text, or (for the natural "Rent: 1200" mind-map pattern) the
 //    part before the colon, so a descriptively-labeled node is both readable
 //    AND referenceable from a sibling formula.
 //
 // Plain (non-formula) node text is still usable as a *value* if it parses as
 // a number (optionally with $ / % / thousands separators, or a "Label: n"
-// prefix) — so a parent can SUM(children) over a mix of plain numbers and
+// prefix) - so a parent can SUM(children) over a mix of plain numbers and
 // sub-formulas, same as Excel treats a bare "42" cell as a number.
 // ============================================================================
 class FormulaError extends Error {}
@@ -7371,8 +7392,8 @@ const FORMULA_FUNCS = {
 };
 // Function signatures shown in the formula autocomplete popup.
 const FORMULA_FUNC_INFO = [
-  {name:'SUM',     sig:'SUM(a, b, ...)',      desc:'Adds up values \u2014 try SUM(children)'},
-  {name:'AVERAGE', sig:'AVERAGE(a, b, ...)',  desc:'Mean of values \u2014 try AVERAGE(children)'},
+  {name:'SUM',     sig:'SUM(a, b, ...)',      desc:'Adds up values - try SUM(children)'},
+  {name:'AVERAGE', sig:'AVERAGE(a, b, ...)',  desc:'Mean of values - try AVERAGE(children)'},
   {name:'AVG',     sig:'AVG(a, b, ...)',      desc:'Alias for AVERAGE'},
   {name:'MIN',     sig:'MIN(a, b, ...)',      desc:'Smallest value'},
   {name:'MAX',     sig:'MAX(a, b, ...)',      desc:'Largest value'},
@@ -7457,7 +7478,7 @@ function _formulaParse(toks){
     return node;
   }
   // Unary binds looser than ^ on the left (-2^2 is -(2^2) = -4, the standard math/Python
-  // convention — not (-2)^2 = 4), but parsePower's own right-hand (exponent) side still
+  // convention - not (-2)^2 = 4), but parsePower's own right-hand (exponent) side still
   // goes through parseUnary so 2^-2 = 0.25 works without needing parens around the -2.
   function parsePower(){
     const base=parsePrimary();
@@ -7645,21 +7666,21 @@ function computeNodeValue(nodeId, visiting){
 }
 // Formats a computed formula value for display in the node (e.g. trims float noise).
 function formatFormulaResult(v){
-  if(v==null) return '\u2014';
+  if(v==null) return '-';
   if(typeof v==='object' && v.error) return '#ERROR';
   if(typeof v==='number'){
     if(!isFinite(v)) return '#ERROR';
     const rounded = Math.round(v*1e6)/1e6;
     return String(rounded);
   }
-  return '\u2014';
+  return '-';
 }
 
 // Strip HTML to plain text but keep newlines from <br> and block elements
 // Memoized: render()/updateTokenTotal() call this for every node on every pass,
 // and parsing a <template> per call dominates those passes on maps with many
 // formatted nodes. The result is a pure function of `text`, so a bounded cache
-// keyed on the string is exact. Cleared wholesale at the cap — correctness
+// keyed on the string is exact. Cleared wholesale at the cap - correctness
 // never depends on the cache (a miss just re-parses).
 let _ntpCache=new Map();
 function nodeTextPlain(text){
@@ -7729,7 +7750,7 @@ function exportMermaid(){
   if(navigator.clipboard?.writeText){
     navigator.clipboard.writeText(fenced).then(
       () => toast('Mermaid diagram copied'),
-      () => { download(new Blob([fenced],{type:'text/plain'}), (map.title||'mindmap')+'.mmd.md'); toast('Clipboard blocked — downloaded instead'); }
+      () => { download(new Blob([fenced],{type:'text/plain'}), (map.title||'mindmap')+'.mmd.md'); toast('Clipboard blocked - downloaded instead'); }
     );
   } else {
     download(new Blob([fenced],{type:'text/plain'}), (map.title||'mindmap')+'.mmd.md');
@@ -7738,7 +7759,7 @@ function exportMermaid(){
 }
 
 // Build hierarchical Markdown bullets from the map. If `startId` is given,
-// only that node's subtree is included — useful for "copy this branch as a prompt".
+// only that node's subtree is included - useful for "copy this branch as a prompt".
 // Serialize a node's notes HTML back to Markdown blocks so code fences and tables
 // round-trip: <pre> -> fenced code, <table> -> pipe table, else -> blockquote lines.
 function _htmlTableToMdRows(tableEl){
@@ -7765,7 +7786,7 @@ function notesToMdBlocks(notesHtml){
 }
 function _nodeMeta(n){   // per-node info that JSON has but Markdown can't express
   const m={};
-  // n.color is the node's BOX background (a shape property, not text styling) — no clean
+  // n.color is the node's BOX background (a shape property, not text styling) - no clean
   // inline-HTML equivalent, and reusing background-color here would collide with n.highlight
   // (a genuine text highlight) on reimport. Kept in meta.
   if(n.color) m.color=n.color;
@@ -7773,7 +7794,7 @@ function _nodeMeta(n){   // per-node info that JSON has but Markdown can't expre
   if(n.height) m.h=n.height;
   if(n.collapsed) m.collapsed=1;
   // textColor / underline / fontSize / highlight / align / image are intentionally NOT
-  // stored here — they round-trip via visible HTML (<span style>, <u>, <mark>, <div
+  // stored here - they round-trip via visible HTML (<span style>, <u>, <mark>, <div
   // style>, <img>) in the text itself instead (see buildMarkdown / parseMarkdownOutline's
   // `add`), the same way bold/italic/strike already use visible **/*/~~ syntax.
   // (applyMeta below still reads these legacy meta fields for files exported before this.)
@@ -7803,7 +7824,7 @@ function buildMarkdown(startId, opts){
   const walk=(id, bd, path)=>{
     const n=map.nodes[id];
     if(!n) return;
-    if(n.frontmatter) return;   // emitted separately as YAML frontmatter at the very top instead — never inline
+    if(n.frontmatter) return;   // emitted separately as YAML frontmatter at the very top instead - never inline
     if(withMeta){ const mm=_nodeMeta(n); if(mm) nmeta[path]=mm; }
     const pad='  '.repeat(bd);
     if(n.hr){ if(lineMap) lm[lines.length]=id; lines.push(pad+'---'); return; }   // divider round-trips as ---
@@ -7828,10 +7849,10 @@ function buildMarkdown(startId, opts){
       if(n.highlight) s=`<mark style="background-color:${n.highlight}">${s}</mark>`;
       if(n.textColor) s=`<span style="color:${n.textColor}">${s}</span>`;
       if(n.fontSize) s=`<span style="font-size:${n.fontSize}px">${s}</span>`;
-      if(n.align && n.align!=='center') s=`<div style="text-align:${n.align}">${s}</div>`;   // 'center' is the render-time default (see renderNodeText) — skip for brevity
+      if(n.align && n.align!=='center') s=`<div style="text-align:${n.align}">${s}</div>`;   // 'center' is the render-time default (see renderNodeText) - skip for brevity
       return s;
     };
-    // A non-http(s) image (pasted/uploaded — stored as a data: URI) has no Markdown image
+    // A non-http(s) image (pasted/uploaded - stored as a data: URI) has no Markdown image
     // syntax that can hold it, so it round-trips as a literal <img> tag instead of silently
     // living only in the meta comment; a plain http(s) image keeps using ![image](url).
     const imageLine = () => {
@@ -7842,10 +7863,10 @@ function buildMarkdown(startId, opts){
     let first;
     if(rich && n.listType){
       // A bulleted/numbered node (multiple lines living inside ONE node) has no plain-
-      // Markdown equivalent — a bare "- line" is indistinguishable from a new sibling
+      // Markdown equivalent - a bare "- line" is indistinguishable from a new sibling
       // node. <ul>/<ol>/<li> are already in the sanitizer's inline-HTML whitelist (see
       // SAFE_TAGS/INLINE_HTML_RE), so use them directly: visible/readable as real HTML in
-      // the Markdown text, and it round-trips as a single line/node — parseMarkdownOutline
+      // the Markdown text, and it round-trips as a single line/node - parseMarkdownOutline
       // unwraps this same shape straight back into listType + <br>-joined text. Whole-node
       // style toggles are applied per <li> (not around the whole wrapper) so the outer tag
       // always literally starts with <ul>/<ol> for the importer to recognize.
@@ -7932,7 +7953,7 @@ function substituteVariables(text, values){
   });
 }
 
-// Build a clean prompt text — hierarchical headings, no markdown syntax noise,
+// Build a clean prompt text - hierarchical headings, no markdown syntax noise,
 // notes inlined. Optionally substitutes filled variable values.
 function buildPrompt(startId, values){
   const root = startId || map.rootId;
@@ -7974,7 +7995,7 @@ function showVariableForm(varNames, defaults, mapId, done){
     <div class="vf-card">
       <button class="vf-close" aria-label="Close">×</button>
       <h2>Fill variables</h2>
-      <p class="vf-sub">Found ${varNames.length} placeholder${varNames.length===1?'':'s'} — fill them before exporting the prompt.</p>
+      <p class="vf-sub">Found ${varNames.length} placeholder${varNames.length===1?'':'s'} - fill them before exporting the prompt.</p>
       <div class="vf-fields">
         ${varNames.map(name => `
           <label class="vf-row">
@@ -8015,7 +8036,7 @@ function showVariableForm(varNames, defaults, mapId, done){
   });
 }
 
-// Top-level "Export as prompt" — detects variables, shows the form when any are
+// Top-level "Export as prompt" - detects variables, shows the form when any are
 // present, then builds the prompt text and copies it to the clipboard.
 function exportAsPrompt(){
   if(!map) return;
@@ -8026,7 +8047,7 @@ function exportAsPrompt(){
     if(navigator.clipboard?.writeText){
       navigator.clipboard.writeText(text).then(
         () => toast(`Prompt copied (${text.length} chars)`),
-        () => { download(new Blob([text],{type:'text/plain'}), (map.title||'prompt')+'.txt'); toast('Clipboard blocked — downloaded instead'); }
+        () => { download(new Blob([text],{type:'text/plain'}), (map.title||'prompt')+'.txt'); toast('Clipboard blocked - downloaded instead'); }
       );
     } else {
       download(new Blob([text],{type:'text/plain'}), (map.title||'prompt')+'.txt');
@@ -8045,7 +8066,7 @@ function exportAsPrompt(){
     Object.assign(defaults, saved);
   } catch(e){}
   // If every detected variable already has a non-empty map-level default, skip the
-  // form entirely and export straight away — that's the whole point of map vars.
+  // form entirely and export straight away - that's the whole point of map vars.
   const allCovered = vars.every(v => (map.vars||{})[v] != null && String((map.vars||{})[v]).trim() !== '');
   if(allCovered){
     finish(defaults);
@@ -8089,7 +8110,7 @@ function showMapVariables(){
     <div class="vf-card">
       <button class="vf-close" aria-label="Close">×</button>
       <h2>Map variables</h2>
-      <p class="vf-sub">Set default values for the ${vars.length} placeholder${vars.length===1?'':'s'} in this map. Prompt exports will reuse these without asking — leave one blank to be prompted at export time.</p>
+      <p class="vf-sub">Set default values for the ${vars.length} placeholder${vars.length===1?'':'s'} in this map. Prompt exports will reuse these without asking - leave one blank to be prompted at export time.</p>
       <div class="vf-fields">
         ${vars.map(name => `
           <label class="vf-row">
@@ -8130,7 +8151,7 @@ function showMapVariables(){
 }
 function exportMarkdown(toClipboard, rich){
   if(!map) return;
-  // If a non-root node is selected, export *that branch* — perfect for
+  // If a non-root node is selected, export *that branch* - perfect for
   // pulling out a single prompt or section from a larger map.
   const startId = (sel && sel !== map.rootId) ? sel : map.rootId;
   const md = buildMarkdown(startId, {rich:!!rich, meta:!!rich});
@@ -8139,11 +8160,11 @@ function exportMarkdown(toClipboard, rich){
     if(navigator.clipboard?.writeText){
       navigator.clipboard.writeText(md).then(
         ()=>toast('Copied to clipboard'+scope),
-        ()=>{ download(new Blob([md],{type:'text/markdown'}),(map.title||'mindmap')+'.md'); toast('Clipboard blocked — downloaded instead'); }
+        ()=>{ download(new Blob([md],{type:'text/markdown'}),(map.title||'mindmap')+'.md'); toast('Clipboard blocked - downloaded instead'); }
       );
     } else {
       download(new Blob([md],{type:'text/markdown'}),(map.title||'mindmap')+'.md');
-      toast('Clipboard unavailable — downloaded');
+      toast('Clipboard unavailable - downloaded');
     }
   } else {
     const name = startId === map.rootId ? map.title : nodeTextPlain(map.nodes[startId]?.text);
@@ -8151,12 +8172,12 @@ function exportMarkdown(toClipboard, rich){
     toast('Markdown exported'+scope);
   }
 }
-// Build a Word-compatible HTML document (saved with .doc extension —
+// Build a Word-compatible HTML document (saved with .doc extension -
 // Word, Google Docs, and LibreOffice all open this as a Word document).
 // Renders one LaTeX expression to a small PNG data-URL <img> tag, for exports that
 // can't render MathML/OMML natively (the HTML-based .doc export opens in Word,
 // Google Docs, and LibreOffice, none of which reliably render raw MathML pasted in
-// via a file — but all three display an embedded image just fine). Reuses the same
+// via a file - but all three display an embedded image just fine). Reuses the same
 // canvas math-layout engine (_layoutMath) the PNG exporter already relies on,
 // scoped to a single expression instead of a full node.
 function mathToImgTag(tex, fontPx, color){
@@ -8171,13 +8192,13 @@ function mathToImgTag(tex, fontPx, color){
     const cv=document.createElement('canvas'); cv.width=w*scale; cv.height=h*scale;
     const ctx=cv.getContext('2d'); ctx.scale(scale,scale);
     lay.draw(pad, pad+lay.asc);
-    // CSS height stays at the UNSCALED size — scale only adds pixel density, not display size.
+    // CSS height stays at the UNSCALED size - scale only adds pixel density, not display size.
     return `<img src="${cv.toDataURL('image/png')}" style="vertical-align:middle;height:${h}px" alt="${escapeHtml(tex)}">`;
   }catch(e){ return null; }
 }
 // Splits `text` around $...$/$$...$$ math segments, running each surrounding plain-
 // text chunk through the normal escapeHtml/sanitizeInlineHTML path and replacing
-// each math segment with its rendered image — rather than running the whole string
+// each math segment with its rendered image - rather than running the whole string
 // through the escaper first, which would mangle the <img> markup this injects.
 // Returns null (falls back to the caller's normal path) if there's no math at all,
 // so the common case is untouched.
@@ -8331,7 +8352,7 @@ function drawNodeMath(ctx, text, o){
   ctx.fillStyle=color;
   // listType (whole-node bullets): prefix each line the same way drawFormattedText
   // does for its own plain-text listType case, then fall through to the normal
-  // per-line math-segment parsing below — this is already line-oriented, so a
+  // per-line math-segment parsing below - this is already line-oriented, so a
   // bullet prefix on each line is all that's needed to support it here too.
   const rawLines=(text||'').split('\n');
   const lines = o.listType
@@ -8389,7 +8410,7 @@ async function exportPNG(){
   const stickyBg    = css('--sticky') || '#fff7b0';
   const stickyEdge  = css('--sticky-edge') || '#f2e27a';
   const stickyInk   = css('--sticky-ink') || '#4a431f';
-  // Zebra tints for uncoloured nodes — same 93/7 split as the CSS striping.
+  // Zebra tints for uncoloured nodes - same 93/7 split as the CSS striping.
   const zebraA = mixHex(themeNodeBg, accent, 0.07);
   const zebraB = mixHex(themeNodeBg, css('--teal') || '#2f6f6a', 0.07);
   const zd = withChildIndex(zebraDepth);   // depth parity for the tint choice
@@ -8397,7 +8418,7 @@ async function exportPNG(){
   const mapLayout = map.layout || 'balanced';
 
   const hidden=hiddenSet(); const ids=Object.keys(map.nodes).filter(i=>!hidden.has(i));
-  // Pre-load every node's image — ctx.drawImage() needs an actual loaded Image
+  // Pre-load every node's image - ctx.drawImage() needs an actual loaded Image
   // object, not the data-URL string, so this has to finish before the drawing
   // pass below runs. A per-image timeout means one slow/corrupt image can't hang
   // the whole export; that node just falls back to no image, like before.
@@ -8448,12 +8469,12 @@ async function exportPNG(){
   const W=(maxx-minx+pad*2),H=(maxy-miny+pad*2);
   const cv=document.createElement('canvas');cv.width=W*scale;cv.height=H*scale;
   const ctx=cv.getContext('2d');ctx.scale(scale,scale);
-  // Exact background — matches .stage for any Colour Theme + I am look.
+  // Exact background - matches .stage for any Colour Theme + I am look.
   // Uses live CSS vars so theme/look changes are reflected without hardcoding.
   const look = document.documentElement.getAttribute('data-look') || 'office';
   const stageBg = css('--paper') || themeBg;
   ctx.fillStyle=stageBg; ctx.fillRect(0,0,W,H);
-  // stage background-image per look — replicate CSS gradients/patterns
+  // stage background-image per look - replicate CSS gradients/patterns
   const lineColor = css('--line') || themeLine;
   const paperColor = stageBg;
   const canvasDot = css('--canvas-dot');
@@ -8478,7 +8499,7 @@ async function exportPNG(){
       for(let y=0;y<=H;y+=26){ ctx.beginPath(); ctx.moveTo(0,y+0.5); ctx.lineTo(W,y+0.5); ctx.stroke(); }
       ctx.globalAlpha=1;
     } else if(look==='forest'){
-      // 7 radial ellipses — approximate with filled ellipses at low alpha
+      // 7 radial ellipses - approximate with filled ellipses at low alpha
       const col=tealColor;
       ctx.fillStyle=col; ctx.globalAlpha=0.08;
       const spots=[[0.18,0.22,7,10],[0.68,0.18,5,7],[0.42,0.38,9,6],[0.82,0.52,6,8],[0.12,0.68,8,5],[0.55,0.78,5,9],[0.30,0.88,6,6]];
@@ -8511,7 +8532,7 @@ async function exportPNG(){
       ctx.beginPath(); ctx.ellipse(W*0.74,H*0.68,W*0.12,H*0.08,0,0,Math.PI*2); ctx.fill();
       ctx.globalAlpha=1;
     } else {
-      // office / default, sketchpad, etc. — dot grid
+      // office / default, sketchpad, etc. - dot grid
       if(canvasDot){
         ctx.fillStyle = canvasDot;
         ctx.beginPath();
@@ -8524,7 +8545,7 @@ async function exportPNG(){
         ctx.fill();
       }
     }
-    // stage glow wash — ellipse at 50% 0% (top centre) — matches .stage:before
+    // stage glow wash - ellipse at 50% 0% (top centre) - matches .stage:before
     const glow = css('--stage-glow');
     if(glow && glow!=='transparent' && glow!=='none' && glow.includes('rgba')){
       const m=glow.match(/rgba?\([^)]+\)/);
@@ -8547,7 +8568,7 @@ async function exportPNG(){
   drawLookBg();
   ctx.translate(-minx+pad,-miny+pad);
 
-  // Edges — mirror drawEdges() exactly so every layout + style matches live
+  // Edges - mirror drawEdges() exactly so every layout + style matches live
   ctx.lineCap='round'; ctx.lineJoin='round';
   const _sc = (typeof STYLE_CONFIG_DEFAULTS!=='undefined' && STYLE_CONFIG_DEFAULTS[mapStyle])
     ? { ...STYLE_CONFIG_DEFAULTS[mapStyle], ...((map.styleConfig||{})[mapStyle]||{}) }
@@ -8667,7 +8688,7 @@ async function exportPNG(){
   ctx.setLineDash([]);
   ctx.shadowBlur = 0;
 
-  // Cross-links — dotted accent curves (match the on-screen rendering)
+  // Cross-links - dotted accent curves (match the on-screen rendering)
   if(map.links && map.links.length){
     ctx.save();
     ctx.strokeStyle = accent;
@@ -8676,7 +8697,7 @@ async function exportPNG(){
     ctx.globalAlpha = 0.85;
     map.links.forEach(lk=>{
       const a=map.nodes[lk.from], b=map.nodes[lk.to];
-      if(!a||!b||hidden.has(lk.from)||hidden.has(lk.to)) return;   // a folded-away endpoint still has coordinates but isn't in the exported bounds — drawing to it sends the curve off-canvas
+      if(!a||!b||hidden.has(lk.from)||hidden.has(lk.to)) return;   // a folded-away endpoint still has coordinates but isn't in the exported bounds - drawing to it sends the curve off-canvas
       const ax=a.x+(a.w||120)/2, ay=a.y+(a.h||40)/2;
       const bx=b.x+(b.w||120)/2, by=b.y+(b.h||40)/2;
       const mx=(ax+bx)/2, my=(ay+by)/2;
@@ -8688,7 +8709,7 @@ async function exportPNG(){
     ctx.restore();
   }
 
-  // Nodes — radius per style, respecting styleConfig like live CSS (modern 12, classic 4/6 root, bubble 999, sketch 3, dashed 14, minimal 6/8 root, zigzag 2, neon 10)
+  // Nodes - radius per style, respecting styleConfig like live CSS (modern 12, classic 4/6 root, bubble 999, sketch 3, dashed 14, minimal 6/8 root, zigzag 2, neon 10)
   const _styleCfg = (typeof STYLE_CONFIG_DEFAULTS!=='undefined' && STYLE_CONFIG_DEFAULTS[mapStyle])
     ? { ...STYLE_CONFIG_DEFAULTS[mapStyle], ...((map.styleConfig||{})[mapStyle]||{}) } : null;
   const _baseRadius = _styleCfg ? _styleCfg.radius : (mapStyle==='bubble'?999: mapStyle==='classic'?4: mapStyle==='sketch'?3: mapStyle==='dashed'?14: mapStyle==='minimal'?6: mapStyle==='zigzag'?2: mapStyle==='neon'?10:12);
@@ -8767,7 +8788,7 @@ async function exportPNG(){
     if(_isFormula && _formulaVal && _formulaVal.error){
       ctx.strokeStyle='#e5484d'; ctx.lineWidth=1.5; ctx.stroke();
     }
-    // Reference node — distinct left border + italic, like live .node.ref-node
+    // Reference node - distinct left border + italic, like live .node.ref-node
     if(n.ref){
       ctx.save();
       // clip to node shape then draw 4px left border in accent
@@ -8777,8 +8798,8 @@ async function exportPNG(){
       ctx.fillRect(n.x, n.y, 4, h);
       ctx.restore();
     }
-    // Text — pick a color that contrasts with the node background, and exact font
-    // matching the live look — --sans/--serif + handwritten/sketchpad scale + lookConfig nodeSize
+    // Text - pick a color that contrasts with the node background, and exact font
+    // matching the live look - --sans/--serif + handwritten/sketchpad scale + lookConfig nodeSize
     const _hasColor2 = n.color && n.color!=='#fff' && n.color!=='#ffffff';
     const _zebraBg = zd[i] && zd[i]%2===1 ? zebraA : (zd[i] ? zebraB : themeNodeBg);
     const bg = isRoot ? (map.color || accent) : (_hasColor2 ? n.color : _zebraBg);
@@ -8796,7 +8817,7 @@ async function exportPNG(){
       if(mapStyle==='bubble') return isRoot ? 26 : 22;
       return isRoot ? 22 : 15;
     })();
-    // Node image — drawn first, at the top, so text/checkbox center in the space below it
+    // Node image - drawn first, at the top, so text/checkbox center in the space below it
     let imgDrawH = 0;
     const img = imgMap[i];
     if(img){
@@ -8810,7 +8831,7 @@ async function exportPNG(){
       ctx.restore();
       imgDrawH += (isRoot?14:10)+6;   // top offset + the CSS's 6px margin-bottom, so text centers below it correctly
     }
-    // Formula / frontmatter badges — match live ::before pseudo-elements
+    // Formula / frontmatter badges - match live ::before pseudo-elements
     if(_isFormula){
       ctx.save();
       ctx.fillStyle = (_formulaVal && _formulaVal.error) ? '#e5484d' : accent;
@@ -8829,14 +8850,14 @@ async function exportPNG(){
       ctx.restore();
     }
     const textCenterY = n.y + imgDrawH + (h-imgDrawH)/2;
-    // Highlight (background per text) — node-wide for the canvas export
+    // Highlight (background per text) - node-wide for the canvas export
     if(n.highlight){
       ctx.fillStyle = n.highlight;
       ctx.fillRect(n.x+insetX-2, n.y+imgDrawH+4, w-insetX*2+4, h-imgDrawH-8);
     }
     const baseX = n.x+insetX;
     let textX = baseX, textMaxWidth = w-insetX*2;
-    // Marker badge — drawn before the task box so export order matches the DOM.
+    // Marker badge - drawn before the task box so export order matches the DOM.
     if(n.marker){
       ctx.font='15px sans-serif'; ctx.textAlign='start'; ctx.textBaseline='middle';
       ctx.fillStyle=textFill;
@@ -8844,7 +8865,7 @@ async function exportPNG(){
       const mw=ctx.measureText(n.marker).width+6;
       textX += mw; textMaxWidth -= mw;
     }
-    // Task checkbox — 18px box + 7px gap, matching .task-check's live CSS exactly
+    // Task checkbox - 18px box + 7px gap, matching .task-check's live CSS exactly
     if(n.task){
       const boxSize=18, boxY=textCenterY-boxSize/2, boxX=textX;
       roundRect(ctx, boxX, boxY, boxSize, boxSize, 5);
@@ -8937,7 +8958,7 @@ async function exportPNG(){
       if(_isTaskDone) ctx.globalAlpha = _prevAlpha;
       ctx.restore();
     }
-    // Notes indicator — sticky note, like live .notes-mark
+    // Notes indicator - sticky note, like live .notes-mark
     const noteText = (n.notes||'').replace(/<[^>]*>/g,'').trim();
     if(noteText){
       const cx = (n.side==='left') ? n.x + 4 : n.x + w - 4;
@@ -8957,18 +8978,18 @@ async function exportPNG(){
       ctx.textAlign = 'start';   // restore
       ctx.textBaseline = 'middle';
     }
-    // Task-progress roll-up badge — top-left pill, like live .task-progress
+    // Task-progress roll-up badge - top-left pill, like live .task-progress
     const prog = {done:roll.tdone[i], total:roll.ttot[i]};
     if(prog.total>0 && !n.task){
       const complete = prog.done===prog.total;
       drawPillBadge(`\u2713 ${prog.done}/${prog.total}`, n.x-6, n.y-9, complete?'#4a9d5b':toolbarBg, complete?'#fff':toolbarText);
     }
-    // Token-count badge — bottom-left pill, same threshold as the on-screen version
+    // Token-count badge - bottom-left pill, same threshold as the on-screen version
     const tokens = estimateTokens(n.text, n.notes);
     if(tokens>=25){
       drawPillBadge(`~${tokens}t`, n.x-6, n.y+h-6, toolbarBg, toolbarText);
     }
-    // Reference/citation mark — top-left circle with a 📖 glyph
+    // Reference/citation mark - top-left circle with a 📖 glyph
     if(n.ref){
       const cx=n.x-9+11, cy=n.y-9+11;
       ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI*2);
@@ -8999,8 +9020,8 @@ function drawFormattedText(ctx, html, opts){
   const tmp = document.createElement('div');
   tmp.innerHTML = (html || '').toString();
   const runs = [];
-  // legacy listType (whole-node bullets) — render as if each line of plain text
-  // were wrapped in a <li>. Prefix marker is unformatted (like live .list-marker opacity .7) — not bold/italic.
+  // legacy listType (whole-node bullets) - render as if each line of plain text
+  // were wrapped in a <li>. Prefix marker is unformatted (like live .list-marker opacity .7) - not bold/italic.
   if(listType && !INLINE_HTML_RE.test(html||'')){
     const lines = (html||'').split('\n');
     lines.forEach((line, i)=>{
@@ -9022,7 +9043,7 @@ function drawFormattedText(ctx, html, opts){
             if(i > 0) runs.push({ text:'\n', ...st });
             if(!p) return;
             // Auto-detect raw URLs the same way the live DOM does
-            // (appendTextWithLinks) — the stored node content never contains
+            // (appendTextWithLinks) - the stored node content never contains
             // an <a> tag for these (that wrapping is display-only, applied
             // fresh on every live render, never saved) so without this the
             // export has no way to know a plain-text segment is a link at
@@ -9050,7 +9071,7 @@ function drawFormattedText(ctx, html, opts){
           if(tag==='a'){ next.link = true; next.underline = true; }
           if(tag==='br'){ runs.push({ text:'\n', ...st }); return; }
           if(tag==='li'){
-            // Push bullet/number prefix — unformatted like live native bullets (not bold/italic)
+            // Push bullet/number prefix - unformatted like live native bullets (not bold/italic)
             const isOL = child.parentElement && child.parentElement.tagName==='OL';
             const idx = child.parentElement ? Array.from(child.parentElement.children).indexOf(child)+1 : 1;
             runs.push({ text:(isOL ? `${idx}. ` : '• '), bold:false, italic:false, underline:false, strike:false, link:false });
@@ -9075,7 +9096,7 @@ function drawFormattedText(ctx, html, opts){
   const lines = [[]];
   let curW = 0;
   // Favicons are preloaded by the caller (exportPNG) before we get here, so a
-  // missing or failed one is already known at measure time — that matters,
+  // missing or failed one is already known at measure time - that matters,
   // because the icon's width has to be reserved during wrapping, not at draw
   // time. `favicons` is keyed by hostname; a null value means "did not load",
   // in which case nothing is reserved and nothing is drawn.
@@ -9089,11 +9110,11 @@ function drawFormattedText(ctx, html, opts){
     parts.forEach(part => {
       if(!part) return;
       setFont(run);
-      // Only the first visible chunk of a link run carries the icon — a
+      // Only the first visible chunk of a link run carries the icon - a
       // wrapped URL must not repeat it on every line.
       let fav = (firstChunk && run.favHost && favicons[run.favHost]) ? favicons[run.favHost] : null;
       let w = ctx.measureText(part).width + (fav ? iconW : 0);
-      // Handle long words without spaces that exceed maxWidth — break anywhere
+      // Handle long words without spaces that exceed maxWidth - break anywhere
       // like CSS `overflow-wrap:anywhere` (live DOM does). Split into fitting chunks.
       if(part.trim() && w > maxWidth){
         let remaining = part;
@@ -9199,7 +9220,7 @@ $('#addChild').onclick=()=>{ if(!map)return; addNode(sel||map.rootId,false); };
 // Before printing, fit the whole map into view so nothing is clipped on paper.
 let _rzReframeT=null;
 window.addEventListener('resize', ()=>{
-  _rzCache=null;   // browser zoom / OS display scaling may have changed — re-measure on next _uiZ() call
+  _rzCache=null;   // browser zoom / OS display scaling may have changed - re-measure on next _uiZ() call
   clearTimeout(_rzReframeT);
   _rzReframeT=setTimeout(()=>{
     if(!map){ _markStage(); return; }
@@ -9215,7 +9236,7 @@ $('#layout').onclick=autoLayout;            // re-tidies node positions (does NO
 // Animates as an incremental cascade rather than jumping straight to the final state:
 // collapsing proceeds deepest-branch-first (so a parent doesn't visually swallow a
 // still-open child), expanding proceeds shallowest-first (children reveal only after
-// their own parent has opened) — the same ordering tree UIs like VS Code's file
+// their own parent has opened) - the same ordering tree UIs like VS Code's file
 // explorer or Notion's outline use for a "collapse/expand all".
 // "Collapse/expand all branches" steps the WHOLE map one depth level per click instead
 // of jumping straight to fully expanded or fully collapsed. Collapsing closes the
@@ -9223,13 +9244,13 @@ $('#layout').onclick=autoLayout;            // re-tidies node positions (does NO
 // still-open child); expanding opens the shallowest still-closed branch level first
 // (children only reveal once their own parent has opened). Repeated clicks cycle:
 // expand, expand, ... fully open -> collapse, collapse, ... fully closed -> expand
-// again. The map's actual root is never itself a candidate to collapse — that would
-// hide the whole map — only its descendants are.
+// again. The map's actual root is never itself a candidate to collapse - that would
+// hide the whole map - only its descendants are.
 let _collapseAllDir=null;
 function stepCollapseAll(){
   if(!map) return null;
   // Unconditional walk: how many depth levels the WHOLE tree has, regardless of the
-  // current fold state — this is only for reporting progress ("expanded 2/4"), not for
+  // current fold state - this is only for reporting progress ("expanded 2/4"), not for
   // deciding what to fold/unfold below (that still only ever looks at what's currently
   // reachable, via the visibility-respecting walk further down).
   let totalDepth=-1;
@@ -9310,7 +9331,7 @@ $('#minimap')?.addEventListener('click', e=>e.stopPropagation());
     if(e.key==='Escape'){ e.preventDefault(); applyView(); zv.blur(); }
   });
 })();
-// Zoom slider — drag maps straight to setZoom() (no animation so the slider
+// Zoom slider - drag maps straight to setZoom() (no animation so the slider
 // stays glued to the finger), same 10–300% bounds as the % readout.
 $('#zoomSlider')?.addEventListener('input', e=>{ setZoom(parseInt(e.target.value,10)); });
 // Overview card (minimap + zoom) collapse toggle, persisted per browser.
@@ -9333,14 +9354,14 @@ let _sideExpandedW = 268;   // cached logical width of the expanded sidebar
 // the reframe delta is (expanded width - rail width), not the whole width.
 const SIDE_RAIL_W = 36;
 function toggleSidePanel(){
-  // Zen write has no grid sidebar — it is a slide-over overlay toggled via side-open
+  // Zen write has no grid sidebar - it is a slide-over overlay toggled via side-open
   if(document.body.classList.contains('ui-zen')){
     document.body.classList.toggle('side-open');
     return;
   }
   const side=$('#side');
   // On phones the sidebar is a transform overlay (stage keeps full width), so no
-  // reframe is needed there — let CSS slide it.
+  // reframe is needed there - let CSS slide it.
   const overlay = window.matchMedia('(max-width: 720px)').matches;
   const z=(typeof _uiZ==='function'?(_uiZ()||1):1);
   const wasCollapsed = side.classList.contains('collapsed');
@@ -9353,7 +9374,7 @@ function toggleSidePanel(){
   if(map && !overlay){ const {w:SW,h:SH}=_stageSize(); cx=(SW/2-view.x)/view.k; cy=(SH/2-view.y)/view.k; has=isFinite(cx)&&isFinite(cy); }
   side.classList.toggle('collapsed');
   // The drag handle writes an inline width, which beats the .side.collapsed
-  // CSS rule — clear it while collapsed (or in the mobile overlay) and
+  // CSS rule - clear it while collapsed (or in the mobile overlay) and
   // restore the remembered width when expanding, so the toggle always works
   // even right after a drag-resize.
   if(overlay || side.classList.contains('collapsed')){
@@ -9375,7 +9396,7 @@ $('#railToggle')?.addEventListener('click',()=>{
   if(side.classList.contains('collapsed')) toggleSidePanel();   // reopen from the icon rail
 });
 // Sidebar tabs: Maps (default) and Templates. Templates renders the same
-// catalog as the caret popover, but inline — click an entry to build a map.
+// catalog as the caret popover, but inline - click an entry to build a map.
 function setSideTab(tab){
   const maps=tab==='maps';
   $('#sidePaneMaps').classList.toggle('active',maps);
@@ -9441,7 +9462,7 @@ if(window.matchMedia('(max-width: 720px)').matches){
   $('#stage').addEventListener('click', e=>{
     const side=$('#side');
     if(side.classList.contains('collapsed')) return;
-    // Only close if the user tapped the dimming overlay (the ::after pseudo) —
+    // Only close if the user tapped the dimming overlay (the ::after pseudo) -
     // which sits on top of all the topbar/zoombar at z-index 150. Easiest
     // proxy: tap landed on #stage or #viewport (not on a node or chrome).
     if(e.target.id==='stage' || e.target.id==='viewport'){
@@ -9456,7 +9477,7 @@ $('#hintClose').onclick=()=>$('#hint').style.display='none';
 // linearly between MIN_S at a small/cramped viewport and MAX_S at a spacious one,
 // using whichever of width/height is more constrained (so a wide-but-short window
 // and a narrow-but-tall window both scale down correctly, not just one axis).
-// This is the DEFAULT and stays live — see maybeReapplyAutoScale() below — unless
+// This is the DEFAULT and stays live - see maybeReapplyAutoScale() below - unless
 // the person picks a fixed percentage from the theme panel, which pins it.
 const UI_SCALE_RANGE = { minW:1265, maxW:2545, minH:570, maxH:1305, minS:0.8, maxS:1.0 };
 function autoScaleForViewport(w,h){
@@ -9476,17 +9497,17 @@ function getUiScale(){
   return autoScaleForViewport(window.innerWidth, window.innerHeight);  // auto: tracks the current viewport
 }
 function applyUiScale(v){
-  // CSS `zoom` on the root scales the entire UI uniformly — chrome and canvas —
+  // CSS `zoom` on the root scales the entire UI uniformly - chrome and canvas -
   // like browser zoom, while keeping pointer/geometry math self-consistent.
   // We also expose the factor as --ui-zoom so full-viewport containers can size
-  // themselves to calc(100vh / zoom) — otherwise a 100vh box would render at
+  // themselves to calc(100vh / zoom) - otherwise a 100vh box would render at
   // only `zoom`× the screen height and leave a gap at the bottom.
   const z = (v && v>=0.5 && v<=2) ? v : 1;
   document.documentElement.style.zoom = z!==1 ? String(z) : '';
   document.documentElement.style.setProperty('--ui-zoom', String(z));
-  _rzCache=null;   // the browser-zoom probe measurement is now stale — a changed scale invalidates it, same as a window resize would
+  _rzCache=null;   // the browser-zoom probe measurement is now stale - a changed scale invalidates it, same as a window resize would
   // The stage's effective CSS-pixel size just changed with the zoom (more/fewer
-  // layout pixels now fit in the same physical viewport) — keep whatever map
+  // layout pixels now fit in the same physical viewport) - keep whatever map
   // point was centred still centred, exactly like a window resize does.
   if(typeof stage!=='undefined' && stage) _recenterForStageChange();
   if(typeof updateMinimap==='function' && map) updateMinimap();
@@ -9515,6 +9536,380 @@ window.addEventListener('resize', ()=>{
     applyUiScale(getUiScale());
   }, 150);
 });
+
+/* ============================================================
+   INLINE COLOUR SWATCHES - the VS Code style colour decorator, for
+   the JSON textareas in the two theme dialogs.
+
+   VS Code draws a small square in front of every colour literal in a
+   CSS file and opens a picker when you click it. A <textarea> cannot
+   hold inline widgets, so the square is an absolutely positioned
+   button in a layer on top of the text, and a hidden mirror div holds
+   the same text with a <span> around each colour literal. Reading
+   those spans gives the exact pixel box of every token in one layout
+   pass, instead of guessing at character widths (which would drift on
+   any look that changes the font). The mirror is styled from the
+   textarea's own computed style for the same reason.
+   ============================================================ */
+
+// Hex (3/4/6/8 digits) and the functional rgb()/rgba() forms. Deliberately not
+// hsl() and not the named colours: themes/*.json and the theme config only ever
+// use these two, and a swatch that cannot write the value back in the notation
+// the user typed is worse than no swatch at all.
+const CSS_COLOR_RE = /#[0-9a-fA-F]{3,8}|rgba?\([^()]*\)/g;
+
+// A CSS colour literal to {r,g,b,a}, or null when it is not one this picker can
+// round-trip. Lengths 5 and 7 fall through the hex branch on purpose: they are
+// not colours, and the regex above has to be permissive to find the 8 digit form.
+function parseCssColor(str){
+  if(typeof str !== 'string') return null;
+  const clamp=(n,lo,hi)=> n<lo ? lo : (n>hi ? hi : n);
+  const s = str.trim();
+  if(s[0] === '#'){
+    const h = s.slice(1);
+    if(!/^[0-9a-fA-F]+$/.test(h)) return null;
+    const x = c => parseInt(c.length===1 ? c+c : c, 16);
+    if(h.length===3 || h.length===4)
+      return { r:x(h[0]), g:x(h[1]), b:x(h[2]), a: h.length===4 ? x(h[3])/255 : 1 };
+    if(h.length===6 || h.length===8)
+      return { r:x(h.slice(0,2)), g:x(h.slice(2,4)), b:x(h.slice(4,6)),
+               a: h.length===8 ? x(h.slice(6,8))/255 : 1 };
+    return null;
+  }
+  const m = /^rgba?\(([^()]*)\)$/i.exec(s);
+  if(!m) return null;
+  // Splits both the legacy "r, g, b, a" and the modern "r g b / a" syntax.
+  const parts = m[1].split(/[,\/\s]+/).map(p=>p.trim()).filter(Boolean);
+  if(parts.length < 3 || parts.length > 4) return null;
+  const chan = p => {
+    const n = parseFloat(p);
+    return isFinite(n) ? clamp(Math.round(p.endsWith('%') ? n*2.55 : n), 0, 255) : null;
+  };
+  const r=chan(parts[0]), g=chan(parts[1]), b=chan(parts[2]);
+  if(r===null || g===null || b===null) return null;
+  let a = 1;
+  if(parts.length===4){
+    const n = parseFloat(parts[3]);
+    if(!isFinite(n)) return null;
+    a = clamp(parts[3].endsWith('%') ? n/100 : n, 0, 1);
+  }
+  return { r, g, b, a };
+}
+
+// Writes a colour back in the notation it was found in, so picking a colour in
+// a themes/*.json paste changes the value and nothing else: hex stays hex,
+// rgb()/rgba() stays functional and keeps its spacing habit and its short ".07"
+// style alpha. An alpha below 1 promotes hex to its 8 digit form.
+function formatCssColor(c, like){
+  const clamp=(n,lo,hi)=> n<lo ? lo : (n>hi ? hi : n);
+  const a = c.a==null ? 1 : clamp(c.a, 0, 1);
+  const r=clamp(Math.round(c.r),0,255), g=clamp(Math.round(c.g),0,255), b=clamp(Math.round(c.b),0,255);
+  const sample = typeof like==='string' ? like.trim() : '';
+  if(sample && sample[0] !== '#'){
+    const sep = /,\s/.test(sample) ? ', ' : ',';
+    if(a >= 1 && /^rgb\(/i.test(sample)) return `rgb(${[r,g,b].join(sep)})`;
+    const av = String(Math.round(a*1000)/1000).replace(/^0\./, '.');
+    return `rgba(${[r,g,b,av].join(sep)})`;
+  }
+  const hex2 = n => n.toString(16).padStart(2,'0');
+  const out = '#' + hex2(r) + hex2(g) + hex2(b) + (a >= 1 ? '' : hex2(Math.round(a*255)));
+  // Follow the case of the literal being replaced rather than imposing one.
+  return /[A-F]/.test(sample) && !/[a-f]/.test(sample) ? out.toUpperCase() : out;
+}
+
+// Every colour literal in a block of text, with its offsets. Anything the regex
+// catches but parseCssColor rejects is dropped, so a stray "#12345" gets no
+// swatch rather than a broken one.
+function findColorTokens(text){
+  const out = [];
+  CSS_COLOR_RE.lastIndex = 0;
+  let m;
+  while((m = CSS_COLOR_RE.exec(text))){
+    const rgba = parseCssColor(m[0]);
+    if(rgba) out.push({ start:m.index, end:m.index+m[0].length, text:m[0], rgba });
+  }
+  return out;
+}
+
+function rgbToHsv(c){
+  const r=c.r/255, g=c.g/255, b=c.b/255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
+  let h=0;
+  if(d){
+    if(mx===r) h=((g-b)/d+6)%6;
+    else if(mx===g) h=(b-r)/d+2;
+    else h=(r-g)/d+4;
+    h*=60;
+  }
+  return { h, s: mx ? d/mx : 0, v: mx };
+}
+function hsvToRgb(h,s,v){
+  const f=n=>{ const k=(n+h/60)%6; return Math.round(255*(v - v*s*Math.max(0, Math.min(k, 4-k, 1)))); };
+  return { r:f(5), g:f(3), b:f(1) };
+}
+
+// Widen the gap between a JSON key and its value so the swatch has blank
+// columns to sit in without covering a character. Whitespace between tokens is
+// free in JSON, so the text stays exactly as parseable as JSON.stringify left it.
+function spaceForSwatches(json){
+  return json.replace(/":\s*"/g, '":   "');
+}
+
+/* ---------- the picker popup ---------- */
+
+let _csPop = null;
+function closeColorPicker(){
+  if(!_csPop) return;
+  const p = _csPop; _csPop = null;
+  document.removeEventListener('mousedown', p._out, true);
+  document.removeEventListener('keydown', p._key, true);
+  p.remove();
+  if(p._form) p._form.classList.remove('cs-peek', 'cs-peek-drag');
+  if(p._done) p._done();
+}
+// Saturation/value square, hue bar, alpha bar and the literal as text: the same
+// four controls VS Code shows. opts.onInput fires on every move with the new
+// literal, so the textarea (and the canvas behind the dialog) follows the drag.
+// opts.owner marks which textarea the anchor button belongs to, so that layer
+// can leave itself alone while the picker is anchored to one of its buttons.
+function openColorPicker(anchor, initial, opts){
+  opts = opts || {};
+  closeColorPicker();
+  const start = parseCssColor(initial) || { r:255, g:255, b:255, a:1 };
+  let hsv = rgbToHsv(start), alpha = start.a;
+  const pop = document.createElement('div');
+  pop.className = 'cs-pop';
+  pop.innerHTML = `
+    <div class="cs-sv"><span class="cs-sv-sat"></span><span class="cs-sv-val"></span><i class="cs-dot"></i></div>
+    <div class="cs-bar cs-hue"><i class="cs-dot"></i></div>
+    <div class="cs-bar cs-alpha"><span class="cs-agrad"></span><i class="cs-dot"></i></div>
+    <input class="cs-text" spellcheck="false" aria-label="Colour value">`;
+  document.body.appendChild(pop);
+  // A modal that hides the map is the wrong shape for choosing a colour FOR the
+  // map, so the dialog stops covering it while the picker is open: the backdrop
+  // goes clear, and the card itself steps out of the way for the length of a
+  // drag. Both are class flips on the dialog, undone in closeColorPicker().
+  const form = anchor.closest ? anchor.closest('.var-form') : null;
+  if(form) form.classList.add('cs-peek');
+  pop._form = form;
+  const sv=pop.querySelector('.cs-sv'), hue=pop.querySelector('.cs-hue'),
+        al=pop.querySelector('.cs-alpha'), txt=pop.querySelector('.cs-text');
+  const svDot=sv.querySelector('.cs-dot'), hueDot=hue.querySelector('.cs-dot'),
+        alDot=al.querySelector('.cs-dot'), alGrad=al.querySelector('.cs-agrad');
+  const paint=(emit)=>{
+    const rgb = hsvToRgb(hsv.h, hsv.s, hsv.v);
+    const literal = formatCssColor({ ...rgb, a:alpha }, initial);
+    const solid = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+    sv.style.background = `hsl(${hsv.h},100%,50%)`;
+    svDot.style.left = (hsv.s*100)+'%';
+    svDot.style.top = ((1-hsv.v)*100)+'%';
+    svDot.style.background = solid;
+    hueDot.style.left = (hsv.h/360*100)+'%';
+    hueDot.style.background = `hsl(${hsv.h},100%,50%)`;
+    alGrad.style.background = `linear-gradient(to right, rgba(${rgb.r},${rgb.g},${rgb.b},0), ${solid})`;
+    alDot.style.left = (alpha*100)+'%';
+    alDot.style.background = literal;
+    if(document.activeElement !== txt) txt.value = literal;
+    if(emit && opts.onInput) opts.onInput(literal);
+  };
+  // One drag handler for all three surfaces: pointer capture means a drag that
+  // leaves the square still tracks, which is what makes the square usable.
+  // A single click on a bar is a pointerdown and a pointerup a few ms apart.
+  // Fading the card for that would just be a flicker, so the fade waits to see
+  // whether the pointer is actually being dragged.
+  let peekT = 0;
+  const peek=(on)=>{
+    clearTimeout(peekT);
+    if(!form) return;
+    if(on) peekT = setTimeout(()=>form.classList.add('cs-peek-drag'), 180);
+    else form.classList.remove('cs-peek-drag');
+  };
+  const track=(el, fn)=>{
+    let on=false;
+    const at=e=>{
+      const r=el.getBoundingClientRect();
+      const cl=(n,lo,hi)=> n<lo ? lo : (n>hi ? hi : n);
+      fn(cl((e.clientX-r.left)/(r.width||1), 0, 1), cl((e.clientY-r.top)/(r.height||1), 0, 1));
+      paint(true);
+    };
+    el.addEventListener('pointerdown', e=>{
+      e.preventDefault(); on=true; peek(true);
+      try{ el.setPointerCapture(e.pointerId); }catch(_){}
+      at(e);
+    });
+    el.addEventListener('pointermove', e=>{ if(on) at(e); });
+    const up=e=>{ on=false; peek(false); try{ el.releasePointerCapture(e.pointerId); }catch(_){} };
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+  };
+  track(sv, (x,y)=>{ hsv.s=x; hsv.v=1-y; });
+  track(hue, x=>{ hsv.h=x*360; });
+  track(al, x=>{ alpha=Math.round(x*100)/100; });
+  txt.addEventListener('input', ()=>{
+    const c = parseCssColor(txt.value);
+    if(!c) return;
+    hsv = rgbToHsv(c); alpha = c.a;
+    paint(true);
+  });
+  txt.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); closeColorPicker(); } });
+  pop._done = opts.onClose;
+  pop._owner = opts.owner;
+  pop._out = e=>{ if(!pop.contains(e.target) && !anchor.contains(e.target)) closeColorPicker(); };
+  // Capture phase: the dialogs stop mousedown from bubbling out of the card, so
+  // a bubble phase listener here would never see a click inside one.
+  pop._key = e=>{ if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); closeColorPicker(); } };
+  document.addEventListener('mousedown', pop._out, true);
+  document.addEventListener('keydown', pop._key, true);
+  _csPop = pop;
+  paint(false);
+  positionPopup(pop, anchor, { align:'left' });
+  return pop;
+}
+
+/* ---------- the swatch layer ---------- */
+
+// Copied onto the mirror so its text lands on the same pixels as the
+// textarea's. Everything that moves a glyph is here; colour and background
+// are not, because the mirror is invisible.
+const CS_MIRROR_PROPS = ['fontFamily','fontSize','fontWeight','fontStyle','fontVariant',
+  'letterSpacing','wordSpacing','lineHeight','textIndent','textTransform','tabSize','whiteSpace',
+  'paddingTop','paddingRight','paddingBottom','paddingLeft',
+  'borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth'];
+const CS_SIZE = 11;   // px, the square's side
+const CS_GAP  = 4;    // px between the square and the colour it belongs to
+
+// Decorate one textarea with a clickable swatch in front of every colour
+// literal. onLive, when given, is called with the whole text after every picker
+// move, for callers that want to preview the change somewhere else.
+function attachColorSwatches(ta, onLive){
+  const wrap = document.createElement('div'); wrap.className = 'cs-wrap';
+  ta.parentNode.insertBefore(wrap, ta); wrap.appendChild(ta);
+  const mirror = document.createElement('div'); mirror.className = 'cs-mirror';
+  const layer = document.createElement('div'); layer.className = 'cs-layer';
+  wrap.appendChild(mirror); wrap.appendChild(layer);
+
+  // idx is the token's position in the scan, not its offsets: replacing one
+  // colour literal with another never changes how many there are or their
+  // order, but it does move every offset after it, and a cached offset would
+  // then edit the wrong span of text.
+  const edit=(btn, idx)=>{
+    const tok = findColorTokens(ta.value)[idx];
+    if(!tok) return;
+    const fill = btn.querySelector('.cs-fill');
+    openColorPicker(btn, tok.text, {
+      owner: ta,
+      onInput: next=>{
+        const v = ta.value, selA = ta.selectionStart, selB = ta.selectionEnd;
+        ta.value = v.slice(0, tok.start) + next + v.slice(tok.end);
+        // Setting .value collapses the caret to the end, which would silently
+        // move the user's cursor across the document mid-drag.
+        const d = next.length - (tok.end - tok.start);
+        const fix = p => p >= tok.end ? p + d : p;
+        try{ ta.setSelectionRange(fix(selA), fix(selB)); }catch(_){}
+        tok.end = tok.start + next.length; tok.text = next;
+        // Repaint in place: a full place() would destroy the very button the
+        // open picker is anchored to. The layer is rebuilt when it closes.
+        fill.style.background = next;
+        if(onLive) onLive(ta.value);
+      },
+      onClose: ()=>{
+        // Rebuild on the next frame, not now: this runs from the mousedown that
+        // dismissed the picker, and tearing the buttons down before that click
+        // lands would swallow a click aimed at another swatch.
+        requestAnimationFrame(place);
+        // Hand the focus back to the textarea, at the scroll position the user
+        // was reading at, whenever it would otherwise be left on nothing or on
+        // a button the rebuild above is about to remove. Without this the next
+        // Escape reaches no one and the dialog appears to ignore it.
+        const ae = document.activeElement;
+        if(!ae || ae === document.body || wrap.contains(ae)){
+          const st = ta.scrollTop, sl = ta.scrollLeft;
+          ta.focus(); ta.scrollTop = st; ta.scrollLeft = sl;
+        }
+      },
+    });
+  };
+
+  const place=()=>{
+    // The open picker is anchored to a button in this layer, so leave it alone.
+    if(_csPop && _csPop._owner === ta) return;
+    layer.textContent = ''; mirror.textContent = '';
+    const tokens = findColorTokens(ta.value);
+    if(!tokens.length) return;
+    const cs = getComputedStyle(ta);
+    for(const p of CS_MIRROR_PROPS) mirror.style[p] = cs[p];
+    mirror.style.boxSizing = 'border-box';
+    mirror.style.width = ta.offsetWidth+'px';
+    mirror.style.height = ta.offsetHeight+'px';
+    // Build the whole mirror first, then read every box: one layout pass rather
+    // than one per token.
+    const frag = document.createDocumentFragment();
+    const marks = [];
+    let at = 0;
+    for(const t of tokens){
+      // Anchor to the opening quote when there is one. In a JSON file that is
+      // where the value visually starts, and it is where VS Code puts the square.
+      const q = (ta.value[t.start-1]==='"' || ta.value[t.start-1]==="'") ? t.start-1 : t.start;
+      frag.appendChild(document.createTextNode(ta.value.slice(at, q)));
+      const span = document.createElement('span');
+      span.textContent = ta.value.slice(q, t.end);
+      frag.appendChild(span);
+      marks.push({ t, span, q });
+      at = t.end;
+    }
+    frag.appendChild(document.createTextNode(ta.value.slice(at)));
+    mirror.appendChild(frag);
+    const lh = parseFloat(getComputedStyle(mirror).lineHeight) || 16;
+    for(const { t, span, q } of marks){
+      // A colour buried inside a longer value (the rgba() inside a --shadow,
+      // say) has no blank columns in front of it, and a square there would sit
+      // on top of the text. Skip it rather than draw it wrong.
+      const pre = ta.value.slice(0, q);
+      if(pre.length - pre.replace(/[ \t]+$/, '').length < 2) continue;
+      const x = span.offsetLeft - CS_SIZE - CS_GAP - ta.scrollLeft;
+      const y = span.offsetTop + (lh - CS_SIZE)/2 - ta.scrollTop;
+      if(x < 0) continue;
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'cs-swatch'; b.title = 'Pick a colour';
+      b.style.left = x+'px'; b.style.top = y+'px';
+      const fill = document.createElement('span');
+      fill.className = 'cs-fill';
+      fill.style.background = formatCssColor(t.rgba, t.text);
+      b.appendChild(fill);
+      const idx = tokens.indexOf(t);
+      // Do not let the square take the focus off the text the user is editing.
+      b.onmousedown = e=>e.preventDefault();
+      b.onclick = e=>{ e.preventDefault(); e.stopPropagation(); edit(b, idx); };
+      layer.appendChild(b);
+    }
+  };
+
+  // A themes/*.json file, and anything else JSON.stringify wrote, puts a single
+  // space after the colon, which is not enough room for a square. Re-space on
+  // paste and on blur: both are moments where the text is settling rather than
+  // being typed into, and only whitespace between tokens ever changes, so the
+  // JSON the user pasted still parses to exactly the same object.
+  const respace=()=>{
+    const next = spaceForSwatches(ta.value);
+    if(next === ta.value) return;
+    // Move the caret by the same transform applied to the text in front of it.
+    // A match straddling the caret can land it a character or two off, which is
+    // why this runs only when the user is not mid-word.
+    const head = spaceForSwatches(ta.value.slice(0, ta.selectionStart)).length;
+    ta.value = next;
+    try{ ta.setSelectionRange(head, head); }catch(_){}
+  };
+  // Programmatic writes do not fire input, so this only ever runs for the user's
+  // own typing, where closing the picker first is the honest thing to do.
+  ta.addEventListener('input', ()=>{ closeColorPicker(); place(); });
+  // Paste fires before the text lands, hence the timeout.
+  ta.addEventListener('paste', ()=>setTimeout(()=>{ respace(); place(); }, 0));
+  ta.addEventListener('change', ()=>{ respace(); place(); });
+  ta.addEventListener('scroll', place);
+  if(window.ResizeObserver) new ResizeObserver(place).observe(ta);
+  place();
+  return place;
+}
 
 /* ---------- Themes ---------- */
 const THEMES = [
@@ -9578,12 +9973,12 @@ const THEMES = [
 ];
 // Shown in their own dedicated panel section, not mixed into the regular
 // colour-theme grid above. Deliberately a different kind of thing from
-// THEMES/MAP_STYLES — font + non-node chrome texture only, independent of
+// THEMES/MAP_STYLES - font + non-node chrome texture only, independent of
 // both color (still controlled by whichever Colour Theme is active) and
 // card/branch shape (still controlled by whichever Map Style is active).
-// 'office' is the implicit default, same pattern as 'light' for themes —
+// 'office' is the implicit default, same pattern as 'light' for themes -
 // achieved by absence of the data-look attribute, not its own CSS block.
-// Names are written to complete "I am ___" (the section's own label) —
+// Names are written to complete "I am ___" (the section's own label) -
 // "I am in the Office" / "I am at Coffee Shop" / "I am back to School".
 const LOOKS = [
   {id:'office',      name:'in the<br>Office',  font:'inherit'},
@@ -9615,7 +10010,7 @@ const MAP_STYLES = [
   {id:'ink', name:'Ink', desc:'Bold comic, heavy ink borders, hard shadow'},
   {id:'paper', name:'Paper', desc:'Ruled paper with soft stack shadow'}
 ];
-// Per-style tunables, keyed by style id on the map as map.styleConfig — the
+// Per-style tunables, keyed by style id on the map as map.styleConfig - the
 // same pattern as layoutConfig. Defaults mirror what the CSS and the export
 // painter hardcode today, so an unconfigured map renders exactly as before.
 const STYLE_CONFIG_DEFAULTS = {
@@ -9661,7 +10056,7 @@ function validateStyleConfig(raw){
   }
   return out;
 }
-// The knobs that apply to one style — what the settings dialog shows.
+// The knobs that apply to one style - what the settings dialog shows.
 function styleConfigFor(style, raw){
   const all = validateStyleConfig(raw);
   return all[style] ? { [style]: all[style] } : {};
@@ -9685,12 +10080,12 @@ function applyStyleConfigVars(){
   vp.style.setProperty('--node-glow', cfg.glow + 'px');
   vp.style.setProperty('--edge-glow', Math.max(2, Math.round(cfg.glow / 5)));
 }
-// Per-look tunables, keyed by look id on the map as map.lookConfig — the
+// Per-look tunables, keyed by look id on the map as map.lookConfig - the
 // same pattern as styleConfig/layoutConfig. font is the look's own font
 // family by default (mirroring the --sans/--serif each look's CSS declares,
 // so an unconfigured map renders exactly as before); nodeSize scales node
 // text (1 = the look's own size); radius rounds the chrome (popups, pickers,
-// minimap, modals — equal to the look's default keeps its own asymmetric
+// minimap, modals - equal to the look's default keeps its own asymmetric
 // corners).
 const LOOK_CONFIG_DEFAULTS = {
   office:       { font:'"Bricolage Grotesque",system-ui,sans-serif', nodeSize:1, radius:14 },
@@ -9735,12 +10130,12 @@ function validateLookConfig(raw){
   }
   return out;
 }
-// The knobs that apply to one look — what the settings dialog shows.
+// The knobs that apply to one look - what the settings dialog shows.
 function lookConfigFor(look, raw){
   const all = validateLookConfig(raw);
   return all[look] ? { [look]: all[look] } : {};
 }
-// Push the active look's config onto :root as inline custom properties —
+// Push the active look's config onto :root as inline custom properties -
 // inline styles beat the :root[data-look=...] attribute rules, so configured
 // values win over the look's own CSS without touching it (and --look-radius/
 // --look-node-size are consumed by the base chrome/node rules, which fall
@@ -9828,6 +10223,10 @@ const THEME_CONFIG_DEFAULTS = {
   'lunar-silver':     { paper:'#0e1014',  ink:'#c8d0d8', accent:'#94a3b8', nodeBg:'#181c22', line:'#2a3038', glow:'rgba(148,163,184,.06)' },
 };
 const THEME_CONFIG_BOUNDS = { color:[0,40] };
+// The six knobs and the CSS variable each one drives. One table: applying,
+// previewing from the colour picker and reading a custom theme's palette all
+// need the same mapping.
+const THEME_CONFIG_VARS = { paper:'--paper', ink:'--ink', accent:'--accent', nodeBg:'--node-bg', line:'--line', glow:'--stage-glow' };
 // Repairs rather than rejects, like validateLookConfig: every colour is kept
 // as a short CSS colour string (typing "" keeps the theme's own colour),
 // unknown keys and unknown themes are dropped, and every theme gets its
@@ -9849,12 +10248,12 @@ function validateThemeConfig(raw){
   }
   return out;
 }
-// The knobs that apply to one theme — what the settings dialog shows.
+// The knobs that apply to one theme - what the settings dialog shows.
 function themeConfigFor(theme, raw){
   const all = validateThemeConfig(raw);
   return all[theme] ? { [theme]: all[theme] } : {};
 }
-// Push the active theme's config onto :root as inline custom properties —
+// Push the active theme's config onto :root as inline custom properties -
 // inline styles beat the :root[data-theme=...] rules, so configured colours
 // win over the theme's own palette without touching it. Called on every
 // render so load, theme switches and map loads all agree.
@@ -9862,22 +10261,33 @@ function applyThemeConfigVars(){
   const root = document.documentElement;
   if(!root || !map) return;
   const theme = root.getAttribute('data-theme') || 'light';
-  // A custom theme has no THEME_CONFIG_DEFAULTS entry — its own palette takes
+  // A custom theme has no THEME_CONFIG_DEFAULTS entry - its own palette takes
   // that role, so the six config knobs still start from (and can tune) it.
   let defaults = THEME_CONFIG_DEFAULTS[theme];
   if(theme==='custom'){
     const custom = loadCustomTheme();
     if(custom){
-      const m = { paper:'--paper', ink:'--ink', accent:'--accent', nodeBg:'--node-bg', line:'--line', glow:'--stage-glow' };
-      defaults = Object.fromEntries(Object.entries(m).map(([k,v])=>[k, custom.vars[v]]));
+      defaults = Object.fromEntries(Object.entries(THEME_CONFIG_VARS).map(([k,v])=>[k, custom.vars[v]]));
     } else defaults = THEME_CONFIG_DEFAULTS.light;
   }
   const cfg = { ...defaults, ...((map.themeConfig || {})[theme] || {}) };
-  const vars = { paper:'--paper', ink:'--ink', accent:'--accent', nodeBg:'--node-bg', line:'--line', glow:'--stage-glow' };
-  for(const key of Object.keys(vars)){
+  for(const key of Object.keys(THEME_CONFIG_VARS)){
     const v = cfg[key];
-    if(v && typeof v === 'string') root.style.setProperty(vars[key], v);
-    else root.style.removeProperty(vars[key]);
+    if(v && typeof v === 'string') root.style.setProperty(THEME_CONFIG_VARS[key], v);
+    else root.style.removeProperty(THEME_CONFIG_VARS[key]);
+  }
+}
+// Push a themeConfig JSON string onto :root without saving anything. Used by
+// the colour picker in the settings dialog so a drag shows on the canvas behind
+// the card; applyThemeConfigVars() puts the saved values back when it closes,
+// which is what makes cancelling leave nothing behind.
+function previewThemeConfig(theme, text){
+  let parsed;
+  try{ parsed = JSON.parse(text); }catch(e){ return; }
+  const sec = (themeConfigFor(theme, parsed) || {})[theme];
+  if(!sec) return;
+  for(const key of Object.keys(THEME_CONFIG_VARS)){
+    if(sec[key]) document.documentElement.style.setProperty(THEME_CONFIG_VARS[key], sec[key]);
   }
 }
 
@@ -9885,25 +10295,25 @@ function applyThemeConfigVars(){
    Layout presets.
 
    A preset SELECTS AND PARAMETERISES one of the placement engines this app
-   implements — it does not define a new algorithm. That distinction is the
+   implements - it does not define a new algorithm. That distinction is the
    whole design: 'balanced' keeps each child on whichever side it already had,
    'down' does org-chart width packing, 'timeline' chains an axis. Those are
    recursive procedures, not numbers, and the only way JSON could express them
-   is by shipping executable code — which would arrive on a stranger's machine
+   is by shipping executable code - which would arrive on a stranger's machine
    through every #view= link. So an imported layout picks an engine and tunes
    it, and every built-in below is written in exactly the schema an import must
    use, so there is no privileged path.
 
    Applying a preset writes map.layout (the engine) and map.layoutConfig (its
    options). Both travel with the map, so a shared map renders correctly for
-   someone who has never seen the preset — only the picker entry is local.
+   someone who has never seen the preset - only the picker entry is local.
    ------------------------------------------------------------ */
 /* ------------------------------------------------------------
    Layout strategies and their parameters.
 
    Steps 1-3 established that every layout this app draws is one of four
    placement STRATEGIES with different numbers. This exposes those numbers, so
-   a layout can be written as JSON rather than code — which is what makes a
+   a layout can be written as JSON rather than code - which is what makes a
    shared library of layouts possible without shipping executable plugins.
 
    Each strategy declares its parameters: enums list their allowed values,
@@ -9968,7 +10378,7 @@ function validateLayoutParams(strategy, raw){
 
 // What autoLayout actually runs: a strategy plus a complete parameter set.
 // Accepts a built-in engine name, a strategy name, or neither, and always
-// returns something runnable — an unopenable map is never the right answer to
+// returns something runnable - an unopenable map is never the right answer to
 // a bad layout name.
 function resolveLayout(name, params){
   const byEngine = ENGINE_PARAMS[name];
@@ -10047,11 +10457,11 @@ function applyTheme(id){
   else document.documentElement.removeAttribute('data-theme');
   try{ localStorage.setItem('mindspark:theme', id||'light'); }catch(e){}
   // Colour theme doesn't change node size today, but re-render anyway rather
-  // than assume that stays true forever — cheap, and matches applyLook below.
+  // than assume that stays true forever - cheap, and matches applyLook below.
   if(map) render();
 }
 // Custom themes: the "Add theme" tile in the colour-theme panel. Unlike the
-// built-ins a custom theme has no CSS block of its own — it carries the same
+// built-ins a custom theme has no CSS block of its own - it carries the same
 // 20 variables as themes/*.json and they are applied inline on :root. There is
 // exactly one slot: importing again replaces the previous theme.
 const CUSTOM_THEME_VARS = ['--toolbar-bg','--toolbar-text','--paper','--paper-2','--ink','--ink-soft','--line','--line-2','--accent','--accent-deep','--teal','--chrome','--chrome-edge','--node-bg','--node-ink','--canvas-dot','--stage-glow','--link','--shadow','--shadow-lg'];
@@ -10088,7 +10498,7 @@ function clearCustomThemeVars(){
 function applyCustomTheme(){
   const theme = loadCustomTheme();
   if(!theme){
-    // A stored 'custom' with no theme behind it is a stale save — fall back
+    // A stored 'custom' with no theme behind it is a stale save - fall back
     // and repair the storage rather than leaving the app on a half-theme.
     clearCustomThemeVars();
     document.documentElement.removeAttribute('data-theme');
@@ -10103,17 +10513,32 @@ function applyCustomTheme(){
   try{ localStorage.setItem('mindspark:theme', 'custom'); }catch(e){}
   if(map) render();
 }
+// Push a pasted palette onto :root without importing it, so the map behind the
+// Add-a-theme card shows the colours while a swatch is being dragged. Nothing is
+// validated beyond the length cap that applyCustomTheme would apply anyway: this
+// writes no storage and the dialog's close() restores what was inline before.
+function previewCustomThemeVars(text){
+  let parsed;
+  try{ parsed = JSON.parse(text); }catch(e){ return; }
+  const vars = parsed && parsed.vars;
+  if(!vars || typeof vars !== 'object' || Array.isArray(vars)) return;
+  const root = document.documentElement;
+  for(const key of CUSTOM_THEME_VARS){
+    const v = vars[key];
+    if(typeof v === 'string' && v.trim() && v.trim().length <= 80) root.style.setProperty(key, v.trim());
+  }
+}
 // Import / manage the single custom theme. Mirrors the layout import form: the
 // theme is pasted as JSON, exactly as it appears in the themes/ folder. Only
-// one imported theme can exist — pasting another replaces it.
+// one imported theme can exist - pasting another replaces it.
 function showThemeImportForm(){
   document.querySelectorAll('.var-form').forEach(p=>p.remove());
   const cur = loadCustomTheme();
   const live = getComputedStyle(document.documentElement);
-  const sample = JSON.stringify({
+  const sample = spaceForSwatches(JSON.stringify({
     v:1, id:'my-theme', name:'My theme',
     vars: Object.fromEntries(CUSTOM_THEME_VARS.map(k=>[k, live.getPropertyValue(k).trim()])),
-  }, null, 2);
+  }, null, 2));
   const m=document.createElement('div'); m.className='var-form';
   m.innerHTML=`
     <div class="vf-backdrop"></div>
@@ -10122,13 +10547,14 @@ function showThemeImportForm(){
       <h2>Add a theme</h2>
       <div class="vf-hint">A theme is a palette of ${CUSTOM_THEME_VARS.length} colour
         variables, exactly the format of the files in the themes/ folder. Paste
-        one in to try it. Only one imported theme is kept at a time —
-        importing again replaces it.</div>
+        one in to try it, or click the square beside any colour to pick a new
+        one. Only one imported theme is kept at a time - importing again
+        replaces it.</div>
       <div class="vf-fields">
         <textarea class="vf-input vf-json" rows="14" spellcheck="false">${escapeHtml(sample)}</textarea>
       </div>
       <div class="vf-err" hidden></div>
-      <div class="vf-hint" style="margin-top:12px">…or pick one of the ${THEMES.length-20} library themes — one click, no JSON</div>
+      <div class="vf-hint" style="margin-top:12px">…or pick one of the ${THEMES.length-20} library themes - one click, no JSON</div>
       <div class="lib-grid">
         ${THEMES.slice(20).map(t=>`
           <button class="lib-card" data-lib="${t.id}" title="Import \u201c${escapeHtml(t.name.replace(/<br\s*\/?>/gi,' '))}\u201d">
@@ -10149,8 +10575,27 @@ function showThemeImportForm(){
   // outside-click handler and close it again a frame later.
   m.addEventListener('click',e=>e.stopPropagation());
   const ta=m.querySelector('.vf-json'), err=m.querySelector('.vf-err');
+  // Snapshot what is inline on :root before previewing anything, and put
+  // exactly that back on close. Byte for byte beats reasoning about which path
+  // set it: a custom theme's 20 variables and the six theme-config knobs both
+  // live here, and only one of them is ours to undo.
+  const rootInline = {};
+  for(const key of CUSTOM_THEME_VARS) rootInline[key] = document.documentElement.style.getPropertyValue(key);
+  let previewed = false;
+  attachColorSwatches(ta, text=>{ previewed = true; previewCustomThemeVars(text); });
   ta.focus();
-  const close=()=>m.remove();
+  const close=()=>{
+    closeColorPicker(); m.remove();
+    if(!previewed) return;
+    const root = document.documentElement;
+    for(const key of CUSTOM_THEME_VARS){
+      if(rootInline[key]) root.style.setProperty(key, rootInline[key]);
+      else root.style.removeProperty(key);
+    }
+    // Node colours that are computed in JS rather than read from a variable
+    // (pickContrast and friends) only catch up on a render.
+    if(map) render();
+  };
   const fail=msg=>{ err.hidden=false; err.textContent=msg; };
   m.querySelector('.vf-go').onclick=()=>{
     let parsed;
@@ -10161,7 +10606,8 @@ function showThemeImportForm(){
       return fail('Not a usable theme. It needs an "id" (lowercase letters, digits and dashes), '
         + 'a "name", and a "vars" object covering all '+CUSTOM_THEME_VARS.length+' colour variables.');
     }
-    if(!saveCustomTheme(theme)) return fail('Could not save — this browser\u2019s storage may be full.');
+    if(!saveCustomTheme(theme)) return fail('Could not save - this browser\u2019s storage may be full.');
+    previewed = false;   // applyCustomTheme() below sets the final palette and renders
     close(); toast(`Theme \u201c${theme.name}\u201d imported`);
     applyCustomTheme();
     try{ $('#themeBtn').click(); }catch(_){}   // reopen so the new theme shows as active
@@ -10169,6 +10615,10 @@ function showThemeImportForm(){
   const delBtn=m.querySelector('[data-del]');
   if(delBtn) delBtn.onclick=()=>{
     saveCustomTheme(null);
+    // applyTheme() clears the 20 inline variables itself, so there is nothing
+    // for close() to restore here: doing it anyway would paint the theme that
+    // was just removed back onto :root.
+    previewed = false;
     if(document.documentElement.getAttribute('data-theme')==='custom') applyTheme('light');
     close(); toast('Theme removed');
     try{ $('#themeBtn').click(); }catch(_){}
@@ -10182,8 +10632,9 @@ function showThemeImportForm(){
 // Import one of the shipped library themes (the ones beyond the panel's
 // visible 20) straight from the Add-a-theme dialog. The theme's palette is
 // read from its own live CSS block, so the imported result is exactly what
-// the user sees — no server round-trip, no embedded copy of the JSON.
+// the user sees - no server round-trip, no embedded copy of the JSON.
 function importLibraryTheme(id){
+  closeColorPicker();
   const t=THEMES.find(x=>x.id===id);
   if(!t) return;
   const root=document.documentElement;
@@ -10210,37 +10661,37 @@ function importLibraryTheme(id){
   else root.removeAttribute('data-theme');
   const theme=validateCustomTheme({ v:1, id, name:t.name.replace(/<br\s*\/?>/gi,' ').trim(), vars });
   if(!theme){ toast('Could not import that theme'); return; }
-  if(!saveCustomTheme(theme)){ toast('Could not save — this browser\u2019s storage may be full.'); return; }
+  if(!saveCustomTheme(theme)){ toast('Could not save - this browser\u2019s storage may be full.'); return; }
   document.querySelectorAll('.var-form').forEach(p=>p.remove());
   toast(`Theme \u201c${theme.name}\u201d imported`);
   applyCustomTheme();
   try{ $('#themeBtn').click(); }catch(_){}   // reopen so the new theme shows as active
 }
-// "Look and feel" (Back to School, etc.) is font + chrome texture only —
+// "Look and feel" (Back to School, etc.) is font + chrome texture only -
 // entirely CSS-driven (see :root[data-look=...] rules), so unlike the old
 // isHandwrittenTheme() this needs no JS-side helper at all. Independent of
-// applyTheme() (colors) and applyMapStyle() (card/branch shape) — all three
+// applyTheme() (colors) and applyMapStyle() (card/branch shape) - all three
 // are separate attributes that never override each other.
 function applyLook(id){
   if(id && id!=='office') document.documentElement.setAttribute('data-look', id);
   else document.documentElement.removeAttribute('data-look');
   try{ localStorage.setItem('mindspark:look', id||'office'); }catch(e){}
   // Two things need to happen here, not just a re-render:
-  // 1) Web fonts load asynchronously — the very first time Caveat/Patrick
+  // 1) Web fonts load asynchronously - the very first time Caveat/Patrick
   //    Hand gets used in a session, the font file may still be downloading
   //    at the exact moment this render() runs synchronously below. The
   //    browser then measures nodes against a FALLBACK font's metrics, and
   //    once the real font actually finishes loading, silently swaps it in
-  //    and resizes the node text — with nothing re-measuring on its own,
+  //    and resizes the node text - with nothing re-measuring on its own,
   //    since it's a browser-internal event this code otherwise never reacts
   //    to. Explicitly wait for the specific font this look uses, then
   //    re-render once it's genuinely ready, to catch whatever the first
   //    render() got wrong.
   // 2) A look's larger font-size can make a node grow taller than it was
   //    (nodes are width:max-content, and min-height is now a floor, not a
-  //    cap — see the node rendering code). Sibling positions were computed
+  //    cap - see the node rendering code). Sibling positions were computed
   //    for the OLD, smaller sizes, and nothing moves them just because a
-  //    node above/beside them grew in place — so a taller node can start
+  //    node above/beside them grew in place - so a taller node can start
   //    overlapping its neighbour. autoLayout() re-tidies based on current
   //    sizes, the same way it already runs after a manual resize-drag. It
   //    needs the explicit render() right before it, not just to run alone:
@@ -10251,7 +10702,7 @@ function applyLook(id){
   if(map){ render(); autoLayout(); }
   const look=LOOKS.find(l=>l.id===id);
   if(look && look.font && look.font!=='inherit' && document.fonts && document.fonts.load){
-    const fontName = look.font.split(',')[0];   // '"Caveat"' from '"Caveat",cursive' — the
+    const fontName = look.font.split(',')[0];   // '"Caveat"' from '"Caveat",cursive' - the
                                                   // actual web font; the rest is just a
                                                   // fallback keyword that needs no loading
     document.fonts.load('1em '+fontName).then(()=>{ if(map){ render(); autoLayout(); } }).catch(()=>{});
@@ -10274,10 +10725,10 @@ const UI_LAYOUTS = [
   {id:'mirror',  name:'Mirror<br>floating'},
   {id:'outline', name:'Outline<br>dock'}
 ];
-// ===== Outline dock — a live tree panel mirroring the map hierarchy =====
+// ===== Outline dock - a live tree panel mirroring the map hierarchy =====
 // Only exists in the ui-outline layout; the ▤ button toggles it (body class
 // outline-open). Rows select + centre the node; the twist folds a branch in
-// the outline only — the map itself is never touched. Rebuilt by render()
+// the outline only - the map itself is never touched. Rebuilt by render()
 // alongside the breadcrumb, with a html-compare so steady state costs nothing.
 const _olCollapsed=new Set();
 let _olPrev='';
@@ -10344,9 +10795,10 @@ function renderOutline(){
 $('#outlineBtn')?.addEventListener('click',()=>{
   if(!document.body.classList.contains('ui-outline')) return;
   document.body.classList.toggle('outline-open');
+  refitStageAfterChrome();   // the dock takes 280px off the canvas - re-fit once it has slid
 });
 
-// ===== Tabs — browser-style strip for open maps =====
+// ===== Tabs - browser-style strip for open maps =====
 // Opt-in via the ▭ toolbar button (persisted). Each open map lives in its own
 // tab as a deep clone; the active tab's map IS the global `map`. Switching tabs
 // flushes the outgoing map's pending save (bound to its own object), swaps the
@@ -10428,6 +10880,28 @@ document.getElementById('tabNew')?.addEventListener('click',()=>{ if(!tabsEnable
 // stage the same size keeps the user's pan/zoom untouched; one that grows or
 // shrinks it re-fits the map to the new canvas (see the tail of applyUiLayout).
 let _prevLayoutStageKey='';
+let _layoutFitTimer=0;
+// Re-fits the map whenever chrome changed the stage's edges. It runs twice on
+// purpose: once now, which is the whole story for a layout that resizes the
+// stage outright, and once more after the panes that slide have settled.
+// #mdPane, #outlinePane and .side all animate their width over 220ms, so a
+// single synchronous measurement reads the stage the map is about to LEAVE:
+// entering the outline dock fitted to a canvas 253px wider than the one that
+// arrived and clipped the map's right edge, and leaving the split editor
+// fitted to the narrow half and parked the map in the left third. The second
+// pass is a no-op when nothing slid, since the stage key is then unchanged.
+function refitStageAfterChrome(){
+  if(!map) return;
+  const pass=()=>{
+    const sz=_stageSize(), key=sz.w+'x'+sz.h;
+    if(key===_prevLayoutStageKey) return;      // stage stood still - keep the user's pan/zoom
+    _prevLayoutStageKey=key;
+    animateViewTo(computeFitView(), 260);
+  };
+  pass();
+  clearTimeout(_layoutFitTimer);
+  _layoutFitTimer=setTimeout(pass, 280);       // 220ms width transition plus a frame of slack
+}
 function applyUiLayout(id){
   const classic=(id==='classic'||id==='mirror'), rail=(id==='rail'), zen=(id==='zen'),
         dock=(id==='dock'), split=(id==='split'), minimal=(id==='minimal'), mirror=(id==='mirror'),
@@ -10464,6 +10938,12 @@ function applyUiLayout(id){
         zoomRow=document.querySelector('.zoom-row'), overviewToggle=$('#overviewToggle'),
         sideTabs=document.querySelector('.side-tabs');
   const rewireSide=()=>{               // non-dock layouts: tabs switch panes in place
+    // The dock lends .side-tabs to the status bar, and it must come home before
+    // any branch runs: classic/rail/zen skip restoreShell, so leaving the tabs
+    // in the dock stranded them there, and classic's `side.insertBefore(nmRow,
+    // .side-tabs)` then threw NotFoundError and aborted the whole switch.
+    // rewireSide runs for every layout ahead of the branches, so it re-homes.
+    if(sideTabs && sideTabs.parentNode!==side) side.insertBefore(sideTabs, side.querySelector('.side-pane'));
     toggleSide.onclick=toggleSidePanel;
     const tm=document.getElementById('sideTabMaps'), tt=document.getElementById('sideTabTpls');
     if(tm) tm.onclick=()=>setSideTab('maps');
@@ -10483,7 +10963,6 @@ function applyUiLayout(id){
     topbar.querySelectorAll('.tb-orphan').forEach(g=>g.remove());
     document.getElementById('zenPin')?.remove();   // pin toggle is zen-only
     [$('#savePill'),$('#tokenTotal'),$('#userPill')].forEach(p=>{ if(p) sbRight.appendChild(p); });
-    if(sideTabs && sideTabs.parentNode!==side) side.insertBefore(sideTabs, side.querySelector('.side-pane'));
     side.classList.remove('collapsed','side-open'); side.style.width='';
   };
   rewireSide();   // every layout starts with the plain tab/toggle wiring; dock overrides below
@@ -10569,14 +11048,14 @@ function applyUiLayout(id){
         document.body.classList.toggle('zen-pinned',on);
         try{ localStorage.setItem('mindspark:zenPinned',on?'1':'0'); }catch(e){}
         pin.classList.toggle('on',on);
-        pin.textContent='\uD83D\uDCCC';   // 📌 pin for both states — .on background shows pinned
+        pin.textContent='\uD83D\uDCCC';   // 📌 pin for both states - .on background shows pinned
         pin.title=on?'Unpin toolbar':'Pin toolbar (always visible)';
       });
     }
     topbar.appendChild(pin);
     const _pinned=document.body.classList.contains('zen-pinned');
     pin.classList.toggle('on',_pinned);
-    pin.textContent='\uD83D\uDCCC';   // 📌 pinned and unpinned — .on distinguishes
+    pin.textContent='\uD83D\uDCCC';   // 📌 pinned and unpinned - .on distinguishes
     pin.title=_pinned?'Unpin toolbar':'Pin toolbar (always visible)';
     overview.classList.remove('collapsed');
     const nmRow=document.querySelector('.new-map-row');
@@ -10591,7 +11070,7 @@ function applyUiLayout(id){
     renderOutline();
     document.body.classList.add('outline-open');
   }else if(minimal){
-    // Minimal: the plain modern shell with the sidebar removed entirely — no
+    // Minimal: the plain modern shell with the sidebar removed entirely - no
     // column, no slide-over. The compact ＋ stays in the brand row; the
     // sidebar toggle is hidden since there is nothing to toggle. Instead the
     // MindSpark logo at the top-left opens the launcher menu, whose Maps and
@@ -10627,15 +11106,11 @@ function applyUiLayout(id){
   renderTabs();   // tab strip visibility depends on the layout (hidden in floating shells)
   if(map){
     render();
-    // The switch moved the stage's edges — re-fit the map to the new canvas
+    // The switch moved the stage's edges - re-fit the map to the new canvas
     // so it expands (or contracts) to use the space the switch freed up,
     // computed from the map's current content. Layouts that leave the stage
     // the same size keep the current pan/zoom untouched.
-    const _sz=_stageSize(), _key=_sz.w+'x'+_sz.h;
-    if(_key!==_prevLayoutStageKey){
-      _prevLayoutStageKey=_key;
-      animateViewTo(computeFitView(), 260);
-    }
+    refitStageAfterChrome();
   }
 }
 // Minimal layout: a Raspberry-Pi-OS-style launcher. The MindSpark logo sits
@@ -10665,13 +11140,13 @@ function ensureMinimalMenu(){
     '<button type="button" class="mm-item mm-has-sub" data-sub="minimalTplSub"><span class="mm-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg></span><span class="mm-lbl">Templates</span><span class="mm-caret">▸</span></button>'+
     '<button type="button" class="mm-item mm-has-sub" data-sub="minimalGhSub"><span class="mm-ic">'+GH_SVG+'</span><span class="mm-lbl">Open source</span><span class="mm-caret">▸</span></button>';
   document.body.appendChild(menu);
-  // Cascade panels live on <body> — NOT inside the animated menu — so their
+  // Cascade panels live on <body> - NOT inside the animated menu - so their
   // fixed positioning stays relative to the viewport (a transformed ancestor
   // would otherwise become their containing block and misplace them).
   const subs=new Set();
   // Hide panels below a given cascade depth, keeping one panel (the one about
   // to open) visible. Depth 1 = top-level cascades (Maps/Templates/Open source),
-  // depth 2 = category drills — opening a deeper panel must NOT hide the
+  // depth 2 = category drills - opening a deeper panel must NOT hide the
   // category list it hangs off, or its items lose their rects and the panel
   // would be placed at the menu's spot.
   const hideSubs=(keep, depth)=>subs.forEach(s=>{ if(s!==keep && (depth===undefined || +s.dataset.depth >= depth)) s.hidden=true; });
@@ -10705,7 +11180,7 @@ function minimalSubPlacement(rect, subW, subH, vw, vh, menuLeft, menuRight){
   return { top, left };
 }
 // Position a cascade next to its anchor rect (captured before any panel is
-// hidden, so the anchor's coordinates are still valid) — see minimalSubPlacement.
+// hidden, so the anchor's coordinates are still valid) - see minimalSubPlacement.
   const placeSub=(sub, r, anchor)=>{
     const menuRect=menu.getBoundingClientRect();
     const z = (typeof _uiZ==='function' ? _uiZ() : 1) || 1;
@@ -10769,7 +11244,7 @@ function minimalSubPlacement(rect, subW, subH, vw, vh, menuLeft, menuRight){
     sub.hidden=false;
   };
   const closeLauncher=()=>{ menu.hidden=true; hideSubs(); };
-  // Maps cascade — every saved map (dot + title, active map highlighted,
+  // Maps cascade - every saved map (dot + title, active map highlighted,
   // pinned ones flagged) plus shared maps; clicking loads the map.
   const renderMaps=async panel=>{
     panel.innerHTML='';
@@ -10801,7 +11276,7 @@ function minimalSubPlacement(rect, subW, subH, vw, vh, menuLeft, menuRight){
       _unified.sort((a,b)=>(b.addedAt||0)-(a.addedAt||0)).forEach(sm=>add({...sm, room:sm.room, token:sm.token, title:sm.title||'Shared map'}));
     }
   };
-  // Templates cascade — category list first; each category drills into its own
+  // Templates cascade - category list first; each category drills into its own
   // sub-panel of templates.
   const renderTpl=panel=>{
     panel.innerHTML='';
@@ -11131,7 +11606,7 @@ function buildStyleThumb(id){
 }
 function buildLayoutThumb(id){
   // Card sizes follow one standard so every thumbnail row (map style, layout,
-  // I am) reads the same kind of card: root 14x12, children 14x10 — matching
+  // I am) reads the same kind of card: root 14x12, children 14x10 - matching
   // the 'balanced' layout and the map style thumbs. Compositions differ, not
   // the cards themselves.
   let svg;
@@ -11214,7 +11689,7 @@ $('#themeBtn').onclick=(e)=>{
   const customTheme = loadCustomTheme();
   // Colour-theme tiles: 2-row horizontally scrollable grid, like Layout/Map
   // style. 20 curated built-ins are shown (no slicing beyond 20), plus the
-  // Add theme tile always in the final slot — column-major fill so the
+  // Add theme tile always in the final slot - column-major fill so the
   // visible rows read left-to-right in theme order. The imported theme (if
   // any) sits before Add; an empty spacer holds that slot when there is none.
   // Rest of the 65 themes are reachable via Add theme → library grid.
@@ -11325,7 +11800,7 @@ $('#themeBtn').onclick=(e)=>{
       </div>
     </div>`;
   document.body.appendChild(themePanel);
-  // Side-toolbar layout: same flyout treatment as the export menu — keep the
+  // Side-toolbar layout: same flyout treatment as the export menu - keep the
   // large theme panel clear of the rail and aligned to the triggering icon.
   const _isRailTheme = document.body.classList.contains('ui-rail') && !window.matchMedia('(max-width: 720px)').matches;
   positionPopup(themePanel, $('#themeBtn'), _isRailTheme ? {side:'right'} : {align:'right'});
@@ -11396,7 +11871,7 @@ $('#themeBtn').onclick=(e)=>{
       // Clear active state across every section sharing this category, not
       // just the clicked button's own section (opt.closest('.tp-section')).
       // Each category lives in exactly one section again now that 'look' is
-      // its own category rather than sharing 'theme' — but scoping by
+      // its own category rather than sharing 'theme' - but scoping by
       // data-cat across the whole panel is the more general, robust
       // approach regardless of how many sections a category happens to span.
       themePanel.querySelectorAll(`.theme-opt[data-cat="${cat}"]`).forEach(o=>o.classList.remove('active'));
@@ -11411,7 +11886,7 @@ $('#themeBtn').onclick=(e)=>{
       themePanel.querySelectorAll('.scale-opt').forEach(o=>o.classList.remove('active'));
       opt.classList.add('active');
       // The zoom just changed, so the panel's already-computed fixed position (from
-      // before the change) no longer lines up with the theme button — reposition
+      // before the change) no longer lines up with the theme button - reposition
       // against its current (post-zoom) geometry rather than leaving it stranded.
       // Also re-run it a couple of frames later, invalidating the zoom-probe cache
       // again first: a getBoundingClientRect() read right after the style change is
@@ -11438,9 +11913,9 @@ try{
   const RETIRED_THEMES = {'solarized-dark':'github-dark', 'solarized-light':'github-light', 'monokai':'catppuccin-dark', 'catppuccin':'catppuccin-dark'};   // replaced themes
   if(saved==='handwritten'){
     // Pre-refactor save: 'handwritten' used to be a data-theme value. Migrate
-    // intent rather than silently dropping it — falls back to a real color
+    // intent rather than silently dropping it - falls back to a real color
     // theme, and separately turns on the new Back to School look. Only sets
-    // the localStorage key here, doesn't call applyLook() directly — that
+    // the localStorage key here, doesn't call applyLook() directly - that
     // happens once, below, as the single source of truth for applying the
     // look at boot (calling it here too would double-apply it: two renders,
     // two duplicate font-load requests, since applyLook() sets this same
@@ -11459,21 +11934,21 @@ try{ applyUiLayout(localStorage.getItem('mindspark:uiLayout') || 'modern'); }cat
 applyView();
 
 /* ============================================================
-   DONATE — quick-amount picker. Edit DONATE_CONFIG below to
+   DONATE - quick-amount picker. Edit DONATE_CONFIG below to
    point at your own payment links. Set any line to null/'' to
    hide that provider in the modal.
    ============================================================ */
 const DONATE_CONFIG = {
-  // Buy Me a Coffee — works globally. Replace USERNAME with yours.
+  // Buy Me a Coffee - works globally. Replace USERNAME with yours.
   bmac:    'https://www.buymeacoffee.com/YOUR_USERNAME',
-  // Ko-fi — works globally.
+  // Ko-fi - works globally.
   kofi:    'https://ko-fi.com/YOUR_USERNAME',
-  // PayPal.me — supports embedding the amount in the URL: paypal.me/YOU/5
+  // PayPal.me - supports embedding the amount in the URL: paypal.me/YOU/5
   paypal:  'https://www.paypal.com/paypalme/YOUR_USERNAME',
-  // UPI (India) — direct deep-link. Replace with your VPA.
+  // UPI (India) - direct deep-link. Replace with your VPA.
   // Example: 'upi://pay?pa=yourname@okicici&pn=MindSpark&cu=INR'
   upi:     'upi://pay?pa=prasadpatil252@okaxis&pn=MindSpark&cu=INR',
-  // UPI QR code — works on any device. Put the image as a data URL
+  // UPI QR code - works on any device. Put the image as a data URL
   //   (paste a `data:image/png;base64,...` here)
   // or as an external URL (e.g., '/upi-qr.png' if you place the file in /public).
   upiQr:   '/upi-qr.png',
@@ -11576,7 +12051,7 @@ function showDonateModal(){
 }
 $('#donateBtn')?.addEventListener('click', showDonateModal);
 
-// ===== Focus mode — hide all chrome, show only the canvas =====
+// ===== Focus mode - hide all chrome, show only the canvas =====
 function toggleFocusMode(){
   const on = !document.body.classList.contains('focus-mode');
   document.body.classList.toggle('focus-mode', on);
@@ -11590,18 +12065,18 @@ function toggleFocusMode(){
       exit.onclick = toggleFocusMode;
       document.body.appendChild(exit);
     }
-    toast('Focus mode — Esc to exit');
+    toast('Focus mode - Esc to exit');
   } else {
     exit?.remove();
   }
-  // The viewport size changes when chrome is shown/hidden — wait for the layout
+  // The viewport size changes when chrome is shown/hidden - wait for the layout
   // to settle, then smoothly animate the map back to centred (keeping zoom) so it
   // doesn't just jump sideways.
   requestAnimationFrame(()=>requestAnimationFrame(()=>animateViewTo(computeRecenterView(), 220)));
 }
 $('#focusBtn')?.addEventListener('click', toggleFocusMode);
 
-// ===== Presentation — canvas-only walkthrough of the map =====
+// ===== Presentation - canvas-only walkthrough of the map =====
 // Walks the map breadth-first (root, its children, then each level below) and
 // steps the viewport from node to node. Chrome is hidden by body.ui-deck; the
 // current node gets an accent ring, the rest of the map dims. ←/→ move, Esc
@@ -11641,14 +12116,27 @@ function enterDeck(){
   bar.querySelector('#deckExit').onclick=exitDeck;
   document.body.appendChild(bar);
   deckGo(0);
-  toast('Presentation — ← → to move, Esc to exit');
+  toast('Presentation - ← → to move, Esc to exit');
 }
 function exitDeck(){
   if(!_deck) return;
   _deck=null;
+  // Capture the map point sitting under the stage centre BEFORE the chrome
+  // comes back. body.ui-deck hides the bars with display:none, so leaving the
+  // deck hands back a stage that is narrower by the sidebar and shorter by the
+  // top and status bars; with no compensation the node being presented jumped
+  // out of the centre by exactly half of that (121px at 1080p in the modern
+  // shell). The bars have no width transition, so the new size is readable at
+  // once - same reframe the sidebar toggle uses.
+  const {w:SW,h:SH}=_stageSize();
+  const cx=(SW/2-view.x)/view.k, cy=(SH/2-view.y)/view.k;
   document.body.classList.remove('ui-deck');
   document.getElementById('deckBar')?.remove();
   document.querySelectorAll('.node.deck-current').forEach(n=>n.classList.remove('deck-current'));
+  if(map && isFinite(cx) && isFinite(cy)){
+    const {w:W1,h:H1}=_stageSize();
+    if(W1>1 && H1>1) _reframeSmooth(cx, cy, W1, H1);
+  }
 }
 function deckStep(d){ if(_deck) deckGo(_deck.idx + d); }
 function deckGo(i){
@@ -11686,7 +12174,7 @@ $('#stage')?.addEventListener('click',e=>{
   deckStep(1);
 });
 
-// ===== Keyboard shortcuts help — press '?' to open =====
+// ===== Keyboard shortcuts help - press '?' to open =====
 function showKeyboardHelp(){
   document.querySelectorAll('.kb-help').forEach(m=>m.remove());
   const m = document.createElement('div');
@@ -11749,7 +12237,7 @@ window.addEventListener('keydown', e=>{
 window.addEventListener('keydown', e=>{
   if(e.key!=='Escape') return;
   if(!document.body.classList.contains('focus-mode')) return;
-  // Don't fight with editing/notes/login overlay — they handle Esc themselves
+  // Don't fight with editing/notes/login overlay - they handle Esc themselves
   if(document.querySelector('.node.editing')) return;
   if(document.querySelector('.notes-popup')) return;
   if(document.querySelector('.donate-modal')) return;
@@ -11777,7 +12265,7 @@ const GITHUB_URL = 'https://github.com/prasadpatil25/mindspark';
   }
 })();
 
-// GitHub stars badge — sidebar footer (cached, 6h TTL, offline-first)
+// GitHub stars badge - sidebar footer (cached, 6h TTL, offline-first)
 (function loadGhStars(){
   const el=$('#ghStars'); if(!el) return;
   const repoPath=(GITHUB_URL||'').replace(/^https:\/\/github\.com\//,'').replace(/\/$/,'');
@@ -11827,7 +12315,7 @@ function showUpiQrView(modal){
   card.querySelector('.donate-close').onclick = () => modal.remove();
   card.querySelector('.donate-back').onclick  = () => {
     card.innerHTML = card.dataset.originalHTML;
-    showDonateModal();  // re-wire — easier than rebuilding events
+    showDonateModal();  // re-wire - easier than rebuilding events
     modal.remove();
   };
 }
@@ -11871,7 +12359,7 @@ async function _proceedBoot(){
     if(!ok) createMap();
   } else {
     // Empty list. Before seeding a blank map, check for orphan map files that
-    // exist in the repo but aren't in the index and weren't deleted — the
+    // exist in the repo but aren't in the index and weren't deleted - the
     // signature of a damaged/clobbered index. Restore those instead of losing them.
     let orphans=[];
     if(typeof Store.orphanMaps==='function'){ try{ orphans=await Store.orphanMaps(); }catch(e){} }
@@ -11899,8 +12387,8 @@ function showSharedPill(editable){
   pill.classList.add('shared-pill');
   const nm=$('#userName'); if(nm) nm.textContent = editable ? 'Shared map' : 'Shared \u00b7 read-only';
   pill.title = editable
-    ? 'Editing a shared map \u2014 changes are visible to everyone with access'
-    : 'Viewing a shared map \u2014 read-only';
+    ? 'Editing a shared map - changes are visible to everyone with access'
+    : 'Viewing a shared map - read-only';
 }
 function showUserPill(){
   const pill=$('#userPill'); if(!pill) return;
@@ -11917,7 +12405,7 @@ function showUserPill(){
 }
 
 // ============================================================
-// OPTIONAL GitHub OAuth ("Sign in with GitHub") — second cloud login option.
+// OPTIONAL GitHub OAuth ("Sign in with GitHub") - second cloud login option.
 // Leave these blank to keep the app fully static/no-backend: only the personal
 // access token (PAT) flow shows. Set both to enable the OAuth button as well:
 //   clientId  : your GitHub OAuth App client_id (public)
@@ -11930,7 +12418,7 @@ function oauthConfigured(){
   return !!(GH_OAUTH.clientId && GH_OAUTH.workerUrl);
 }
 // Live collaboration & cloud share rely on the Cloudflare worker, whose CORS/origin
-// is bound to the deployed app — they can't work from local (server-mode) hosting
+// is bound to the deployed app - they can't work from local (server-mode) hosting
 // or from static GitHub Pages (PAT-only).
 function collabAvailable(){ return MODE==='cloud' && oauthConfigured(); }
 
@@ -11958,7 +12446,7 @@ function startGithubLogin(){
     : (Date.now().toString(36)+Math.random().toString(36).slice(2));
   const err=$('#ghError');
   if(!CloudStore._setItemSafe('mindspark:oauth:state', rnd)){
-    if(err) err.textContent = 'Could not start sign-in — your browser\'s local storage is full. Try clearing site data for this page and trying again.';
+    if(err) err.textContent = 'Could not start sign-in - your browser\'s local storage is full. Try clearing site data for this page and trying again.';
     return;
   }
   const redirect = GH_OAUTH.workerUrl.replace(/\/+$/,'') + '/callback';
@@ -11969,7 +12457,7 @@ function startGithubLogin(){
     + '&state='        + encodeURIComponent(rnd);
   const w=620,h=720, left=Math.max(0,(screen.width-w)/2), top=Math.max(0,(screen.height-h)/2);
   const pop = window.open(url, 'mindspark_github_oauth', `width=${w},height=${h},left=${left},top=${top}`);
-  if(!pop && err) err.textContent = 'Popup blocked — allow popups for this site, or use a token below.';
+  if(!pop && err) err.textContent = 'Popup blocked - allow popups for this site, or use a token below.';
 }
 
 // Receive the token from the Worker popup. Validated by (a) message origin ===
@@ -11984,7 +12472,7 @@ window.addEventListener('message', async (ev)=>{
   localStorage.removeItem('mindspark:oauth:state');
   const err=$('#ghError');
   if(d.error || !d.token){ if(err) err.textContent='GitHub sign-in failed'+(d.error?(': '+d.error):'')+'.'; return; }
-  if(!expected || d.state !== expected){ if(err) err.textContent='Sign-in could not be verified — please try again.'; return; }
+  if(!expected || d.state !== expected){ if(err) err.textContent='Sign-in could not be verified - please try again.'; return; }
   try{ await completeCloudLogin(d.token); }
   catch(e){ if(err) err.textContent = e.message || String(e); }
 });
@@ -12021,11 +12509,11 @@ function showLoginOverlay(opts){
 }
 
 /* ============================================================
-   ASYNC SHARING — read-only share links (no backend needed)
+   ASYNC SHARING - read-only share links (no backend needed)
 
    The whole map is serialized, gzip-compressed (when the browser supports
    CompressionStream), and packed into the URL fragment. Opening the link
-   decodes it and shows a read-only view. Nothing is sent to any server — the
+   decodes it and shows a read-only view. Nothing is sent to any server - the
    data lives entirely in the link, so recipients need no account.
    ============================================================ */
 let READONLY = false;   // true while viewing a shared (read-only) map
@@ -12080,7 +12568,7 @@ async function copyShareLink(){
     const url=await buildShareLink();
     const kb=Math.round(url.length/1024*10)/10;
     const finish=()=> toast(url.length>12000
-      ? `Link copied (~${kb} KB) — very long links may not open everywhere; consider removing large images`
+      ? `Link copied (~${kb} KB) - very long links may not open everywhere; consider removing large images`
       : 'Read-only share link copied');
     if(navigator.clipboard?.writeText){
       navigator.clipboard.writeText(url).then(finish, ()=>showShareFallback(url));
@@ -12092,7 +12580,7 @@ function showShareFallback(url){
   const m=document.createElement('div'); m.className='var-form share-fallback';
   m.innerHTML=`<div class="vf-backdrop"></div><div class="vf-card">
     <button class="vf-close">×</button><h2>Read-only share link</h2>
-    <p class="vf-sub">Copy this link and send it to anyone — they can view (not edit) this map, no account needed.</p>
+    <p class="vf-sub">Copy this link and send it to anyone - they can view (not edit) this map, no account needed.</p>
     <textarea class="vf-input" rows="4" readonly style="width:100%">${escapeHtml(url)}</textarea>
     <div class="vf-actions"><button class="vf-go primary">Copy</button></div></div>`;
   document.body.appendChild(m);
@@ -12141,7 +12629,7 @@ function showSharedBanner(){
   if($('#sharedBanner')) return;
   const b=document.createElement('div'); b.id='sharedBanner'; b.className='shared-banner';
   b.innerHTML=`<span class="sb-eye">👁</span>
-    <span class="sb-text">You're viewing a shared map — <b>read-only</b></span>
+    <span class="sb-text">You're viewing a shared map - <b>read-only</b></span>
     <button class="sb-copy" id="sbCopy">Make an editable copy</button>
     <a class="sb-brand" href="${location.origin+location.pathname}" title="Open MindSpark">MindSpark</a>`;
   document.body.appendChild(b);
@@ -12164,14 +12652,14 @@ async function consumePendingImport(){
   sel=map.rootId; history=[]; hpos=-1; pushHistory();
   $('#mapTitle').value=map.title;
   render(); fit();
-  if(typeof Store!=='undefined' && Store){ try{ await Store.save(map); }catch(e){ console.warn('saving the editable copy failed:', e.message); toast('Copy created, but saving failed \u2014 it is local only'); } }
+  if(typeof Store!=='undefined' && Store){ try{ await Store.save(map); }catch(e){ console.warn('saving the editable copy failed:', e.message); toast('Copy created, but saving failed - it is local only'); } }
   refreshList();
   toast('Editable copy created');
   return true;
 }
 
 /* ============================================================================
-   Live collaboration — dependency-free op-broadcast (per-node last-write-wins).
+   Live collaboration - dependency-free op-broadcast (per-node last-write-wins).
    Emits per-node ops on every local edit (via pushHistory) and applies remote
    ops + presence cursors from the room's Durable Object. No Yjs, no deps.
    ============================================================================ */
@@ -12225,7 +12713,7 @@ const Collab = (function(){
     room=roomId;
     try{ ws=new WebSocket(url); }catch(e){ toast('Could not start live session'); return; }
     ws.onopen=()=>{ active=true; shadow=snap();
-      if(asHost){ send({t:'snapshot', map:snap()}); copyLink(); toast('Live session started \u2014 link copied'); }
+      if(asHost){ send({t:'snapshot', map:snap()}); copyLink(); toast('Live session started - link copied'); }
       bindCursor(); updatePill(); loop();
       pingTimer=setInterval(()=>send({t:'ping'}), 6000);   // heartbeat so peers know we\u2019re alive
       reapTimer=setInterval(reapStale, 5000);              // drop cursors of peers gone silent (network drop)
@@ -12237,7 +12725,7 @@ const Collab = (function(){
   function stop(notify){ clearInterval(pingTimer); clearInterval(reapTimer); if(ws){ try{ ws.close(); }catch(e){} } ws=null; active=false; room=null; peers.clear(); clearCursors(); updatePill(); if(notify) toast('Left live session'); }
   function send(o){ if(ws&&ws.readyState===1){ try{ ws.send(JSON.stringify(o)); }catch(e){ console.warn('live-session send failed; this edit was not broadcast:', e.message); } } }
   function link(){ return location.origin+location.pathname+'#live='+room; }
-  function copyLink(){ try{ navigator.clipboard.writeText(link()); }catch(e){ console.warn('clipboard write failed:', e.message); toast('Could not copy \u2014 copy the link from the address bar'); } }
+  function copyLink(){ try{ navigator.clipboard.writeText(link()); }catch(e){ console.warn('clipboard write failed:', e.message); toast('Could not copy - copy the link from the address bar'); } }
 
   function onMessage(data){
     let m; try{ m=JSON.parse(data); }catch(e){ return; }
@@ -12273,7 +12761,7 @@ const Collab = (function(){
       render();
       if(firstSnap && typeof fit==='function'){ fit(); firstSnap=false; }
       pushHistory();                 // baseline snapshot so a guest can undo their first edit
-    } finally { applying=false; }    // always release the lock, even if malformed snapshot data throws partway through — otherwise every local edit silently stops syncing for the rest of the session
+    } finally { applying=false; }    // always release the lock, even if malformed snapshot data throws partway through - otherwise every local edit silently stops syncing for the rest of the session
   }
   function applyOps(ops){
     applying=true;
@@ -12284,12 +12772,12 @@ const Collab = (function(){
         else if(op.t==='meta'){ if(op.k==='title'){ map.title=op.v; const t=$('#mapTitle'); if(t) t.value=op.v; } else map[op.k]=op.v; }
       }
       shadow=snap(); render();
-    } finally { applying=false; }    // same guarantee — a malformed op or a render() edge case must not permanently wedge sync
+    } finally { applying=false; }    // same guarantee - a malformed op or a render() edge case must not permanently wedge sync
     if(map && !map._ephemeral && !READONLY) scheduleSave();   // host persists collaborators' edits
   }
 
   // Called from pushHistory() AND after autoLayout(). Coalesced on a short timer
-  // so a pushHistory()+autoLayout() burst is diffed ONCE — capturing the final,
+  // so a pushHistory()+autoLayout() burst is diffed ONCE - capturing the final,
   // aligned node positions rather than the pre-layout ones.
   let opTimer=0;
   function onLocalChange(){
@@ -12325,7 +12813,7 @@ const Collab = (function(){
     if(surf._collabBound) return; surf._collabBound=true;
     surf.addEventListener('pointermove', e=>{
       if(!active) return; const now=Date.now(); if(now-curThrottle<55) return; curThrottle=now;
-      // e.clientX/Y are raw viewport-relative coordinates — need the same stage-offset +
+      // e.clientX/Y are raw viewport-relative coordinates - need the same stage-offset +
       // UI-zoom correction _stagePoint() already applies elsewhere before they're
       // comparable to view.x/y at all, then undo the canvas pan/zoom to get map-space.
       const p=_stagePoint(e.clientX, e.clientY);
@@ -12351,7 +12839,7 @@ const Collab = (function(){
     if(changed) updatePill(); }
 
   // Guest forks the live map into their OWN repo. Reuses the shared-view import:
-  // stash the current map, leave the room, reload — consumePendingImport() (which
+  // stash the current map, leave the room, reload - consumePendingImport() (which
   // runs after sign-in) creates and saves the editable copy.
   function saveCopy(){
     if(!map){ return; }
@@ -12368,7 +12856,7 @@ const Collab = (function(){
 })();
 
 // autoLayout() repositions nodes without going through pushHistory(), so wrap it
-// to also notify the live session — coalesced, so it only sends real changes.
+// to also notify the live session - coalesced, so it only sends real changes.
 if(typeof autoLayout==='function'){
   const _autoLayout_orig = autoLayout;
   autoLayout = function(){ const r=_autoLayout_orig.apply(this, arguments);
@@ -12522,7 +13010,7 @@ async function publishSharedMap(){
     try{ await accessApi(room, 'link', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ access:'edit-auth' }) }); }catch(e){}
     rememberSharedByMe({ id: map.id, room, token: map._editToken, title: map.title, color: map.color });
     if(typeof scheduleSave==='function' && !map._cloudEdit) scheduleSave();   // persist the token in the owner repo so re-publishing reuses it
-    toast('Edit link copied — collaborators sign in with GitHub to open it.');
+    toast('Edit link copied - collaborators sign in with GitHub to open it.');
   }catch(e){ toast('Could not publish: '+(e.message||e)); }
 }
 
@@ -12548,7 +13036,7 @@ async function openAccessPanel(roomId){
   const acl=await accessApi(roomId,'acl',{method:'GET'});
   if(acl.status===401){ toast('Sign in to manage access'); return; }
   if(acl.status===403){ toast('Only the map owner can manage access'); return; }
-  if(!acl.ok){ toast('Couldn\u2019t load access settings \u2014 publish the map first'); return; }
+  if(!acl.ok){ toast('Couldn\u2019t load access settings - publish the map first'); return; }
   _renderAccessPanel(roomId, acl.d);
 }
 function _timeAgo(ts){
@@ -12657,7 +13145,7 @@ let _cloudSaveTimer=0, _cloudPollTimer=0, _cloudPollSig='';
 // can flush a pending save immediately.
 // If the owner is locked out of their own shared map (the Durable Object room was
 // claimed under a token from an earlier build/session, so this link's token no
-// longer matches \u2014 a 403), re-publish the CURRENT content to a fresh room id and
+// longer matches - a 403), re-publish the CURRENT content to a fresh room id and
 // rebind the live session. The old link is already dead, so a new one is the only fix.
 async function _recoverCloudSave(ce){
   if(map._healing) return false; map._healing=true;
@@ -12678,7 +13166,7 @@ async function _recoverCloudSave(ce){
     try{ window.history.replaceState(null,'',link); }catch(e){}
     try{ await navigator.clipboard.writeText(link); }catch(e){ console.warn('clipboard write failed:', e.message); toast('Could not copy the link'); }
     _cloudPollSig=JSON.stringify(_shareePayload(map)); stopCloudPoll(); startCloudPoll(room);
-    toast('Old share link was out of sync \u2014 created a fresh editable link (copied). Re-share it with collaborators.');
+    toast('Old share link was out of sync - created a fresh editable link (copied). Re-share it with collaborators.');
     return true;
   } finally { map._healing=false; }
 }
@@ -12709,9 +13197,9 @@ async function _doCloudSave(ce, retried){
 }
 function scheduleCloudSave(){
   const ce=map._cloudEdit; if(!ce) return;
-  if(map._opening) return;                    // just opened this shared map — not a user edit
+  if(map._opening) return;                    // just opened this shared map - not a user edit
   const cur=_shareePayload(map);
-  if(!cloudDiff(map._cloudBase||cur, cur).length) return;   // nothing actually changed — don't flash "Saving…"
+  if(!cloudDiff(map._cloudBase||cur, cur).length) return;   // nothing actually changed - don't flash "Saving…"
   $('#savePill').classList.add('saving'); $('#saveText').textContent='Saving…';
   clearTimeout(_cloudSaveTimer);
   _cloudSaveTimer=setTimeout(()=>{ _cloudSaveTimer=0; _doCloudSave(ce); }, 1200);
@@ -12758,7 +13246,7 @@ function showCloudEditBanner(){
   if($('#cloudEditBanner')) return;
   const b=document.createElement('div'); b.id='cloudEditBanner'; b.className='shared-banner';
   b.innerHTML='<span class="sb-eye">\u270F\uFE0F</span>'
-    +'<span class="sb-text">You\u2019re editing a <b>shared</b> map \u2014 changes save for everyone with the link</span>';
+    +'<span class="sb-text">You\u2019re editing a <b>shared</b> map - changes save for everyone with the link</span>';
   document.body.appendChild(b);
   _setBannerHeightVar(b);
 }
@@ -12779,7 +13267,7 @@ function _applySharedMap(id, token, data){
         style:data.style, layout:data.layout||'balanced', rootId:data.rootId,
         nodes:data.nodes||{}, links:data.links||[], vars:data.vars||{} };
   map._cloudView=id;
-  map._opening=true;                 // opening a shared map isn't an edit — suppress the save pill until it settles
+  map._opening=true;                 // opening a shared map isn't an edit - suppress the save pill until it settles
   if(editable){ map._cloudEdit={ id, token }; }
   sel=null; history=[]; hpos=-1;
   $('#mapTitle').value=map.title; $('#mapTitle').readOnly=!editable;
@@ -12817,7 +13305,7 @@ function exitSharedMode(){
     try{ window.history.replaceState(null,'', location.origin+location.pathname+location.search); }catch(e){}
   }
 }
-// Open a shared map IN-PLACE from the sidebar — keeps "Your maps" + "Shared with me"
+// Open a shared map IN-PLACE from the sidebar - keeps "Your maps" + "Shared with me"
 // visible and switchable, the way Overleaf keeps owned and shared projects in one list.
 async function openSharedInPlace(id, token){
   if(typeof leaveLiveForSwitch==='function' && !leaveLiveForSwitch()) return false;
@@ -12832,7 +13320,7 @@ async function openSharedInPlace(id, token){
   return true;
 }
 // On boot: a direct #shared=<id> link opened by someone NOT signed in (external
-// recipient) — standalone read-only / edit view, no account needed.
+// recipient) - standalone read-only / edit view, no account needed.
 async function tryEnterSharedMap(){
   const mt=(location.hash||'').match(/^#shared=([^:]+)(?::(.+))?$/);
   if(!mt) return false;
@@ -12858,7 +13346,7 @@ async function tryEnterLiveSession(){
 }
 
 /* ============================================================
-   Quote of the day — sidebar footer (cascade: Quotable → ZenQuotes → FavQs → DummyJSON → local)
+   Quote of the day - sidebar footer (cascade: Quotable → ZenQuotes → FavQs → DummyJSON → local)
    ============================================================ */
 let _qotdQuotes=null;
 function _qotdDayOfYear(d=new Date()){
@@ -12901,7 +13389,7 @@ const _qotdParsers = {
 let _qotdProvidersCache = null;
 async function _qotdLoadProviders(){
   if(_qotdProvidersCache) return _qotdProvidersCache;
-  // Try external JSON first — lets users add providers without code change (see public/quote-providers.json)
+  // Try external JSON first - lets users add providers without code change (see public/quote-providers.json)
   try{
     const res = await fetch('./quote-providers.json', {cache:'no-store'});
     if(res.ok){
@@ -12920,7 +13408,7 @@ async function _qotdLoadProviders(){
       }
     }
   }catch(e){}
-  // Hardcoded fallback — mirrors quote-providers.json so offline / 404 still works
+  // Hardcoded fallback - mirrors quote-providers.json so offline / 404 still works
   const fallback = [
     { url:'https://api.quotable.io/random', parser:_qotdParsers.quotable },
     { url:'https://zenquotes.io/api/today', parser:_qotdParsers.zenquotes,
@@ -12936,10 +13424,10 @@ async function _qotdLoadProviders(){
   return fallback;
 }
 async function _qotdTryCascade(){
-  // Shuffled cascade — providers come from quote-providers.json (or hardcoded fallback),
+  // Shuffled cascade - providers come from quote-providers.json (or hardcoded fallback),
   // random order per call for diversity; still sequential failover, local quotes.json remains final fallback in loadQotd.
   const providers = await _qotdLoadProviders();
-  // Fisher-Yates on a copy — original order untouched, each load/refresh gets different order
+  // Fisher-Yates on a copy - original order untouched, each load/refresh gets different order
   const order = providers.slice();
   for(let i=order.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [order[i],order[j]]=[order[j],order[i]]; }
   for(const p of order){
@@ -12959,7 +13447,7 @@ async function loadQotd(){
     const live=await _qotdTryCascade();
     if(live){ _qotdRender(live); }
     else {
-      // local fallback — deterministic daily rotation
+      // local fallback - deterministic daily rotation
       if(!_qotdQuotes){
         const res=await fetch('./quotes.json', {cache:'no-store'});
         if(!res.ok) throw new Error('no quotes');
@@ -12988,15 +13476,15 @@ else loadQotd();
 
 (async()=>{
   // The inline <head> script guesses the auto scale before any page content exists,
-  // to avoid a flash of the wrong size — but that's a measurement taken in a very
+  // to avoid a flash of the wrong size - but that's a measurement taken in a very
   // different layout context than this point (script tag sits at the very end of
   // body, so the whole page has been parsed by the time this runs). Re-apply it now,
-  // in auto mode only, using this file's own calculation — the same one already used
-  // whenever the user picks "Auto" by hand — so boot converges on the identical
+  // in auto mode only, using this file's own calculation - the same one already used
+  // whenever the user picks "Auto" by hand - so boot converges on the identical
   // result rather than trusting a guess taken before there was anything to measure.
   try{ if(isUiScaleAuto()) applyUiScale(getUiScale()); }catch(e){}
   requestAnimationFrame(()=>{ try{ if(isUiScaleAuto()) applyUiScale(getUiScale()); }catch(e){} });
-  // Read-only shared link? Decode and render a view-only map — no store, no
+  // Read-only shared link? Decode and render a view-only map - no store, no
   // login, no account needed by the recipient.
   if(await tryEnterLiveSession()) return;
   if(await tryEnterSharedView()) return;

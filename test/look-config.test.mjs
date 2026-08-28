@@ -1,4 +1,4 @@
-// Look config validation — the "I am" section's twin of style-config.
+// Look config validation - the "I am" section's twin of style-config.
 //
 // A lookConfig is per-map user data (saved with the map and included in share
 // links): whatever validateLookConfig returns must be complete and in range,
@@ -16,7 +16,7 @@ const { validateLookConfig, lookConfigFor } = loadFns(
 
 const handwritten = raw => validateLookConfig(raw).handwritten;
 
-describe('validateLookConfig — always returns something usable', () => {
+describe('validateLookConfig - always returns something usable', () => {
   const junk = [
     ['null', null], ['undefined', undefined], ['a string', 'lab'],
     ['a number', 42], ['an array', [1, 2]], ['an empty object', {}],
@@ -49,7 +49,7 @@ describe('validateLookConfig — always returns something usable', () => {
   });
 });
 
-describe('validateLookConfig — numeric knobs', () => {
+describe('validateLookConfig - numeric knobs', () => {
   test('accepts an in-range value unchanged', () => {
     assert.equal(handwritten({ handwritten: { nodeSize: 1.2 } }).nodeSize, 1.2);
   });
@@ -77,7 +77,7 @@ describe('validateLookConfig — numeric knobs', () => {
   });
 });
 
-describe('validateLookConfig — font', () => {
+describe('validateLookConfig - font', () => {
   test('the default is the look\'s own CSS font, not an empty string', () => {
     assert.equal(DEFAULTS.handwritten.font, '"Caveat",cursive');
     assert.equal(DEFAULTS.lab.font, '"JetBrains Mono",monospace');
@@ -102,7 +102,7 @@ describe('validateLookConfig — font', () => {
   });
 });
 
-describe('lookConfigFor — the dialog view', () => {
+describe('lookConfigFor - the dialog view', () => {
   test('returns only the requested look, with defaults merged in', () => {
     const got = lookConfigFor('coffee-shop', { 'coffee-shop': { nodeSize: 1.1 }, lab: { radius: 30 } });
     assert.deepEqual(got, { 'coffee-shop': { ...DEFAULTS['coffee-shop'], nodeSize: 1.1 } });

@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Thanks for the idea! Please describe the problem first, then the
-        solution you have in mind — it helps weigh it against alternatives.
+        solution you have in mind - it helps weigh it against alternatives.
 
   - type: checkboxes
     id: preflight

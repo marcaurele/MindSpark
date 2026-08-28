@@ -1,5 +1,5 @@
 // handleImport() is the HTTP entry point of the PUBLIC, unauthenticated import
-// endpoint — auth check, JSON parsing, and error mapping all live here rather
+// endpoint - auth check, JSON parsing, and error mapping all live here rather
 // than in buildMapFromSpec().
 //
 // These exist because mutation testing found a real gap: reverting the
@@ -31,7 +31,7 @@ const validSpec = {
   ],
 };
 
-describe('handleImport — happy path', () => {
+describe('handleImport - happy path', () => {
   test('returns 201 with a share URL built from ALLOWED_ORIGIN', async () => {
     const res = await post(validSpec);
     assert.equal(res.status, 201);
@@ -47,7 +47,7 @@ describe('handleImport — happy path', () => {
   });
 });
 
-describe('handleImport — auth', () => {
+describe('handleImport - auth', () => {
   test('with IMPORT_TOKEN set, a request with no Authorization header is refused', async () => {
     const res = await post(validSpec, { ...ENV, IMPORT_TOKEN: 'secret' });
     assert.equal(res.status, 401);
@@ -68,7 +68,7 @@ describe('handleImport — auth', () => {
   });
 });
 
-describe('handleImport — bad input maps to 400, never 500', () => {
+describe('handleImport - bad input maps to 400, never 500', () => {
   test('malformed JSON', async () => {
     const res = await post('{not json');
     assert.equal(res.status, 400);
@@ -86,9 +86,9 @@ describe('handleImport — bad input maps to 400, never 500', () => {
   });
 });
 
-describe('handleImport — prototype pollution (PR #6)', () => {
+describe('handleImport - prototype pollution (PR #6)', () => {
   // Honest note on what these can and cannot prove. Mutation testing showed
-  // that reverting PR #6's reviver leaves this whole suite green — and that
+  // that reverting PR #6's reviver leaves this whole suite green - and that
   // is correct, not a gap in the tests. JSON.parse does NOT change an
   // object's real prototype when it sees a "__proto__" key; it creates an
   // ordinary own property with that name. Real pollution needs downstream
@@ -97,7 +97,7 @@ describe('handleImport — prototype pollution (PR #6)', () => {
   // output from object literals, so nothing here propagates it.
   //
   // The reviver is therefore defence-in-depth against a future change to
-  // this file, not a fix for observable behaviour — which means there is no
+  // this file, not a fix for observable behaviour - which means there is no
   // black-box assertion that can distinguish it being present from absent.
   // These tests pin down the property that actually matters (hostile input
   // never reaches Object.prototype) and will fail if a future refactor

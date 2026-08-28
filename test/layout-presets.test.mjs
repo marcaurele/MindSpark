@@ -24,7 +24,7 @@ const { validateLayoutPreset } = loadFns(
 
 const ok = over => ({ v: 1, id: 'my-layout', name: 'My layout', engine: 'timeline', ...over });
 
-describe('validateLayoutPreset — accepts a well-formed preset', () => {
+describe('validateLayoutPreset - accepts a well-formed preset', () => {
   test('returns a clean preset', () => {
     const p = validateLayoutPreset(ok());
     assert.equal(p.id, 'my-layout');
@@ -52,7 +52,7 @@ describe('validateLayoutPreset — accepts a well-formed preset', () => {
   });
 });
 
-describe('validateLayoutPreset — rejects rather than repairs', () => {
+describe('validateLayoutPreset - rejects rather than repairs', () => {
   const bad = [
     ['null', null],
     ['undefined', undefined],
@@ -82,7 +82,7 @@ describe('validateLayoutPreset — rejects rather than repairs', () => {
   });
 });
 
-describe('validateLayoutPreset — bounds what it keeps', () => {
+describe('validateLayoutPreset - bounds what it keeps', () => {
   test('an over-long id is truncated rather than rejected', () => {
     const p = validateLayoutPreset(ok({ id: 'a'.repeat(200) }));
     assert.ok(p && p.id.length <= 40);

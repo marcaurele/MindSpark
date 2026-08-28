@@ -58,7 +58,7 @@ describe('layoutRadial', () => {
     assert.equal(nodes.root.side, 'root');
   });
 
-  test('depth becomes distance — each level is further out than its parent', () => {
+  test('depth becomes distance - each level is further out than its parent', () => {
     const { nodes, kidsOf } = build('deep');
     layoutRadial(nodes, 'root', kidsOf, { ring:200, startAngle:-90, sweep:360 });
     assert.ok(dist(nodes.a) < dist(nodes.a1));
@@ -135,7 +135,7 @@ describe('layoutRadial', () => {
   test('a half sweep keeps everything on one side', () => {
     // Angles run clockwise from startAngle. Sweeping 180 degrees from -90
     // covers -90 to +90, which is the RIGHT half-plane (top to bottom), not
-    // the upper half — worth pinning, because the intuition goes the other way.
+    // the upper half - worth pinning, because the intuition goes the other way.
     const { nodes, kidsOf } = build('flat');
     layoutRadial(nodes, 'root', kidsOf, { ring:200, startAngle:-90, sweep:180 });
     for (const id of ['a','b','c','d']) {
@@ -188,7 +188,7 @@ describe('layoutGrid', () => {
     for (const id of ['a','b','c','d']) assert.ok(nodes[id].y > nodes.root.y);
   });
 
-  test('the column count is respected — the third card starts a new row', () => {
+  test('the column count is respected - the third card starts a new row', () => {
     const { nodes, kidsOf } = build('flat');
     layoutGrid(nodes, 'root', kidsOf, OPTS);   // 2 columns
     assert.ok(Math.abs(nodes.a.y - nodes.b.y) < 0.001, 'a and b share a row');

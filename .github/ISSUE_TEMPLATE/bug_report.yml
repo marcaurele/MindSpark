@@ -19,14 +19,14 @@ body:
       options:
         - label: I searched [existing issues](https://github.com/prasadpatil25/MindSpark/issues?q=is%3Aissue) and this isn't a duplicate.
           required: true
-        - label: I can reproduce this on the latest version (a hard refresh — Ctrl/Cmd+Shift+R — didn't fix it).
+        - label: I can reproduce this on the latest version (a hard refresh - Ctrl/Cmd+Shift+R - didn't fix it).
           required: true
 
   - type: textarea
     id: summary
     attributes:
       label: What happened?
-      description: A clear, concise description of the bug — what went wrong.
+      description: A clear, concise description of the bug - what went wrong.
       placeholder: e.g. On Android, tapping a topic freezes the whole canvas and nothing responds afterwards.
     validations:
       required: true
@@ -40,7 +40,7 @@ body:
         1. Open a map with ~30 topics
         2. Tap a topic to select it
         3. Try to tap a different topic
-        4. Nothing responds — the canvas is frozen
+        4. Nothing responds - the canvas is frozen
     validations:
       required: true
 
@@ -60,7 +60,7 @@ body:
       options:
         - Canvas / editing a topic (select, drag, edit, layout)
         - A map of my own ("Your maps")
-        - A shared map (I'm the owner — "Shared by me")
+        - A shared map (I'm the owner - "Shared by me")
         - A shared map (shared with me / opened via a link)
         - A read-only view link
         - Manage access / collaborators dialog
@@ -168,7 +168,7 @@ body:
     id: version
     attributes:
       label: Version / commit / URL
-      description: If you know it — the app URL you used, or the commit SHA if self-hosting.
+      description: If you know it - the app URL you used, or the commit SHA if self-hosting.
       placeholder: e.g. mindspark.githubpage.workers.dev, or commit 02e02c3
     validations:
       required: false

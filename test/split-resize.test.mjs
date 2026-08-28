@@ -18,11 +18,11 @@ test('split-editor md pane width must not be capped (drag-to-resize works)', () 
   assert.match(rule[0], /width:\s*var\(--md-w,\s*40vw\)/,
     'split mdPane width must track --md-w directly (no min(...) clamp)');
   assert.doesNotMatch(rule[0], /min\(/,
-    'a min() clamp would freeze the drag at the cap — regression guard');
+    'a min() clamp would freeze the drag at the cap - regression guard');
 });
 
 // The drag handler in ensureMdPane() must write the CSS variable the rule
-// above reads, and only that — the pane must not get a fixed pixel width.
+// above reads, and only that - the pane must not get a fixed pixel width.
 test('md-resize drag must set --md-w (the variable the pane width reads)', () => {
   const js = readFileSync(join(here, '..', 'public', 'app.js'), 'utf8');
   const drag = js.match(/const mv=ev=>\{[^}]*\}/);

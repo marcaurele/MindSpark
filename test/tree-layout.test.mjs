@@ -1,4 +1,4 @@
-// Tree layout engine — golden-master equivalence.
+// Tree layout engine - golden-master equivalence.
 //
 // balanced / right / left / down used to be four hand-written placement blocks.
 // They are now one parameterised engine, and the only claim that matters is
@@ -6,7 +6,7 @@
 //
 // test/fixtures/tree-layout-golden.json was captured by running the previous
 // implementation over these shapes. Nothing regenerates it: if a change to the
-// engine moves a single node, this fails. That is the point — layout has no
+// engine moves a single node, this fails. That is the point - layout has no
 // unit-testable "correct" answer beyond "the same as before", and every layout
 // bug in this project so far has been nodes ending up somewhere unintended.
 import { test, describe } from 'node:test';
@@ -74,7 +74,7 @@ describe('layoutTree reproduces the previous implementations exactly', () => {
   });
 });
 
-describe('treeLayoutOpts — the parameter table', () => {
+describe('treeLayoutOpts - the parameter table', () => {
   test('names every built-in tree layout', () => {
     for (const l of LAYOUTS) assert.ok(treeLayoutOpts(l, 70, 22), `${l} missing`);
   });
@@ -90,7 +90,7 @@ describe('treeLayoutOpts — the parameter table', () => {
     assert.equal(o.gapCross, 22);
   });
 
-  test('the vertical layout SWAPS them — hGap separates siblings, vGap generations', () => {
+  test('the vertical layout SWAPS them - hGap separates siblings, vGap generations', () => {
     // Getting this backwards produced the only failure when the engine was
     // first checked against the fixture, so it is pinned explicitly.
     const o = treeLayoutOpts('down', 70, 22);
@@ -99,7 +99,7 @@ describe('treeLayoutOpts — the parameter table', () => {
   });
 });
 
-describe('layoutTree — parameters compose beyond the four built-ins', () => {
+describe('layoutTree - parameters compose beyond the four built-ins', () => {
   // The point of the refactor: variants that previously needed new code are now
   // reachable by changing numbers.
   test('an upward org chart is just dir:-1 on the vertical axis', () => {

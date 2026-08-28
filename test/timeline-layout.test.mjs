@@ -1,8 +1,8 @@
 // Timeline layout geometry (issue #13).
 //
 // layoutTimeline() is pure arithmetic over a node map, so the properties that
-// actually matter — nothing overlaps, main topics sit on one axis, sub-topics
-// alternate sides — are checkable without a browser. That is deliberate: every
+// actually matter - nothing overlaps, main topics sit on one axis, sub-topics
+// alternate sides - are checkable without a browser. That is deliberate: every
 // layout bug in this project so far has been an overlap caused by positions
 // computed against the wrong sizes.
 import { test, describe } from 'node:test';
@@ -11,8 +11,8 @@ import { loadFns } from './helpers/load-app-fns.mjs';
 
 // The timeline is now one set of parameters for the general chain engine, so
 // these behavioural checks target layoutChain directly. They are kept because
-// they assert what a timeline should LOOK like — one axis, alternating
-// branches, nothing overlapping — which the golden fixture alone does not say.
+// they assert what a timeline should LOOK like - one axis, alternating
+// branches, nothing overlapping - which the golden fixture alone does not say.
 const { layoutChain } = loadFns(['layoutChain']);
 
 const TIMELINE = {
@@ -43,7 +43,7 @@ const overlaps = (a, b) => {
 };
 const centreY = n => n.y + n.h / 2;
 
-describe('timeline (chain engine) — the axis', () => {
+describe('timeline (chain engine) - the axis', () => {
   const tree = { root: ['m1', 'm2', 'm3'], m1: [], m2: [], m3: [] };
 
   test('root sits at the far left', () => {
@@ -86,7 +86,7 @@ describe('timeline (chain engine) — the axis', () => {
   });
 });
 
-describe('timeline (chain engine) — sub-topics alternate above and below', () => {
+describe('timeline (chain engine) - sub-topics alternate above and below', () => {
   const tree = {
     root: ['m1', 'm2', 'm3'],
     m1: ['a1'], m2: ['b1'], m3: ['c1'],
@@ -118,7 +118,7 @@ describe('timeline (chain engine) — sub-topics alternate above and below', () 
   });
 });
 
-describe('timeline (chain engine) — no overlaps anywhere', () => {
+describe('timeline (chain engine) - no overlaps anywhere', () => {
   // The property that matters most: whatever the shape, no two visible nodes
   // may share space. Positions here are derived from measured sizes, which is
   // exactly where previous layout bugs came from.
@@ -164,7 +164,7 @@ describe('timeline (chain engine) — no overlaps anywhere', () => {
   });
 });
 
-describe('timeline (chain engine) — collapsed nodes', () => {
+describe('timeline (chain engine) - collapsed nodes', () => {
   test('a collapsed main topic reserves no room for its hidden children', () => {
     const tree = { root: ['m1', 'm2'], m1: ['a1', 'a2'], m2: [], a1: [], a2: [] };
     const open = buildMap(tree);

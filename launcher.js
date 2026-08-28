@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * MindSpark Launcher — entry point for the standalone executable.
+ * MindSpark Launcher - entry point for the standalone executable.
  *
  * This wrapper:
  *  1. Starts the MindSpark HTTP server (server.js)
@@ -30,7 +30,7 @@ function openBrowser(url) {
     } else if (platform === 'darwin') {
       execSync(`open "${url}"`, { stdio: 'ignore' });
     } else {
-      // Linux / other — try xdg-open, then sensible-browser
+      // Linux / other - try xdg-open, then sensible-browser
       try {
         execSync(`xdg-open "${url}"`, { stdio: 'ignore' });
       } catch {
@@ -45,7 +45,7 @@ function openBrowser(url) {
 // ---- Start the server ----------------------------------------------------
 console.log(`
   ╔══════════════════════════════════════════════════╗
-  ║           MindSpark — Desktop Edition            ║
+  ║           MindSpark - Desktop Edition            ║
   ╚══════════════════════════════════════════════════╝
 `);
 

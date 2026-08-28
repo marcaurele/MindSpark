@@ -1,4 +1,4 @@
-// MindSpark — GitHub OAuth Worker (Cloudflare Workers)
+// MindSpark - GitHub OAuth Worker (Cloudflare Workers)
 // -----------------------------------------------------------------------------
 // This tiny Worker exists for ONE reason: GitHub's OAuth "code -> access token"
 // exchange needs the OAuth App client_secret, which must never live in the
@@ -72,7 +72,7 @@ export default {
       return jres(200, { token, exp: Math.floor(Date.now() / 1000) + ttl, id: String(u.id), login: u.login || '' });
     }
 
-    // GPT map import (POST /api/import) — returns a read-only #view= share link.
+    // GPT map import (POST /api/import) - returns a read-only #view= share link.
     if (url.pathname === '/api/import' && request.method === 'POST') {
       return handleImport(request, env);
     }
@@ -83,7 +83,7 @@ export default {
       if (!code) return html(resultPage('', state, 'missing_code', (env.ALLOWED_ORIGIN || '').replace(/\/+$/, '')));
 
       // Where the token may be delivered. If ALLOWED_ORIGIN is set (recommended),
-      // the token is postMessage'd ONLY to that origin — otherwise a malicious
+      // the token is postMessage'd ONLY to that origin - otherwise a malicious
       // site that opens the authorize URL itself could receive a previously-
       // authorized user's token via its own opener window.
       const allowed = (env.ALLOWED_ORIGIN || '').replace(/\/+$/, '');
@@ -123,11 +123,11 @@ function resultPage(token, state, error, allowedOrigin) {
   const payload = JSON.stringify({ type: 'mindspark-oauth', token, state, error })
     .replace(/</g, '\\u003c');
   // Restrict delivery to the configured app origin when provided ('*' otherwise,
-  // for backwards compatibility — set ALLOWED_ORIGIN, see README).
+  // for backwards compatibility - set ALLOWED_ORIGIN, see README).
   const target = JSON.stringify(allowedOrigin || '*');
   const msg = error ? 'Sign-in failed. You can close this window.'
                     : 'Signed in. You can close this window.';
-  return `<!doctype html><html><head><meta charset="utf-8"><title>MindSpark — GitHub</title>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>MindSpark - GitHub</title>
 <style>body{font:15px system-ui,-apple-system,sans-serif;display:grid;place-items:center;height:100vh;margin:0;color:#333}</style>
 </head><body><p>${msg}</p>
 <script>

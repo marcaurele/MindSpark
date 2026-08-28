@@ -1,4 +1,4 @@
-// MindSpark live collaboration — one Durable Object instance per map "room".
+// MindSpark live collaboration - one Durable Object instance per map "room".
 // It is a dependency-free RELAY: it broadcasts ops + cursor/presence between
 // connected clients and keeps one opaque latest snapshot in storage so that a
 // late joiner can sync immediately. It never parses the map model itself.

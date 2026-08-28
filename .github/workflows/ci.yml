@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: '22'
 
-      # No `npm ci` — the app itself has zero runtime dependencies and the
+      # No `npm ci` - the app itself has zero runtime dependencies and the
       # tests use only node:test, so there is nothing to install. This also
       # keeps CI from failing on an out-of-sync lockfile, which is unrelated
       # to whether the code works.
@@ -33,7 +33,7 @@ jobs:
         run: npm test
 
       # public/app.js is a browser script, not a module, so it can't be
-      # imported — but `node --check` still catches syntax errors in it,
+      # imported - but `node --check` still catches syntax errors in it,
       # which is the failure mode that would break the whole app at load.
       - name: Syntax-check all JavaScript
         run: |
@@ -46,6 +46,24 @@ jobs:
             node --check "$f" || { echo "::error file=$f::syntax error"; fail=1; }
           done < /tmp/js-files.txt
           exit $fail
+
+      # AGENTS.md rule 2: no em dash (U+2014) in anything we author. The repo was
+      # cleaned once already (commit 908d57d) and this keeps it that way. The
+      # character is near invisible in review and creeps back in through
+      # generated or pasted text, so a human check does not hold.
+      #
+      # The pattern is written as a bash escape rather than the literal
+      # character, so this file stays pure ASCII and does not trip its own rule.
+      - name: No em dashes
+        run: |
+          # -I skips binary files. git grep exits 1 when nothing matches, which
+          # is the passing case here, so the test is inverted deliberately.
+          if git grep -nI $'\u2014' -- '*.js' '*.mjs' '*.cjs' '*.md' '*.html' \
+                 '*.css' '*.json' '*.yml' '*.yaml' '*.toml'; then
+            echo "::error::em dash (U+2014) found above. Use a hyphen, a colon, or rewrite the sentence. See AGENTS.md rule 2."
+            exit 1
+          fi
+          echo "no em dashes found"
 
       - name: Validate workflow and issue-template YAML
         run: |
@@ -75,3 +93,4 @@ jobs:
             [ "$code" = "200" ] || { echo "::error::$path returned $code"; kill $pid; exit 1; }
           done
           kill $pid
+
