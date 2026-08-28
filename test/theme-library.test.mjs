@@ -41,7 +41,7 @@ describe('shipped theme library', () => {
       const panel = THEMES.some(t => t.id === raw.id);
       const retired = RETIRED_FROM_PANEL.includes(raw.id);
       assert.ok(panel || retired,
-        `id "${raw.id}" is neither a panel theme nor a retired one — the file is orphaned`);
+        `id "${raw.id}" is neither a panel theme nor a retired one - the file is orphaned`);
     });
   }
 
