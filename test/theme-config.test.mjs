@@ -1,4 +1,4 @@
-// Theme config validation — the "Colour theme" section's twin of look-config.
+// Theme config validation - the "Colour theme" section's twin of look-config.
 //
 // A themeConfig is per-map user data (saved with the map and included in
 // share links): whatever validateThemeConfig returns must be complete and in
@@ -16,7 +16,7 @@ const { validateThemeConfig, themeConfigFor } = loadFns(
 
 const dracula = raw => validateThemeConfig(raw).dracula;
 
-describe('validateThemeConfig — always returns something usable', () => {
+describe('validateThemeConfig - always returns something usable', () => {
   const junk = [
     ['null', null], ['undefined', undefined], ['a string', 'dark'],
     ['a number', 42], ['an array', [1, 2]], ['an empty object', {}],
@@ -49,7 +49,7 @@ describe('validateThemeConfig — always returns something usable', () => {
   });
 });
 
-describe('validateThemeConfig — colours', () => {
+describe('validateThemeConfig - colours', () => {
   test('each theme defaults to the colours its own CSS block declares', () => {
     assert.equal(DEFAULTS.light.paper, '#f4efe6');
     assert.equal(DEFAULTS.light.ink, '#23201b');
@@ -85,7 +85,7 @@ describe('validateThemeConfig — colours', () => {
   });
 });
 
-describe('themeConfigFor — the dialog view', () => {
+describe('themeConfigFor - the dialog view', () => {
   test('returns only the requested theme, with defaults merged in', () => {
     const got = themeConfigFor('dark', { dark: { paper: '#111111' }, light: { paper: '#eeeeee' } });
     assert.deepEqual(got, { dark: { ...DEFAULTS.dark, paper: '#111111' } });
