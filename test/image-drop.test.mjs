@@ -1,5 +1,5 @@
 // Helpers behind drag-drop / paste image attachment. These are the parts that
-// decide *whether* an attach happens and *to which node* — the actual gesture
+// decide *whether* an attach happens and *to which node* - the actual gesture
 // needs a browser, but this logic does not, and it's where the edge cases live
 // (clipboard images arrive differently from dropped files; a drop can land on
 // empty canvas or on a node that no longer exists).
@@ -36,7 +36,7 @@ const { firstImageFile, nodeIdAtPoint } = loadFns(
 
 const imgFile = (type = 'image/png') => ({ type, name: 'x' });
 
-describe('firstImageFile — dropped files', () => {
+describe('firstImageFile - dropped files', () => {
   test('returns the image when one file is dropped', () => {
     const f = imgFile();
     assert.equal(firstImageFile({ files: [f] }), f);
@@ -62,8 +62,8 @@ describe('firstImageFile — dropped files', () => {
   });
 });
 
-describe('firstImageFile — pasted clipboard items', () => {
-  // Clipboard images have no entry in .files, only in .items — handling only
+describe('firstImageFile - pasted clipboard items', () => {
+  // Clipboard images have no entry in .files, only in .items - handling only
   // .files would make paste appear to do nothing at all.
   const item = (kind, file) => ({ kind, getAsFile: () => file });
 
@@ -95,7 +95,7 @@ describe('firstImageFile — pasted clipboard items', () => {
   });
 });
 
-describe('nodeIdAtPoint — where the drop landed', () => {
+describe('nodeIdAtPoint - where the drop landed', () => {
   const withElementAt = (el, fn) => {
     const prev = document.elementFromPoint;
     document.elementFromPoint = () => el;

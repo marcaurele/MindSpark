@@ -1,8 +1,11 @@
 node_modules/
 data/
 dist/
+public/.nojekyll
+
 *.log
 .DS_Store
+.tmp-cdp/
 
 # wrangler files
 .wrangler

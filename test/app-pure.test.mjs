@@ -1,6 +1,6 @@
 // Pure functions lifted out of the REAL public/app.js (see helpers/load-app-fns.mjs).
 // app.js is a browser script with no exports, so these are read from source
-// rather than imported — which means renaming or deleting one of them fails
+// rather than imported - which means renaming or deleting one of them fails
 // here loudly instead of silently passing against a stale copy.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,7 +10,7 @@ const { prettyUrl, pickContrast, escapeHtml, shade, edgePath, edgePathsHTML } =
   loadFns(['prettyUrl', 'pickContrast', 'escapeHtml', 'shade', 'edgePath', 'edgePathsHTML']);
 const URL_RE = extractConst('URL_RE');
 
-describe('prettyUrl — shortens link labels for display', () => {
+describe('prettyUrl - shortens link labels for display', () => {
   test('drops the scheme and a www. prefix', () => {
     assert.equal(prettyUrl('https://www.example.com'), 'example.com');
   });
@@ -34,7 +34,7 @@ describe('prettyUrl — shortens link labels for display', () => {
   });
 });
 
-describe('URL_RE — raw URL detection', () => {
+describe('URL_RE - raw URL detection', () => {
   const matches = s => { URL_RE.lastIndex = 0; return s.match(URL_RE) || []; };
 
   test('finds a bare URL', () => {
@@ -58,7 +58,7 @@ describe('URL_RE — raw URL detection', () => {
   });
 });
 
-describe('pickContrast — readable text colour for a given background', () => {
+describe('pickContrast - readable text colour for a given background', () => {
   test('dark text on a light background', () => {
     assert.equal(pickContrast('#ffffff'), '#23201b');
     assert.equal(pickContrast('#cfe0ee'), '#23201b', 'the pastel node palette pairs with dark text');
@@ -101,7 +101,7 @@ describe('escapeHtml', () => {
   });
 });
 
-describe('shade — lighten/darken a hex colour', () => {
+describe('shade - lighten/darken a hex colour', () => {
   test('lightens with a positive amount and darkens with a negative one', () => {
     assert.notEqual(shade('#808080', 40), '#808080');
     assert.equal(shade('#808080', 0), '#808080');
@@ -119,7 +119,7 @@ describe('shade — lighten/darken a hex colour', () => {
   });
 });
 
-describe('edgePath — branch geometry per map style', () => {
+describe('edgePath - branch geometry per map style', () => {
   const args = (style, horizontal = true) => edgePath(0, 0, 100, 50, false, horizontal, style);
 
   test('sketch draws a straight line', () => {
@@ -155,7 +155,7 @@ describe('edgePath — branch geometry per map style', () => {
   });
 });
 
-describe('edgePathsHTML — merged edge segments become visible <path> elements', () => {
+describe('edgePathsHTML - merged edge segments become visible <path> elements', () => {
   // Keys are what drawEdges stores in its merge Map: the literal string
   // 'null|null|' for styles that defer to CSS vars, hex colours when a style
   // carries an explicit stroke.
@@ -205,7 +205,7 @@ describe('edgePathsHTML — merged edge segments become visible <path> elements'
   });
 });
 
-describe('edgePath — dashed and minimal share the modern curve geometry', () => {
+describe('edgePath - dashed and minimal share the modern curve geometry', () => {
   const args = (style) => edgePath(0, 0, 100, 50, false, true, style);
   const NEW_STYLES = ['dashed', 'minimal'];
 
@@ -228,11 +228,11 @@ describe('edgePath — dashed and minimal share the modern curve geometry', () =
   });
 });
 
-describe('edgePath — zigzag draws a jagged polyline', () => {
+describe('edgePath - zigzag draws a jagged polyline', () => {
   const horiz = edgePath(0, 0, 96, 50, false, true, 'zigzag');
   const vert  = edgePath(0, 0, 50, 96, false, false, 'zigzag');
 
-  test('uses only line commands — no curves', () => {
+  test('uses only line commands - no curves', () => {
     assert.ok(!horiz.includes('C') && !vert.includes('C'), 'no bezier segments');
     assert.match(horiz, /^M0,0 /, 'starts at the given origin');
   });

@@ -17,7 +17,7 @@ const { validateLayoutConfig } = loadFns(
 
 const tl = raw => validateLayoutConfig(raw).timeline;
 
-describe('validateLayoutConfig — always returns something usable', () => {
+describe('validateLayoutConfig - always returns something usable', () => {
   const junk = [
     ['null', null], ['undefined', undefined], ['a string', 'timeline'],
     ['a number', 42], ['an array', [1, 2]], ['an empty object', {}],
@@ -50,7 +50,7 @@ describe('validateLayoutConfig — always returns something usable', () => {
   });
 });
 
-describe('validateLayoutConfig — numeric knobs', () => {
+describe('validateLayoutConfig - numeric knobs', () => {
   test('accepts an in-range value unchanged', () => {
     assert.equal(tl({ timeline: { gap: 120 } }).gap, 120);
   });
@@ -85,7 +85,7 @@ describe('validateLayoutConfig — numeric knobs', () => {
   });
 });
 
-describe('validateLayoutConfig — enum and boolean knobs', () => {
+describe('validateLayoutConfig - enum and boolean knobs', () => {
   test('accepts both valid sides', () => {
     assert.equal(tl({ timeline: { start: 'above' } }).start, 'above');
     assert.equal(tl({ timeline: { start: 'below' } }).start, 'below');
@@ -107,7 +107,7 @@ describe('validateLayoutConfig — enum and boolean knobs', () => {
   });
 });
 
-describe('validateLayoutConfig — every engine has its own section', () => {
+describe('validateLayoutConfig - every engine has its own section', () => {
   // Before this, only 'timeline' had knobs, so the settings dialog showed
   // timeline's values whatever layout was actually selected.
   test('each engine gets a complete section of its own defaults', () => {
@@ -142,7 +142,7 @@ describe('validateLayoutConfig — every engine has its own section', () => {
   });
 });
 
-describe('validateLayoutConfig — hostile input', () => {
+describe('validateLayoutConfig - hostile input', () => {
   test('unknown keys are dropped, not carried through', () => {
     const got = validateLayoutConfig({ timeline: { gap: 90, evil: 'x' }, other: 1 });
     assert.equal(got.timeline.evil, undefined, 'an unknown knob must not survive');
@@ -157,7 +157,7 @@ describe('validateLayoutConfig — hostile input', () => {
     assert.equal({}.polluted, undefined);
   });
 
-  test('a function value is ignored — config is data, never code', () => {
+  test('a function value is ignored - config is data, never code', () => {
     assert.equal(tl({ timeline: { gap: () => 999 } }).gap, DEFAULTS.timeline.gap);
   });
 

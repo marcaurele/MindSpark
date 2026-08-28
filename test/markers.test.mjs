@@ -17,10 +17,10 @@ describe('MARKERS palette', () => {
     assert.ok(Array.isArray(MARKERS) && MARKERS.length > 0);
   });
 
-  test('every marker is exactly one character — catches truncated \\uXXXX escapes', () => {
+  test('every marker is exactly one character - catches truncated \\uXXXX escapes', () => {
     for (const m of MARKERS) {
       assert.equal([...m.c].length, 1,
-        `${m.label} is ${[...m.c].length} chars (${JSON.stringify(m.c)}) — likely a \\uXXXX escape above U+FFFF`);
+        `${m.label} is ${[...m.c].length} chars (${JSON.stringify(m.c)}) - likely a \\uXXXX escape above U+FFFF`);
     }
   });
 
@@ -37,7 +37,7 @@ describe('MARKERS palette', () => {
     }
   });
 
-  test('no duplicate glyphs — two entries rendering identically would be unpickable', () => {
+  test('no duplicate glyphs - two entries rendering identically would be unpickable', () => {
     const seen = new Set(MARKERS.map(m => m.c));
     assert.equal(seen.size, MARKERS.length);
   });

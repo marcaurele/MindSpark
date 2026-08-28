@@ -2,9 +2,9 @@
 //
 // These two were chosen to test the boundary between "new parameter" and "new
 // strategy". Fishbone turned out to be a parameter: a chain whose ribs leave
-// the spine at an angle. Matrix could not be, because its defining property —
+// the spine at an angle. Matrix could not be, because its defining property -
 // row N meaning the same thing in every column, so rows share a height and
-// line up — is something the grid's independent column sizing cannot express.
+// line up - is something the grid's independent column sizing cannot express.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadFns } from './helpers/load-app-fns.mjs';
@@ -21,7 +21,7 @@ const build = tree => {
 };
 const round = v => Math.round(v);
 
-describe('layoutMatrix — rows align across columns', () => {
+describe('layoutMatrix - rows align across columns', () => {
   // Uneven columns on purpose: alignment is trivial when every column matches.
   const TREE = {
     root:['c1','c2','c3'],
@@ -101,7 +101,7 @@ describe('layoutMatrix — rows align across columns', () => {
   });
 });
 
-describe('fishbone — chain with an angle', () => {
+describe('fishbone - chain with an angle', () => {
   const TREE = { root:['m1','m2'], m1:['a1','a2','a3'], m2:[], a1:[], a2:[], a3:[] };
   const BASE = { axis:'x', dir:1, gap:70, stem:30, indent:26,
                  alternate:true, start:'above', gapMain:70, gapCross:22 };

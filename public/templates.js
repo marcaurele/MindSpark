@@ -1,11 +1,11 @@
 /* ============================================================
-   MindSpark — prompt template data.
+   MindSpark - prompt template data.
 
    Split out of app.js purely for file size: this is ~870 lines of
    static data with no logic, and keeping it here makes app.js
    meaningfully easier to read and diff.
 
-   Loaded BEFORE app.js (see index.html). That order matters — these
+   Loaded BEFORE app.js (see index.html). That order matters - these
    are `const` declarations, so anything reading them before this
    file has run would hit the temporal dead zone. Nothing does today
    (only functions reference them, and those run on user action), but
@@ -92,7 +92,7 @@ const TEMPLATES = {
     links:[ { from:'auto', to:'aug' } ]
   },
   claude_skill: {
-    name:'Claude Agent Skill', desc:'Scaffold a SKILL.md — instructions Claude loads dynamically for a specialized task',
+    name:'Claude Agent Skill', desc:'Scaffold a SKILL.md - instructions Claude loads dynamically for a specialized task',
     color:'#8c5da7', group:'ai', icon:'🧩',
     nodes:[
       { k:'root', text:'My Skill Name', notes:'<p>A <strong>Skill</strong> is a folder with a <code>SKILL.md</code> file that teaches Claude how to do a specific task in a repeatable way \u2014 e.g. following your brand guidelines, or your team\u2019s specific workflow. The YAML block below is the file\u2019s required frontmatter; edit its table like any other node. See <a href="https://github.com/anthropics/skills" target="_blank" rel="noopener noreferrer">github.com/anthropics/skills</a>.</p>' },
@@ -109,7 +109,7 @@ const TEMPLATES = {
   },
   rtcce: {
     name: 'Role / Task / Context / Constraints / Examples',
-    desc: 'Classic structured prompt — the bread-and-butter shape',
+    desc: 'Classic structured prompt - the bread-and-butter shape',
     color: '#5b8db2', group:'prompt', icon:'⊟',
     nodes: [
       { k:'root', text:'Prompt: [your task]' },
@@ -250,9 +250,9 @@ const TEMPLATES = {
       { k:'root', text:'Topic' },
       { k:'se',  parent:'root', text:'Seminal works' },
       { k:'cl',  parent:'root', text:'Theme clusters' },
-      { k:'cl1', parent:'cl',   text:'Cluster 1 — key claim' },
-      { k:'cl2', parent:'cl',   text:'Cluster 2 — key claim' },
-      { k:'cl3', parent:'cl',   text:'Cluster 3 — key claim' },
+      { k:'cl1', parent:'cl',   text:'Cluster 1 - key claim' },
+      { k:'cl2', parent:'cl',   text:'Cluster 2 - key claim' },
+      { k:'cl3', parent:'cl',   text:'Cluster 3 - key claim' },
       { k:'ml',  parent:'root', text:'Methods landscape' },
       { k:'gp',  parent:'root', text:'Gaps & open problems' },
       { k:'cn',  parent:'root', text:'Contradictions in the field' },
@@ -592,13 +592,13 @@ const TEMPLATES = {
     name:'Three-act structure', desc:'Classic screenplay shape', color:'#c2783c', group:'writing', icon:'🎬',
     nodes:[
       { k:'root', text:'Story' },
-      { k:'a1', parent:'root', text:'Act I — Setup' },
+      { k:'a1', parent:'root', text:'Act I - Setup' },
       { k:'a1a',parent:'a1',   text:'Inciting incident' },
       { k:'a1b',parent:'a1',   text:'Plot point 1' },
-      { k:'a2', parent:'root', text:'Act II — Confrontation' },
+      { k:'a2', parent:'root', text:'Act II - Confrontation' },
       { k:'a2a',parent:'a2',   text:'Midpoint' },
       { k:'a2b',parent:'a2',   text:'Plot point 2' },
-      { k:'a3', parent:'root', text:'Act III — Resolution' },
+      { k:'a3', parent:'root', text:'Act III - Resolution' },
       { k:'a3a',parent:'a3',   text:'Climax' },
       { k:'a3b',parent:'a3',   text:'Denouement' }
     ]
@@ -763,11 +763,11 @@ const TEMPLATES = {
 
   /* ===== Event & personal ===== */
   personal_hub: {
-    name:'Personal dashboard', desc:'Journal, to-dos, habits, goals — your life in one map', color:'#8c5da7', group:'personal', icon:'🌱',
+    name:'Personal dashboard', desc:'Journal, to-dos, habits, goals - your life in one map', color:'#8c5da7', group:'personal', icon:'🌱',
     nodes:[
       { k:'root', text:'My life' },
       { k:'jr',  parent:'root', text:'Journal' },
-      { k:'jr1', parent:'jr',   text:'Today — [date]' },
+      { k:'jr1', parent:'jr',   text:'Today - [date]' },
       { k:'jr2', parent:'jr',   text:'Grateful for…' },
       { k:'jr3', parent:'jr',   text:'On my mind…' },
       { k:'td',  parent:'root', text:'To-do' },
@@ -775,8 +775,8 @@ const TEMPLATES = {
       { k:'td2', parent:'td',   text:'This week', task:'todo' },
       { k:'td3', parent:'td',   text:'Someday / maybe' },
       { k:'hb',  parent:'root', text:'Habits' },
-      { k:'hb1', parent:'hb',   text:'Daily — [e.g. read 20 min]', task:'todo' },
-      { k:'hb2', parent:'hb',   text:'Weekly — [e.g. exercise 3×]', task:'todo' },
+      { k:'hb1', parent:'hb',   text:'Daily - [e.g. read 20 min]', task:'todo' },
+      { k:'hb2', parent:'hb',   text:'Weekly - [e.g. exercise 3×]', task:'todo' },
       { k:'go',  parent:'root', text:'Goals' },
       { k:'go1', parent:'go',   text:'This month' },
       { k:'go2', parent:'go',   text:'This year' },
@@ -863,7 +863,7 @@ const TEMPLATES = {
     ]
   },
 
-  /* ===== Feature showcase — demonstrates colours, formatting, notes, tasks,
+  /* ===== Feature showcase - demonstrates colours, formatting, notes, tasks,
      markers, an image and cross-links. A friendly first map to explore. ===== */
   showcase: {
     name:'Feature showcase', desc:'Markers, tasks, notes, links & formatting', color:'#e0613a', group:'pro', icon:'✨',
@@ -871,12 +871,12 @@ const TEMPLATES = {
       { k:'root', text:'MindSpark tour', notes:'<p>This map shows off a few things MindSpark can do \u2014 try clicking the ⭐ badges, the ☑ task boxes, or a node to see its toolbar.</p>' },
       { k:'mk', parent:'root', text:'Markers & priorities', marker:'\u2B50', fontSize:16, bold:true, color:'#ffedc2' },
       { k:'m1', parent:'mk', text:'Must ship this week', marker:'\u2757', task:'doing' },
-      { k:'m2', parent:'mk', text:'Blocked — needs review', marker:'\u{1F512}', task:'todo' },
+      { k:'m2', parent:'mk', text:'Blocked - needs review', marker:'\u{1F512}', task:'todo' },
       { k:'m3', parent:'mk', text:'Fresh idea', marker:'\u{1F4A1}', task:'todo' },
       { k:'ts', parent:'root', text:'Tasks & progress', fontSize:16, bold:true, color:'#dcefce' },
       { k:'t1', parent:'ts', text:'Todo item', task:'todo' },
       { k:'t2', parent:'ts', text:'In progress', task:'doing' },
-      { k:'t3', parent:'ts', text:'Done — strikethrough', task:'done' },
+      { k:'t3', parent:'ts', text:'Done - strikethrough', task:'done' },
       { k:'nt', parent:'root', text:'Notes on any node', notes:'<p>Click the 📝 button in the node toolbar (or press <kbd>Shift</kbd>+<kbd>Enter</kbd> on a node) to open this sticky note.</p>' },
       { k:'lk', parent:'root', text:'Cross-links', fontSize:16, bold:true, color:'#d8e0fb' },
       { k:'l1', parent:'lk', text:'Marker section' },

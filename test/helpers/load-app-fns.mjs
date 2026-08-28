@@ -1,4 +1,4 @@
-// public/app.js is a plain browser script with no module exports — it can't be
+// public/app.js is a plain browser script with no module exports - it can't be
 // imported. Rather than copy functions into the tests (where they'd silently
 // drift from the shipped code the first time someone edits app.js), this reads
 // the REAL source and lifts out individual top-level function declarations by
@@ -16,7 +16,7 @@ const PUBLIC = join(here, '..', '..', 'public');
 
 // The client is split across several plain <script> files that all share one
 // global scope in the browser (see index.html). Order here mirrors the load
-// order there. A tested function may live in any of them, so search all —
+// order there. A tested function may live in any of them, so search all -
 // otherwise splitting a file would break tests that have nothing to do with
 // the split.
 const CLIENT_FILES = ['templates.js', 'app.js'];
@@ -38,7 +38,7 @@ function source() {
  * try each following `}` as a candidate end and return the first slice that
  * compiles as a function expression. Hand-rolled brace matching needs a full
  * lexer to avoid tripping over braces and quotes inside strings, template
- * literals, regexes and comments — app.js has all four (escapeHtml's
+ * literals, regexes and comments - app.js has all four (escapeHtml's
  * /[&<>"]/g regex is enough to break the naive version).
  */
 export function extractFunction(name) {
@@ -55,7 +55,7 @@ export function extractFunction(name) {
       // Throws unless `candidate` is a complete, syntactically valid function.
       new Function(`return (${candidate});`);
       return candidate;
-    } catch { /* not the end yet — keep going */ }
+    } catch { /* not the end yet - keep going */ }
   }
   throw new Error(`load-app-fns: could not find the end of ${name}() (searched ${CLIENT_FILES.join(', ')})`);
 }
@@ -79,7 +79,7 @@ export function loadFns(names, deps = {}) {
  *
  * Handles multi-line values (arrays of objects, and so on), not just
  * one-liners: as with extractFunction above, the end is found by asking the
- * JS parser — try each following `;` as a candidate terminator and return the
+ * JS parser - try each following `;` as a candidate terminator and return the
  * first slice that compiles. The earlier single-line-only regex silently
  * failed to find anything spanning more than one line.
  */
@@ -95,7 +95,7 @@ export function extractConst(name) {
     const candidate = src.slice(valueStart, i);
     try {
       return new Function(`return (${candidate});`)();
-    } catch { /* not a complete expression yet — keep going */ }
+    } catch { /* not a complete expression yet - keep going */ }
   }
   throw new Error(`load-app-fns: could not evaluate const ${name}`);
 }

@@ -1,5 +1,5 @@
 // public/sw.js decides, per request, whether a cached copy may win over the
-// network. Getting that wrong does not throw — it silently pins clients to a
+// network. Getting that wrong does not throw - it silently pins clients to a
 // stale build, which this project has already shipped once (see the header of
 // sw.js). So the policy is asserted here behaviourally rather than by reading
 // the regex: each case is driven through the REAL fetch handler with both a
@@ -67,7 +67,7 @@ async function resolve(path, { navigate = false, accept = '' } = {}) {
 }
 
 describe('service worker caching policy', () => {
-  describe('network-first — fixed URL, contents change on every deploy', () => {
+  describe('network-first - fixed URL, contents change on every deploy', () => {
     for (const p of ['/index.html', '/app.js', '/templates.js', '/styles.css', '/manifest.webmanifest']) {
       test(`${p} prefers the network over a cached copy`, async () => {
         assert.equal(await resolve(p), 'NETWORK');
@@ -76,7 +76,7 @@ describe('service worker caching policy', () => {
 
     // The reason this file exists. These are shipped DATA with fixed URLs, so
     // cache-first pinned them to whatever was current when a client first
-    // loaded — the same trap as app.js, one size down.
+    // loaded - the same trap as app.js, one size down.
     for (const p of ['/quotes.json', '/quote-providers.json', '/demo-map.json']) {
       test(`${p} prefers the network (bundled data, not an immutable asset)`, async () => {
         assert.equal(await resolve(p), 'NETWORK');
@@ -92,7 +92,7 @@ describe('service worker caching policy', () => {
     });
   });
 
-  describe('cache-first — only where the filename changes with the contents', () => {
+  describe('cache-first - only where the filename changes with the contents', () => {
     for (const p of ['/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/upi-qr.png']) {
       test(`${p} may be served from cache`, async () => {
         assert.equal(await resolve(p), 'CACHED');
@@ -101,7 +101,7 @@ describe('service worker caching policy', () => {
   });
 
   describe('never touched', () => {
-    test('/api/* is passed through — a stale map is worse than none', async () => {
+    test('/api/* is passed through - a stale map is worse than none', async () => {
       assert.equal(await resolve('/api/maps'), 'passthrough');
     });
 

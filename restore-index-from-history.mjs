@@ -1,5 +1,5 @@
 // Restore _index.json for your MindSpark `mindspark-maps` repo from GitHub's
-// commit history — i.e. the exact list you had *before* it got clobbered. Because
+// commit history - i.e. the exact list you had *before* it got clobbered. Because
 // it restores a real past version, it RESPECTS deletions (it can never resurrect a
 // map you intentionally deleted, unlike rebuilding from the maps/ folder).
 //
@@ -51,11 +51,11 @@ if (PICK) {
   const current = typeof rows[0].count === 'number' ? rows[0].count : 0;
   // newest version that had MORE maps than the current (clobbered) one
   chosen = rows.slice(1).find(r => typeof r.count === 'number' && r.count > current);
-  if (!chosen) { console.error('\nNo earlier version has more maps than the current one — nothing obvious to restore. Use PICK=<sha> to force one.'); process.exit(1); }
+  if (!chosen) { console.error('\nNo earlier version has more maps than the current one - nothing obvious to restore. Use PICK=<sha> to force one.'); process.exit(1); }
   console.log(`\nAuto-picked the last version with more maps than now (${current}): ${chosen.sha.slice(0,8)} (${chosen.count} maps, ${chosen.date}).`);
 }
 
-if (DRY) { console.log('\nDRY run — would restore this list:\n', JSON.stringify(chosen.arr, null, 2)); process.exit(0); }
+if (DRY) { console.log('\nDRY run - would restore this list:\n', JSON.stringify(chosen.arr, null, 2)); process.exit(0); }
 
 // 4. Write it back as the current _index.json (needs the current HEAD blob sha)
 let sha = null;

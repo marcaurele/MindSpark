@@ -1,4 +1,4 @@
-/* MindSpark service worker — offline access to the app shell.
+/* MindSpark service worker - offline access to the app shell.
  *
  * Deliberately conservative. A service worker that caches too eagerly is
  * worse than none at all: it can pin users to a stale build that no reload
@@ -9,14 +9,14 @@
  *   - App CODE (js/css) is network-first, same as HTML. This project has no
  *     build step and no content hashing in filenames, so app.js keeps the
  *     same URL forever. Serving it cache-first pinned every browser that had
- *     loaded the app once to that exact build — no reload fixed it, and only
+ *     loaded the app once to that exact build - no reload fixed it, and only
  *     a manual CACHE bump would have released it. That is not a theoretical
  *     risk: it silently shipped a stale app.js and made a deployed bug fix
  *     look like it had not worked.
  *   - Bundled DATA (json) is network-first for the same reason. quotes.json,
  *     quote-providers.json and demo-map.json have fixed URLs too, so serving
  *     them cache-first pinned every client to whatever shipped the day it first
- *     loaded them — the same trap as app.js, one size down.
+ *     loaded them - the same trap as app.js, one size down.
  *   - Only genuinely immutable assets (icons) stay cache-first.
  *   - /api/* and cross-origin requests are never touched. Map data lives in
  *     SQLite or the user's own GitHub repo; serving a stale copy of it would
@@ -39,7 +39,7 @@ const SHELL = [
 ];
 
 self.addEventListener('install', event => {
-  // addAll() is atomic — one 404 discards the whole cache. Fetch each entry
+  // addAll() is atomic - one 404 discards the whole cache. Fetch each entry
   // individually so a single missing optional asset can't block install.
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
@@ -74,7 +74,7 @@ self.addEventListener('fetch', event => {
     (request.headers.get('accept') || '').includes('text/html');
   // Treat app code AND bundled data like HTML: both change on deploy and their
   // URLs never do. `json` belongs here because same-origin .json is shipped data
-  // (quotes, demo map) — never a user's map, which lives behind /api/ or on the
+  // (quotes, demo map) - never a user's map, which lives behind /api/ or on the
   // GitHub API, both excluded above. `html` is here too so the network-first
   // rule holds however the request is made: isHTML above only catches a
   // navigation or an explicit Accept: text/html, so a plain fetch('./index.html')
@@ -91,7 +91,7 @@ self.addEventListener('fetch', event => {
       } catch {
         const hit = await caches.match(request);
         if (hit) return hit;
-        // Only fall back to the shell for navigations — returning index.html
+        // Only fall back to the shell for navigations - returning index.html
         // in place of a missing .js would be worse than a clean failure.
         if (isHTML) {
           return (await caches.match('./index.html')) ||

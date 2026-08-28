@@ -3,7 +3,7 @@
 // This is what makes a layout expressible as JSON: every structural knob the
 // engines read is declared in LAYOUT_PARAMS, and nothing outside it can be set.
 // The validator repairs rather than rejects, because params arrive alongside a
-// preset that is otherwise fine — one bad number should not discard a layout.
+// preset that is otherwise fine - one bad number should not discard a layout.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadFns, extractConst } from './helpers/load-app-fns.mjs';
@@ -16,7 +16,7 @@ const { validateLayoutParams, resolveLayout } = loadFns(
   { LAYOUT_PARAMS, ENGINE_PARAMS }
 );
 
-describe('validateLayoutParams — only declared knobs, only allowed values', () => {
+describe('validateLayoutParams - only declared knobs, only allowed values', () => {
   test('keeps a valid enum value', () => {
     assert.equal(validateLayoutParams('tree', { axis: 'y' }).axis, 'y');
   });
@@ -64,7 +64,7 @@ describe('validateLayoutParams — only declared knobs, only allowed values', ()
   });
 });
 
-describe('resolveLayout — always returns something runnable', () => {
+describe('resolveLayout - always returns something runnable', () => {
   test('every built-in engine resolves to a known strategy', () => {
     for (const [engine, def] of Object.entries(ENGINE_PARAMS)) {
       const r = resolveLayout(engine, null);
@@ -104,7 +104,7 @@ describe('resolveLayout — always returns something runnable', () => {
   });
 });
 
-describe('validateLayoutPreset — the strategy form', () => {
+describe('validateLayoutPreset - the strategy form', () => {
   const { validateLayoutPreset } = loadFns(
     ['validateLayoutConfig', 'validateLayoutParams', 'validateLayoutPreset'],
     {
@@ -115,7 +115,7 @@ describe('validateLayoutPreset — the strategy form', () => {
     }
   );
 
-  test('accepts a strategy with params — no engine name needed', () => {
+  test('accepts a strategy with params - no engine name needed', () => {
     const p = validateLayoutPreset({
       v: 1, id: 'org-up', name: 'Org chart (up)',
       strategy: 'tree',
@@ -151,7 +151,7 @@ describe('validateLayoutPreset — the strategy form', () => {
 
 describe('every built-in is expressible in the schema', () => {
   // If a built-in used a knob the schema cannot express, layouts could not be
-  // fully described as JSON — which is the whole premise of this step.
+  // fully described as JSON - which is the whole premise of this step.
   for (const [engine, def] of Object.entries(ENGINE_PARAMS)) {
     test(`${engine}: every parameter it uses is declared`, () => {
       const declared = LAYOUT_PARAMS[def.strategy];

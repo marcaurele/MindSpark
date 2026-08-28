@@ -1,7 +1,7 @@
-// FreeMind (.mm) import — the client-side XML parser (parseFreemind +
+// FreeMind (.mm) import - the client-side XML parser (parseFreemind +
 // convertFreemindToMap). .mm files are untrusted input from the file picker,
 // so the tests pin down what survives into the map: text, position, folded
-// state, rich text, notes, links, colors and fonts — and that hostile or
+// state, rich text, notes, links, colors and fonts - and that hostile or
 // malformed files are rejected rather than half-imported.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -40,7 +40,7 @@ const fm = (topLevel) => ({
   querySelector: () => null,
 });
 
-describe('parseFreemind — structure', () => {
+describe('parseFreemind - structure', () => {
   test('rejects a document that is not a <map>', () => {
     assert.throws(() => fns.convertFreemindToMap({ documentElement: el('html', {}, []) }), /expected <map>/);
   });
@@ -80,7 +80,7 @@ describe('parseFreemind — structure', () => {
   });
 });
 
-describe('convertFreemindToMap — node content', () => {
+describe('convertFreemindToMap - node content', () => {
   test('TEXT, POSITION, FOLDED and plain multiline text survive', () => {
     const map = fns.convertFreemindToMap(fm([
       node('Root', {}, [

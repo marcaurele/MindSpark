@@ -4,7 +4,7 @@ import { loadFns, extractFunction } from './helpers/load-app-fns.mjs';
 
 // renderOutline() rebuilds the outline dock tree. It diffs the produced HTML
 // against the cached _olPrev and skips writing when unchanged. That cache
-// must be invalidated whenever the pane is destroyed — otherwise switching
+// must be invalidated whenever the pane is destroyed - otherwise switching
 // away from the outline layout and back recreates an EMPTY pane whose content
 // matches the stale cache, so nothing is ever written to it.
 function outlineStubs({ pane, prev, kids = [], text = 'Root', nodes = { r: { text } }, collapsed = new Set() }) {

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-title" content="MindSpark" />
 <meta name="application-name" content="MindSpark" />
 <title>MindSpark - Mind Mapping</title>
-<!-- Inline-SVG favicon: orange spark on a rounded square — matches the brand mark -->
+<!-- Inline-SVG favicon: orange spark on a rounded square - matches the brand mark -->
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><radialGradient id='g' cx='30%25' cy='25%25'><stop offset='0%25' stop-color='%23ff8a5b'/><stop offset='100%25' stop-color='%23e0613a'/></radialGradient></defs><rect x='4' y='4' width='56' height='56' rx='14' fill='url(%23g)'/><path d='M32 16 L36 28 L48 32 L36 36 L32 48 L28 36 L16 32 L28 28 Z' fill='%23fff' opacity='0.95'/></svg>" />
 <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23e0613a'/><path d='M32 16 L36 28 L48 32 L36 36 L32 48 L28 36 L16 32 L28 28 Z' fill='%23fff'/></svg>" />
 <link rel="manifest" href="./manifest.webmanifest" />
@@ -48,7 +48,7 @@
       <button class="tb wide primary" id="addChild" title="Add child (Tab)">＋ Topic</button>
       <button class="tb" id="layout" title="Tidy layout (rearrange topics into a balanced tree)">⟐</button>
       <button class="tb" id="collapseAll" title="Collapse / expand all branches, one level per click">⊟</button>
-      <button class="tb" id="mdToggle" title="Markdown mode — edit as text with live preview">&lt;/&gt;</button>
+      <button class="tb" id="mdToggle" title="Markdown mode - edit as text with live preview">&lt;/&gt;</button>
     </div>
     <div class="spacer"></div>
     <div class="search-wrap" id="searchWrap">
@@ -63,13 +63,13 @@
     <span class="tb-sep"></span>
     <div class="tb-group">
       <button class="tb" id="searchBtn" title="Search">⌕</button>
-      <button class="tb" id="varsBtn" title="Map variables — set {{placeholder}} defaults">{ }</button>
+      <button class="tb" id="varsBtn" title="Map variables - set {{placeholder}} defaults">{ }</button>
       <button class="tb" id="themeBtn" title="Theme">🎨</button>
       <button class="tb" id="menuExport" title="Export">⤓</button>
       <button class="tb" id="focusBtn" title="Focus mode (Esc to exit)">⛶</button>
-      <button class="tb" id="presentBtn" title="Present the map — walk through the topics">▶</button>
+      <button class="tb" id="presentBtn" title="Present the map - walk through the topics">▶</button>
       <button class="tb" id="outlineBtn" title="Show the map outline (tree panel)">▤</button>
-      <button class="tb" id="tabsBtn" title="Tabbed workspace — open several maps at once">▭</button>
+      <button class="tb" id="tabsBtn" title="Tabbed workspace - open several maps at once">▭</button>
       <button class="tb donate-btn" id="donateBtn" title="Support MindSpark">♥</button>
     </div>
   </div>
@@ -157,7 +157,7 @@
       </div>
     </div>
     <div class="overview" id="overview">
-      <div class="minimap" id="minimap" title="Overview — click to jump"></div>
+      <div class="minimap" id="minimap" title="Overview - click to jump"></div>
       <div class="zoom-row">
         <button id="zoomOut" title="Zoom out">－</button>
         <input type="range" id="zoomSlider" min="10" max="300" step="1" value="100" aria-label="Zoom level" />
@@ -170,7 +170,7 @@
   </div>
 </div>
 
-<!-- Login overlay — shown only in cloud (static-deploy) mode when not authenticated -->
+<!-- Login overlay - shown only in cloud (static-deploy) mode when not authenticated -->
 <div class="login-overlay" id="loginOverlay" style="display:none">
   <div class="login-card">
     <div class="login-brand">
@@ -183,7 +183,7 @@
     </div>
     <div class="login-share-note" id="loginShareNote" style="display:none"></div>
     <h2>Sign in with GitHub</h2>
-    <p>Your mind maps will be saved as private JSON files in a repository called <code>mindspark-maps</code> on your own GitHub account. This app talks to GitHub directly — there's no server in between.</p>
+    <p>Your mind maps will be saved as private JSON files in a repository called <code>mindspark-maps</code> on your own GitHub account. This app talks to GitHub directly - there's no server in between.</p>
 
     <div class="login-oauth" id="loginOauth" style="display:none">
       <button id="ghOauthBtn" class="oauth-btn" type="button">
@@ -212,7 +212,7 @@
 
     <details class="login-extra">
       <summary>How does this work / is it safe?</summary>
-      <p>MindSpark runs entirely in your browser. The token is stored only in <code>localStorage</code> on this device, and is sent only to <code>api.github.com</code> — never to any third party.</p>
+      <p>MindSpark runs entirely in your browser. The token is stored only in <code>localStorage</code> on this device, and is sent only to <code>api.github.com</code> - never to any third party.</p>
       <p>On first sign-in the app creates a <b>private</b> repo called <code>mindspark-maps</code> in your account. Every save commits a small JSON file to that repo, so your data is versioned and you can <code>git clone</code> it any time.</p>
       <p>To revoke access: <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a></p>
     </details>
@@ -225,7 +225,7 @@
 <script src="./app.js" defer></script>
 <script>
   // Service worker: offline access to the app shell. Deliberately skipped
-  // for shared-map views (#view=) — someone opening a link to read one map
+  // for shared-map views (#view=) - someone opening a link to read one map
   // has not asked to install anything scoped to the whole origin. Also
   // skipped on insecure origins, where registration is unavailable anyway.
   if ('serviceWorker' in navigator && window.isSecureContext && !location.hash.startsWith('#view=')) {

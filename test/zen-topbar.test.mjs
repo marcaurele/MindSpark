@@ -10,14 +10,14 @@ const appJs = readFileSync(join(here, '..', 'public', 'app.js'), 'utf8');
 
 // Zen write mode floats one centered pill (.topbar) over the canvas and
 // appends #zenPin as its LAST child. The pill caps itself at 92vw (98vw while
-// search is open). It must stay a SINGLE row — never wrap — and reclaim
+// search is open). It must stay a SINGLE row - never wrap - and reclaim
 // space by hiding low-priority actions while search is open, so the token
 // counter and pin stay on the first row instead of spilling or wrapping.
 test('zen topbar must stay single-row (no wrapping) and hide overflow', () => {
   const rule = css.match(/body\.ui-zen \.topbar\{[^}]*\}/);
   assert.ok(rule, 'the floating zen topbar rule must exist');
   assert.match(rule[0], /flex-wrap:\s*nowrap/,
-    'zen pill must be nowrap — wrapping pushes token/pin onto a second row');
+    'zen pill must be nowrap - wrapping pushes token/pin onto a second row');
   assert.doesNotMatch(rule[0], /flex-wrap:\s*wrap/,
     'wrap creates a second row when search opens; hide actions instead');
   assert.match(rule[0], /overflow:\s*hidden/,
@@ -27,7 +27,7 @@ test('zen topbar must stay single-row (no wrapping) and hide overflow', () => {
 // On phones (<=720px) the zen topbar becomes a full-width strip via
 // left+right insets. The desktop show/hide transforms include
 // translateX(-50%) (centering), which shifted that strip half its own width
-// off-screen — half the toolbar was unreachable. The strip must translate
+// off-screen - half the toolbar was unreachable. The strip must translate
 // vertically only.
 test('mobile zen topbar strip must not keep the horizontal centering transform', () => {
   // The file has several max-width:720px blocks; the zen overrides live in
@@ -61,7 +61,7 @@ test('zen topbar hides present/tabs (+ donate) toggles while the find field is o
   assert.ok(rule, 'the search-open space-reclaim rule must exist (present + tabs + donate)');
   assert.match(rule[0], /display:\s*none/,
     'present/tabs/donate must be display:none until search closes');
-  // Guard the original spec pair still present — don't regress to hiding only donate
+  // Guard the original spec pair still present - don't regress to hiding only donate
   assert.match(rule[0], /#presentBtn/,
     'presentBtn must be in the hide rule');
   assert.match(rule[0], /#tabsBtn/,
@@ -77,7 +77,7 @@ test('zen topbar reclaims varsBtn on narrow windows while searching', () => {
     'narrow reclaim must be scoped to zen search-open');
 });
 
-// Pin toolbar button is zen-only — it must not leak into classic/rail/dock
+// Pin toolbar button is zen-only - it must not leak into classic/rail/dock
 // etc. JS removes it on every non-zen applyUiLayout, and CSS hides it as a
 // safety net even if the DOM leaks.
 test('pin toolbar button is zen-only', () => {
@@ -96,7 +96,7 @@ test('pin toolbar button is zen-only', () => {
 
 // When markdown pane is open in zen, the floating pill lives inside .stage
 // (left:50% of the stage). A viewport cap (92vw) would bleed under the
-// editor when --md-w grows, so it must also cap to the stage width — like
+// editor when --md-w grows, so it must also cap to the stage width - like
 // VS Code/Obsidian zen where the title bar stays centred over the canvas.
 test('zen + markdown pane caps toolbar to stage width', () => {
   const mdReady = css.match(/body\.ui-zen\.md-ready \.topbar\{[^}]*\}/);
@@ -111,8 +111,8 @@ test('zen + markdown pane caps toolbar to stage width', () => {
 
 // Theme panel is anchored to #themeBtn. Switching the app shell
 // (modern ↔ rail ↔ zen ↔ dock …) reparents #themeBtn, so a still-open
-// panel's fixed coordinates go stale. It must re-anchor — as Figma/VS Code
-// popovers do — rather than staying stranded.
+// panel's fixed coordinates go stale. It must re-anchor - as Figma/VS Code
+// popovers do - rather than staying stranded.
 test('theme panel repositions after app-layout change', () => {
   assert.match(appJs, /else if\(cat==='ui'\)\s*\{[^}]*applyUiLayout\(id\);/,
     'ui category must still call applyUiLayout');

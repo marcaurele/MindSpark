@@ -36,7 +36,7 @@
     },
     "d8f0umv": {
       "id": "d8f0umv",
-      "text": "Regression — predict a <i>continuous</i> value",
+      "text": "Regression - predict a <i>continuous</i> value",
       "parent": "4fcxjke",
       "x": 553.75,
       "y": -169.15625,
@@ -72,7 +72,7 @@
     },
     "pdqesg8": {
       "id": "pdqesg8",
-      "text": "Classification — predict a <i>category</i>",
+      "text": "Classification - predict a <i>category</i>",
       "parent": "4fcxjke",
       "x": 553.75,
       "y": -86.65625,
@@ -346,7 +346,7 @@
     },
     "v525ka5": {
       "id": "v525ka5",
-      "text": "Architecture — a 3 &rarr; 2 &rarr; 1 net",
+      "text": "Architecture - a 3 &rarr; 2 &rarr; 1 net",
       "parent": "mhb9tio",
       "x": 528.765625,
       "y": 140.86068065130013,

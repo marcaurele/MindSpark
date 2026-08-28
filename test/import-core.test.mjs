@@ -14,7 +14,7 @@ const spec = (over = {}) => ({
   ...over,
 });
 
-describe('buildMapFromSpec — rejects malformed input', () => {
+describe('buildMapFromSpec - rejects malformed input', () => {
   const bad = [
     ['null body', null],
     ['a string body', 'not an object'],
@@ -75,7 +75,7 @@ describe('buildMapFromSpec — rejects malformed input', () => {
   });
 });
 
-describe('buildMapFromSpec — builds a valid map', () => {
+describe('buildMapFromSpec - builds a valid map', () => {
   test('produces the expected shape', () => {
     const m = buildMapFromSpec(spec());
     assert.equal(m.rootId, 'r');
@@ -95,7 +95,7 @@ describe('buildMapFromSpec — builds a valid map', () => {
     assert.equal(buildMapFromSpec({ nodes: [{ id: 'solo', text: 'x', parent: null }] }).rootId, 'solo');
   });
 
-  test('balances root children — first half right, second half left', () => {
+  test('balances root children - first half right, second half left', () => {
     const nodes = [{ id: 'r', text: 'r', parent: null }];
     for (let i = 0; i < 5; i++) nodes.push({ id: 'c' + i, text: 'c', parent: 'r' });
     const m = buildMapFromSpec({ rootId: 'r', nodes });
@@ -160,7 +160,7 @@ describe('buildMapFromSpec — builds a valid map', () => {
   });
 });
 
-describe('buildMapFromSpec — hostile input', () => {
+describe('buildMapFromSpec - hostile input', () => {
   test('a __proto__ key in the spec does not pollute Object.prototype', () => {
     const payload = JSON.parse(
       '{"title":"evil","nodes":[{"id":"r","text":"r","parent":null}],"__proto__":{"polluted":"yes"}}'

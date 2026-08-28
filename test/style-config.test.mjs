@@ -1,4 +1,4 @@
-// Map style config validation — the style-config twin of layout-config.
+// Map style config validation - the style-config twin of layout-config.
 //
 // A styleConfig is per-map user data (never travels in share links before a
 // map save, but the same rules apply): whatever validateStyleConfig returns
@@ -17,7 +17,7 @@ const { validateStyleConfig, styleConfigFor } = loadFns(
 
 const neon = raw => validateStyleConfig(raw).neon;
 
-describe('validateStyleConfig — always returns something usable', () => {
+describe('validateStyleConfig - always returns something usable', () => {
   const junk = [
     ['null', null], ['undefined', undefined], ['a string', 'neon'],
     ['a number', 42], ['an array', [1, 2]], ['an empty object', {}],
@@ -50,7 +50,7 @@ describe('validateStyleConfig — always returns something usable', () => {
   });
 });
 
-describe('validateStyleConfig — numeric knobs', () => {
+describe('validateStyleConfig - numeric knobs', () => {
   test('accepts an in-range value unchanged', () => {
     assert.equal(neon({ neon: { edgeWidth: 3 } }).edgeWidth, 3);
   });
@@ -78,7 +78,7 @@ describe('validateStyleConfig — numeric knobs', () => {
   });
 });
 
-describe('validateStyleConfig — edgeColor', () => {
+describe('validateStyleConfig - edgeColor', () => {
   test('accepts a CSS color string', () => {
     assert.equal(neon({ neon: { edgeColor: '#ff00ff' } }).edgeColor, '#ff00ff');
   });
@@ -97,7 +97,7 @@ describe('validateStyleConfig — edgeColor', () => {
   });
 });
 
-describe('styleConfigFor — the dialog view', () => {
+describe('styleConfigFor - the dialog view', () => {
   test('returns only the requested style, with defaults merged in', () => {
     const got = styleConfigFor('bubble', { bubble: { edgeWidth: 4 }, neon: { glow: 50 } });
     assert.deepEqual(got, { bubble: { ...DEFAULTS.bubble, edgeWidth: 4 } });
