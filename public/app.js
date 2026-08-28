@@ -7,7 +7,6 @@
                   `mindspark-maps` repo. No backend required.
    `initStore()` probes /healthz, then picks one.
    ============================================================ */
-
 /* ------------------------------------------------------------
    On `catch(e){}` in this file.
 

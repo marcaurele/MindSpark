@@ -13,6 +13,7 @@
  *   DB_PATH  – SQLite database file (default ./data/mindspark.db)
  *   PUBLIC   – static files dir     (default ./public)
  */
+
 'use strict';
 const http = require('node:http');
 const fs = require('node:fs');
